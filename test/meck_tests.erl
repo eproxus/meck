@@ -34,7 +34,10 @@ meck_test_() ->
       fun validate_expected_error_/0,
       fun validate_chained_/0,
       fun stacktrace_/0,
-      fun change_func_/0]}.
+      fun stacktrace_function_clause_/0,
+      fun change_func_/0,
+      fun caller_does_not_crash_on_reload_/0,
+      fun call_original_undef_/0]}.
 
 setup() ->
     % Uncomment to run tests with dbg:
@@ -46,7 +49,6 @@ setup() ->
 
 teardown(Module) ->
     catch meck:unload(Module).
-
 
 new_() ->
     Info = mymod:module_info(),
@@ -113,23 +115,43 @@ validate_chained_() ->
     ?assertEqual(true, meck:validate(mymod2)),
     meck:unload(mymod2).
 
-%% TODO: does not verify stacktrace, only prints it
 stacktrace_() ->
-    meck:expect(mymod, test, fun() ->
-                                     meck:exception(throw, test_throw)
-                             end),
+    meck:expect(mymod, test, fun() -> erlang:error(test_error) end),
     try 
         mymod:test(),
         throw(failed)
     catch
-        throw:test_throw ->
-            %?debugFmt("\n~p\n\n", [erlang:get_stacktrace()]),
-            ok
+        error:test_error ->
+            ?assert(lists:any(fun({mymod, test, []}) -> true;
+                                 (_)                 -> false end,
+                              erlang:get_stacktrace()))
     end.
+
+stacktrace_function_clause_() ->
+    meck:expect(mymod, test, fun(1) -> ok end),
+    try 
+        mymod:test(error),
+        throw(failed)
+    catch
+        error:function_clause ->
+            Stacktrace = erlang:get_stacktrace(),
+            ?assert(lists:any(fun({mymod, test, [error]}) -> true;
+                                 (_)                      -> false end,
+                              Stacktrace))
+    end.
+
 
 call_undef_() ->
     meck:expect(mymod, test, fun(hest, 1) -> apa end),
     ?assertError(undef, mymod:test(hest)).
+
+caller_does_not_crash_on_reload_() ->
+    meck:expect(mymod, test, fun() -> timer:sleep(infinity) end),
+    Pid = spawn(fun() -> mymod:test() end),
+    meck:expect(mymod, new1, fun() -> ok end),
+    meck:expect(mymod, new2, fun() -> ok end),
+    meck:expect(mymod, new3, fun() -> ok end),
+    ?assertEqual(true, is_process_alive(Pid)).
 
 change_func_() ->
     meck:expect(mymod, test, fun() -> 1 end),
@@ -141,7 +163,49 @@ change_func_() ->
     ?assertEqual(2, mymod:test()),
     ?assertEqual(MTime, proplists:get_value(time, mymod:module_info(compile))).
 
-% @doc The mock module is unloaded if the mock process crashes.
+call_original_test() ->
+    meck:new(meck_test_module),
+    meck:expect(meck_test_module, a, fun() -> c end),
+    meck:expect(meck_test_module, b, fun() -> meck:passthrough([]) end),
+    ?assertEqual(c, meck_test_module:a()),
+    ?assertEqual(b, meck_test_module:b()),
+    meck:unload(meck_test_module).
+
+call_original_undef_() ->
+    meck:expect(mymod, test, fun() -> meck:passthrough([]) end),
+    ?assertError(undef, mymod:test()).
+
+unload_renamed_original_test() ->
+    meck:new(meck_test_module),
+    meck:unload(meck_test_module),
+    ?assertEqual(false, code:is_loaded(meck_test_module_meck_original)).
+
+original_no_file_test() ->
+    {ok, Mod, Beam} = compile:forms([{attribute, 1, module, meck_not_on_disk}]),
+    {module, Mod} = code:load_binary(Mod, "", Beam),
+    ?assertEqual(ok, meck:new(meck_not_on_disk)).
+
+original_has_no_object_code_test() ->
+    {ok, Mod, Beam} = compile:forms([{attribute, 1, module, meck_on_disk}]),
+    ok = file:write_file("meck_on_disk.beam", Beam),
+    {module, Mod} = code:load_binary(Mod, "meck_on_disk.beam", Beam),
+    ?assertEqual(ok, meck:new(meck_on_disk)),
+    ok = file:delete("meck_on_disk.beam").
+
+passthrough_nonexisting_module_test() ->
+    meck:new(mymod, [passthrough]),
+    meck:expect(mymod, test, fun() -> ok end),
+    ?assertEqual(ok, mymod:test()),
+    meck:unload(mymod).
+    
+passthrough_test() ->
+    meck:new(meck_test_module, [passthrough]),
+    meck:expect(meck_test_module, a, fun() -> c end),
+    ?assertEqual(c, meck_test_module:a()),
+    ?assertEqual(b, meck_test_module:b()),
+    meck:unload(meck_test_module).
+
+% @doc The mocked module is unloaded if the meck process crashes.
 unload_when_crashed_test() ->
     meck:new(mymod),
     ?assertMatch({file, _}, code:is_loaded(mymod)),
@@ -150,7 +214,7 @@ unload_when_crashed_test() ->
     ?assertEqual(true, is_pid(Pid)),
     unlink(Pid),
     exit(Pid, expected_test_exit),
-    timer:sleep(10),
+    timer:sleep(100),
     ?assertEqual(undefined, whereis(SaltedName)),
     ?assertEqual(false, code:is_loaded(mymod)).
 
