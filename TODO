@@ -1,0 +1,23 @@
+* Write tutorial
+* Support stubbing of functions in new/1:
+  - new(mymod, {stub, [{test, 1}, {test2, 3}]})
+* Delete functions from the mocked module
+* Add mocked module to stacktrace when a mocked function raises an exception
+  - now the function call to the mocked module is not in the stacktrace, as it
+    does a tail-call to mock:exec
+* Adding dummy functions when creating a mocked module
+  - mock:new(mymod, {stub, [{myfunc1, 2}, ... ]}).
+* Allow partial-mocking (let some calls pass through to the original module)
+* Allow calling original function from within expect fun:
+  - fun() -> mock:call_original(Args) end
+  - Implementation ideas:
+    > load the original module, decompile it (must be compiled with debug_info),
+      change the module name to a salted name in the abstract code, reload it
+    > call_original throws an exception with a special fun that is catched by 
+      the mock:exec function
+* Mock a module only from the perspective of a specific caller (calling process)
+  - mock:new(mymod, [{restrict, pid()}]):
+    > only the caller pid() would hit the mocked module
+  - or even better, all pids belonging to a specific application
+  - Would enable mocking of the inet, gen_tcp modules etc
+* Mocking of parameterized modules

@@ -1,0 +1,106 @@
+#!/bin/sh
+
+##==============================================================================
+## Copyright 2010 Erlang Solutions Ltd.
+## 
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+## http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##==============================================================================
+
+NAME=$1
+VSN=$2
+
+yesno() {
+    prompt=$1
+    while true; do
+        read -p "$1 [Y/n] " answer
+        case "x$answer" in
+            "x")
+            return 0
+            ;;
+            "xY")
+            return 0
+            ;;
+            "xy")
+            return 0
+            ;;
+            "xN")
+            return 1
+            ;;
+            "xn")
+            return 1
+            ;;
+            *)
+            ;;
+        esac
+    done
+}
+
+get_version() {
+    while true; do
+        read -p "What is the version of the release? [$VSN] " release_vsn
+
+        if [ "$release_vsn" = "" ]; then
+            release_vsn=$VSN
+        fi
+
+        if $(echo "$TAGS" | grep -q "^$release_vsn\$"); then
+            if yesno "A tag exists for version $release_vsn, is this correct?"; then
+                break
+            fi
+        else
+            if yesno "A tag doesn't exist for version $release_vsn, should one be created?"; then
+                hg tag $release_vsn
+            fi
+            break
+        fi
+    done
+    echo $release_vsn
+}
+
+if ! hg identify 1>/dev/null 2>&1; then
+    echo "No hg repository here..."
+    exit 1
+fi
+
+if ! [ "$(hg identify | awk '{print $2};')" = "tip" ]; then
+    if ! yesno "Repository is not at tip, do you want to continue?"; then
+        exit 1
+    fi
+fi
+
+if ! yesno "Did the compilation run without warnings?"; then
+    echo "Try again..."
+    exit 1
+fi
+
+if ! yesno "Is the changelog up to date?"; then
+    echo "Try again..."
+    exit 1
+fi
+
+if ! yesno "Did dialyzer run without warnings?"; then
+    echo "Try again..."
+    exit 1
+fi
+
+TAGS=$(hg tags | awk '{print $1 };' | grep -v "^tip$")
+LATEST_TAG=$(echo "$TAGS" | head -n 1)
+
+RELEASE_VSN=$(get_version)
+echo "Creating a release for $NAME-$RELEASE_VSN now."
+archive="./$NAME-$RELEASE_VSN.tar.gz"
+if [ -e $archive ]; then
+    echo "$archive exists, giving up."
+    exit 1
+fi
+hg archive -t tgz -X ".hg*" $archive
