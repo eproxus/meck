@@ -8,8 +8,8 @@ With meck you can easily mock modules in Erlang. Since meck is intended to be us
 
 meck automatically renames existing modules in case they are loaded when you want to mock them, and restores them upon unloading of the mocked module. It is also possible to call the original functions from a mocked module using `meck:passthrough/1` from inside an expectation.
 
-Example
--------
+Examples
+--------
 Here's an example of using meck in the Erlang shell:
 
     Eshell V5.7.5  (abort with ^G)
@@ -61,7 +61,7 @@ Here's an example of using meck inside an EUnit test case:
         ?assertEqual(21, code_under_test:run(fib, 8)),
         ?assert(meck:validate(library_module).
 
-Passthrough in action:
+Pass-through in action:
 
     Eshell V5.7.5  (abort with ^G)
     1> code:unstick_mod(string).
