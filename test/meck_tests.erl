@@ -164,7 +164,9 @@ change_func_() ->
     ?assertEqual(MTime, proplists:get_value(time, mymod:module_info(compile))).
 
 call_original_test() ->
+    ?assertEqual({module, meck_test_module}, code:load_file(meck_test_module)),
     meck:new(meck_test_module),
+    ?assertEqual({file, ""}, code:is_loaded(meck_test_module_meck_original)),
     meck:expect(meck_test_module, a, fun() -> c end),
     meck:expect(meck_test_module, b, fun() -> meck:passthrough([]) end),
     ?assertEqual(c, meck_test_module:a()),
@@ -183,14 +185,16 @@ unload_renamed_original_test() ->
 original_no_file_test() ->
     {ok, Mod, Beam} = compile:forms([{attribute, 1, module, meck_not_on_disk}]),
     {module, Mod} = code:load_binary(Mod, "", Beam),
-    ?assertEqual(ok, meck:new(meck_not_on_disk)).
+    ?assertEqual(ok, meck:new(meck_not_on_disk)),
+    meck:unload(meck_not_on_disk).
 
 original_has_no_object_code_test() ->
     {ok, Mod, Beam} = compile:forms([{attribute, 1, module, meck_on_disk}]),
     ok = file:write_file("meck_on_disk.beam", Beam),
     {module, Mod} = code:load_binary(Mod, "meck_on_disk.beam", Beam),
     ?assertEqual(ok, meck:new(meck_on_disk)),
-    ok = file:delete("meck_on_disk.beam").
+    ok = file:delete("meck_on_disk.beam"),
+    meck:unload(meck_on_disk).
 
 passthrough_nonexisting_module_test() ->
     meck:new(mymod, [passthrough]),
