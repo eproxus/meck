@@ -25,6 +25,7 @@
 -export([expect/3]).
 -export([exception/2]).
 -export([passthrough/1]).
+-export([history/1]).
 -export([validate/1]).
 -export([unload/1]).
 
@@ -42,8 +43,26 @@
 -include("test/meck_tests.hrl").
 -endif.
 
+%% Types
+%% @type meck_mfa() = {Mod::atom(), Func::atom(), Args::list(term())}.
+%% Module, function and arguments that the mock module got called with.
+-type meck_mfa() :: {Mod::atom(), Func::atom(), Args::list(term())}.
+
+%% @type history() = [{meck_mfa(), Result::term()}
+%%                     | {meck_mfa(), Class:: exit | error | throw,
+%%                        Reason::term(), Stacktrace::list(mfa())}].
+%% History is a list of either successful function calls with a
+%% returned result or function calls that resulted in an exception
+%% with a type, reason and a stacktrace.
+-type history() :: [{meck_mfa(), Result::term()}
+                    | {meck_mfa(), Class:: exit | error | throw,
+                       Reason::term(), Stacktrace::list(mfa())}].
+
 %% Records
--record(state, {mod, expects = dict:new(), valid = true}).
+-record(state, {mod :: atom(),
+                expects = dict:new() :: dict(),
+                valid = true :: boolean(),
+                history = [] :: history}).
 
 %%==============================================================================
 %% Interface exports
@@ -117,6 +136,16 @@ passthrough(Args) ->
 validate(Mod) when is_atom(Mod) ->
     call(Mod, validate).
 
+%% @spec history(Mod::atom()) -> history()
+%% @doc Return the call history of the mocked module.
+%%
+%% Returns a list of calls to the mocked module and their
+%% results. Results can be either normal Erlang terms or exceptions
+%% that occured.
+-spec history(Mod::atom()) -> history().
+history(Mod) when is_atom(Mod) ->
+    call(Mod, history).
+    
 %% @spec unload(Mod::atom()) -> ok
 %% @doc Unload the mocked module.
 %%
@@ -153,6 +182,10 @@ handle_call({expect, Func, Expect}, _From, S) ->
         false -> compile_and_load(to_forms(NewS))
     end,
     {reply, ok, NewS};
+handle_call(history, _From, S) ->
+    {reply, lists:reverse(S#state.history), S};
+handle_call({add_history, Item}, _From, S) ->
+    {reply, ok, S#state{history = [Item|S#state.history]}};
 handle_call(invalidate, _From, S) ->
     {reply, ok, S#state{valid = false}};
 handle_call(validate, _From, S) ->
@@ -182,23 +215,19 @@ code_change(_OldVsn, S, _Extra) ->
 exec(Mod, Func, Arity, Args) ->
     Expect = call(Mod, {get_expect, Func, Arity}),
     try
-        call_expect(Mod, Func, Expect, Args)
+        Result = call_expect(Mod, Func, Expect, Args),
+        call(Mod, {add_history, {{Mod, Func, Args}, Result}}),
+        Result
     catch
         throw:Fun when is_function(Fun) ->
             case is_mock_exception(Fun) of
                 true ->
                     handle_mock_exception(Mod, Func, Fun, Args);
                 false ->
-                    call(Mod, invalidate),
-                    Stacktrace = inject(Mod, Func, Args,
-                                        erlang:get_stacktrace()),
-                    erlang:raise(throw, Fun, Stacktrace)
-            end;
+                    invalidate_and_raise(Mod, Func, Args, throw, Fun)            end;
         Class:Reason ->
-            call(Mod, invalidate),
-            Stacktrace = inject(Mod, Func, Args, erlang:get_stacktrace()),
-            erlang:raise(Class, Reason, Stacktrace)
-    end.
+            invalidate_and_raise(Mod, Func, Args, Class, Reason)
+    end.   
 
 %%==============================================================================
 %% Internal functions
@@ -311,12 +340,22 @@ handle_mock_exception(Mod, Func, Fun, Args) ->
         % exception created with the mock:exception function, 
         % do not invalidate Mod
         {exception, Class, Reason} ->
-            erlang:raise(Class, Reason,
-                         inject(Mod, Func, Args, erlang:get_stacktrace()));
+            raise(Mod, Func, Args, Class, Reason);
         % call_original(Args) called from mock function
         {passthrough, Args} ->
-            apply(original_name(Mod), Func, Args)
+            Result = apply(original_name(Mod), Func, Args),
+            call(Mod, {add_history, {{Mod, Func, Args}, Result}}),
+            Result
     end.
+
+invalidate_and_raise(Mod, Func, Args, Class, Reason) ->
+    call(Mod, invalidate),
+    raise(Mod, Func, Args, Class, Reason).
+
+raise(Mod, Func, Args, Class, Reason) ->
+    Stacktrace = inject(Mod, Func, Args, erlang:get_stacktrace()),
+    call(Mod, {add_history, {{Mod, Func, Args}, Class, Reason, Stacktrace}}),
+    erlang:raise(Class, Reason, Stacktrace).
 
 mock_exception_fun(Class, Reason) ->
     fun() ->
