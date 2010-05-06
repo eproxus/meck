@@ -403,8 +403,9 @@ exists(Module) ->
     code:which(Module) /= non_existing.
 
 exports(Module) ->
-    [ FA ||  {F, A}=FA  <- Module:module_info(exports),
-             (F /= module_info) and ((A == 1) or (A == 0))].
+    [ FA ||  FA  <- Module:module_info(exports),
+             FA /= {module_info, 0},
+             FA /= {module_info, 1}].
 
 load_binary(Name, Binary) ->
     case code:load_binary(Name, "", Binary) of

@@ -295,6 +295,7 @@ passthrough_test() ->
     meck:expect(meck_test_module, a, fun() -> c end),
     ?assertEqual(c, meck_test_module:a()),
     ?assertEqual(b, meck_test_module:b()),
+    ?assertEqual({1, 2}, meck_test_module:c(1, 2)),
     meck:unload(meck_test_module).
 
 % @doc The mocked module is unloaded if the meck process crashes.
