@@ -323,3 +323,27 @@ history_passthrough_test() ->
     ?assertEqual([{{meck_test_module, a, []}, c}],
                  meck:history(meck_test_module)),
     meck:unload(meck_test_module).
+
+multi_test() ->
+    Mods = [mod1, mod2, mod3],
+    meck:new(Mods),
+    meck:expect(Mods, test, fun() -> ok end),
+    [?assertEqual(ok, M:test()) || M <- Mods],
+    ?assert(meck:validate(Mods)),
+    meck:unload(Mods).
+
+multi_invalid_test() ->
+    Mods = [mod1, mod2, mod3],
+    meck:new(Mods),
+    meck:expect(Mods, test, fun(1) -> ok end),
+    ?assertError(function_clause, mod2:test(2)),
+    ?assert(not meck:validate(Mods)),
+    meck:unload(Mods).
+
+multi_option_test() ->
+    Mods = [mod1, mod2, mod3],
+    meck:new(Mods, [passthrough]),
+    meck:expect(Mods, test, fun() -> ok end),
+    [?assertEqual(ok, M:test()) || M <- Mods],
+    ?assert(meck:validate(Mods)),
+    meck:unload(Mods).

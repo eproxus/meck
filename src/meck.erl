@@ -62,48 +62,58 @@
 -record(state, {mod :: atom(),
                 expects = dict:new() :: dict(),
                 valid = true :: boolean(),
-                history = [] :: history}).
+                history = [] :: history()}).
 
 %%==============================================================================
 %% Interface exports
 %%==============================================================================
 
-%% @spec new(Mod::atom()) -> ok
+%% @spec new(Mod:: atom() | list(atom())) -> ok
 %% @equiv new(Mod, [])
 -spec new(Mod::atom()) -> ok.
 new(Mod) when is_atom(Mod) ->
-    new(Mod, []).
+    new(Mod, []);
+new(Mod) when is_list(Mod) ->
+    [new(M) || M <- Mod],
+    ok.
 
-%% @spec new(Mod::atom(), Options::list(term())) -> ok
-%% @doc Create new mocked module.
+%% @spec new(Mod :: atom() | list(atom()), Options::list(term())) -> ok
+%% @doc Creates new mocked module(s).
 %%
-%% This replaces the current version (if any) of `Mod' with an empty module.
+%% This replaces the current version (if any) of the modules in `Mod'
+%% with an empty module.
 %%
 %% Since this library is intended to use from test code, this
-%% function links a process to the calling process.
--spec new(Mod::atom(), Options::list(term())) -> ok.
+%% function links a process for each mock to the calling process.
+-spec new(Mod:: atom() | list(atom()), Options::list(term())) -> ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
     case start_link(Mod, Options) of
         {ok, _Pid} -> ok;
         {error, Reason} -> erlang:error(Reason)
-    end.
+    end;
+new(Mod, Options) when is_list(Mod) ->
+    [new(M, Options) || M <- Mod],
+    ok.
 
-%% @spec expect(Mod::atom(), Func::atom(), Expect::fun()) -> ok
-%% @doc Add expectation for a function `Func' to the mocked module `Mod'.
+%% @spec expect(Mod:: atom() | list(atom()), Func::atom(), Expect::fun()) -> ok
+%% @doc Add expectation for a function `Func' to the mocked modules `Mod'.
 %%
 %% An expectation is a fun that is executed whenever the function
 %% `Func' is called.
 %%
-%% It affects the validation status of the mocked module. If an
+%% It affects the validation status of the mocked module(s). If an
 %% expectation is called with the wrong number of arguments or invalid
-%% arguments the mock module is invalidated. It is also invalidated if
+%% arguments the mock module(s) is invalidated. It is also invalidated if
 %% an unexpected exception occurs.
 %%
 %% @see validate/1.
--spec expect(Mod::atom(), Func::atom(), Expect::fun()) -> ok.
+-spec expect(Mod:: atom() | list(atom()), Func::atom(), Expect::fun()) -> ok.
 expect(Mod, Func, Expect)
   when is_atom(Mod), is_atom(Func), is_function(Expect) ->
-    call(Mod, {expect, Func, Expect}).
+    call(Mod, {expect, Func, Expect});
+expect(Mod, Func, Expect) when is_list(Mod) ->
+    [expect(M, Func, Expect) || M <- Mod],
+    ok.
 
 %% @spec exception(Class:: throw | error | exit, Reason::term()) -> no_return()
 %% @doc Throws an expected exception inside an expect fun.
@@ -124,17 +134,22 @@ exception(Class, Reason) when Class == throw; Class == error; Class == exit ->
 passthrough(Args) ->
     throw(passthrough_fun(Args)).
 
-%% @spec validate(Mod::atom()) -> boolean()
-%% @doc Validate the state of the mock module.
+%% @spec validate(Mod:: atom() | list(atom())) -> boolean()
+%% @doc Validate the state of the mock module(s).
 %%
-%% The function returns `true' if the mocked module has been used
+%% The function returns `true' if the mocked module(s) has been used
 %% according to its expectations. It returns `false' if a call has
 %% failed in some way. Reasons for failure are wrong number of
 %% arguments or non-existing function (undef), wrong arguments
 %% (function clause) or unexpected exceptions.
+%%
+%% Use the {@link history/1} function to analyze errors.
 -spec validate(Mod::atom()) -> boolean().
 validate(Mod) when is_atom(Mod) ->
-    call(Mod, validate).
+    call(Mod, validate);
+validate(Mod) when is_list(Mod) ->
+    lists:all(fun(true) -> true; (false) -> false end,
+              [validate(M) || M <- Mod]).
 
 %% @spec history(Mod::atom()) -> history()
 %% @doc Return the call history of the mocked module.
@@ -146,17 +161,20 @@ validate(Mod) when is_atom(Mod) ->
 history(Mod) when is_atom(Mod) ->
     call(Mod, history).
     
-%% @spec unload(Mod::atom()) -> ok
-%% @doc Unload the mocked module.
+%% @spec unload(Mod:: atom() | list(atom())) -> ok
+%% @doc Unload a mocked module or a list of mocked modules.
 %%
-%% This will purge and delete the module from the Erlang VM. If the
-%% mocked module replaced an existing module, this module will still
+%% This will purge and delete the module(s) from the Erlang VM. If the
+%% mocked module(s) replaced an existing module, this module will still
 %% be in the Erlang load path and can be loaded manually or when
 %% called.
--spec unload(Mod::atom()) -> ok.
+-spec unload(Mods:: atom() | list(atom())) -> ok.
 unload(Mod) when is_atom(Mod) ->
     call(Mod, stop),
-    wait_for_exit(Mod).
+    wait_for_exit(Mod);
+unload(Mods) when is_list(Mods) ->
+    [unload(Mod) || Mod <- Mods],
+    ok.
 
 %%==============================================================================
 %% Callback functions
@@ -348,6 +366,7 @@ handle_mock_exception(Mod, Func, Fun, Args) ->
             Result
     end.
 
+-spec invalidate_and_raise(_, _, _, _, _) -> no_return().
 invalidate_and_raise(Mod, Func, Args, Class, Reason) ->
     call(Mod, invalidate),
     raise(Mod, Func, Args, Class, Reason).
