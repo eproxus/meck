@@ -194,7 +194,7 @@ handle_call({get_expect, Func, Arity}, _From, S) ->
     {reply, Expect, S};
 handle_call({expect, Func, Expect}, _From, S) ->
     NewS = S#state{expects = store(S#state.expects, Func, Expect)},
-    % only recompile if function was added
+    % only recompile if function was added or arity was changed
     case interface_equal(NewS#state.expects, S#state.expects) of
         true  -> ok;
         false -> compile_and_load(to_forms(NewS))
@@ -282,8 +282,7 @@ fetch(Expects, Func, Arity) ->
     dict:fetch({Func, Arity}, Expects).
 
 interface_equal(NewExpects, OldExpects) ->
-    length(dict:fetch_keys(NewExpects)) ==
-        length(dict:fetch_keys(OldExpects)).
+    dict:fetch_keys(NewExpects) == dict:fetch_keys(OldExpects).
 
 cleanup(Mod) ->
     code:purge(Mod),
