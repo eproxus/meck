@@ -160,7 +160,7 @@ validate(Mod) when is_list(Mod) ->
 -spec history(Mod::atom()) -> history().
 history(Mod) when is_atom(Mod) ->
     call(Mod, history).
-    
+
 %% @spec unload(Mod:: atom() | list(atom())) -> ok
 %% @doc Unload a mocked module or a list of mocked modules.
 %%
@@ -242,10 +242,11 @@ exec(Mod, Func, Arity, Args) ->
                 true ->
                     handle_mock_exception(Mod, Func, Fun, Args);
                 false ->
-                    invalidate_and_raise(Mod, Func, Args, throw, Fun)            end;
+                    invalidate_and_raise(Mod, Func, Args, throw, Fun)
+            end;
         Class:Reason ->
             invalidate_and_raise(Mod, Func, Args, Class, Reason)
-    end.   
+    end.
 
 %%==============================================================================
 %% Internal functions
@@ -293,7 +294,6 @@ cleanup(Mod) ->
 wait_for_exit(Mod) ->
     MonitorRef = erlang:monitor(process, proc_name(Mod)),
     receive {'DOWN', MonitorRef, _Type, _Object, _Info} -> ok end.
-    
 
 %% --- Code generation ---------------------------------------------------------
 
@@ -301,7 +301,7 @@ func(Mod, {Func, Arity}) ->
     Args = args(Arity),
     {function, ?LINE, Func, Arity,
      [{clause, ?LINE, Args, [],
-       [{call, ?LINE, {remote, ?LINE, atom(?MODULE), atom(exec)}, 
+       [{call, ?LINE, {remote, ?LINE, atom(?MODULE), atom(exec)},
          [atom(Mod), atom(Func), integer(Arity), var_list(Args)]}]}]}.
 
 to_forms(#state{mod = Mod, expects = Expects}) ->
@@ -378,12 +378,12 @@ raise(Mod, Func, Args, Class, Reason) ->
 
 mock_exception_fun(Class, Reason) ->
     fun() ->
-            {exception, Class, Reason}
+        {exception, Class, Reason}
     end.
 
 passthrough_fun(Args) ->
     fun() ->
-            {passthrough, Args}
+        {passthrough, Args}
     end.
 
 call_expect(Mod, Func, passthrough, VarList) ->

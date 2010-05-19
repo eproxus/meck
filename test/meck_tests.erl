@@ -111,7 +111,7 @@ validate_unexpected_error_(Mod) ->
     ?assertEqual(false, meck:validate(Mod)).
 
 validate_expected_error_(Mod) ->
-    meck:expect(Mod, test, fun(hest, 1) -> 
+    meck:expect(Mod, test, fun(hest, 1) ->
                                      meck:exception(error, timeout)
                              end),
     ?assertError(timeout, Mod:test(hest, 1)),
@@ -132,7 +132,7 @@ validate_chained_(Mod) ->
 
 stacktrace_(Mod) ->
     meck:expect(Mod, test, fun() -> erlang:error(test_error) end),
-    try 
+    try
         Mod:test(),
         throw(failed)
     catch
@@ -144,7 +144,7 @@ stacktrace_(Mod) ->
 
 stacktrace_function_clause_(Mod) ->
     meck:expect(Mod, test, fun(1) -> ok end),
-    try 
+    try
         Mod:test(error),
         throw(failed)
     catch
@@ -289,7 +289,7 @@ passthrough_nonexisting_module_test() ->
     meck:expect(mymod, test, fun() -> ok end),
     ?assertEqual(ok, mymod:test()),
     meck:unload(mymod).
-    
+
 passthrough_test() ->
     meck:new(meck_test_module, [passthrough]),
     meck:expect(meck_test_module, a, fun() -> c end),
@@ -315,7 +315,7 @@ unload_when_crashed_test() ->
 expect_without_new_test() ->
     ?assertError({not_mocked, mymod},
                  meck:expect(mymod, test, fun() -> ok end)).
-                                                           
+
 history_passthrough_test() ->
     meck:new(meck_test_module, [passthrough]),
     meck:expect(meck_test_module, a, fun() -> c end),
