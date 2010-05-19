@@ -1,5 +1,5 @@
 *.beam
-ebin
-doc
+*.log
 cover_report
-test
+doc
+ebin
