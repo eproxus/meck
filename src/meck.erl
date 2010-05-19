@@ -407,10 +407,16 @@ rename_original(Module) ->
     try
         Forms = abstract_code(beam_file(Module)),
         NewName = original_name(Module),
-        {ok, NewName, Binary} =
-        compile:forms(rename_module(Forms, NewName),
-                      compile_options(Module)),
-        load_binary(NewName, Binary)
+        case compile:forms(rename_module(Forms, NewName),
+                           compile_options(Module)) of
+            {ok, NewName, Binary} ->
+                load_binary(NewName, Binary);
+            {ok, NewName, Binary, []} ->
+                load_binary(NewName, Binary);
+            {ok, NewName, Binary, Warnings} ->
+                io:format(user, "meck:rename_original/1: module: ~p, warnings: ~p~n", [Module, Warnings]),
+                load_binary(NewName, Binary)
+        end
     catch
         throw:{object_code_not_found, _Module} ->
             ok;
