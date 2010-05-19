@@ -60,7 +60,7 @@
 
 %% Records
 -record(state, {mod :: atom(),
-                expects = dict:new() :: dict(),
+                expects :: dict(),
                 valid = true :: boolean(),
                 history = [] :: history()}).
 
