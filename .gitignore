@@ -1,0 +1,5 @@
+*.beam
+ebin
+doc
+cover_report
+test
