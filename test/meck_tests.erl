@@ -312,6 +312,9 @@ cover_test() ->
     ?assertEqual(c, meck_test_module:a()),
 
     meck:unload(meck_test_module),
+
+    ?assert(not filelib:is_file("meck_test_module.coverdata")),
+    
     {ok, {meck_test_module, {3,0}}} = cover:analyze(meck_test_module, module).
 
 cover_passthrough_test() ->

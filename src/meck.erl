@@ -431,7 +431,9 @@ restore_original(_Mod, false) ->
 restore_original(Mod, {File, Data}) ->
     {ok, Mod} = cover:compile(File),
     ok = cover:import(Data),
-    {file, File} = cover:is_compiled(Mod).
+    {file, File} = cover:is_compiled(Mod),
+    file:delete(Data),
+    ok.
 
 get_cover_state(Module) ->
     get_cover_state(Module, cover:is_compiled(Module)).
