@@ -23,6 +23,7 @@
 -export([new/1]).
 -export([new/2]).
 -export([expect/3]).
+-export([expect/4]).
 -export([exception/2]).
 -export([passthrough/1]).
 -export([history/1]).
@@ -78,7 +79,7 @@ new(Mod) when is_list(Mod) ->
     [new(M) || M <- Mod],
     ok.
 
-%% @spec new(Mod :: atom() | list(atom()), Options::list(term())) -> ok
+%% @spec new(Mod:: atom() | list(atom()), Options::list(term())) -> ok
 %% @doc Creates new mocked module(s).
 %%
 %% This replaces the current version (if any) of the modules in `Mod'
@@ -106,14 +107,29 @@ new(Mod, Options) when is_list(Mod) ->
 %% expectation is called with the wrong number of arguments or invalid
 %% arguments the mock module(s) is invalidated. It is also invalidated if
 %% an unexpected exception occurs.
-%%
-%% @see validate/1.
 -spec expect(Mod:: atom() | list(atom()), Func::atom(), Expect::fun()) -> ok.
 expect(Mod, Func, Expect)
   when is_atom(Mod), is_atom(Func), is_function(Expect) ->
     call(Mod, {expect, Func, Expect});
 expect(Mod, Func, Expect) when is_list(Mod) ->
     [expect(M, Func, Expect) || M <- Mod],
+    ok.
+
+%% @spec expect(Mod:: atom() | list(atom()), Func::atom(),
+%%              Arity::pos_integer(), Result::term()) -> ok
+%% @doc Adds an expectation with the supplied arity and return value.
+%%
+%% This creates an expectation which takes `Arity' number of functions
+%% and always returns `Result'.
+%%
+%% @see expect/3.
+-spec expect(Mod:: atom() | list(atom()), Func::atom(),
+             Arity::pos_integer(), Result::term()) -> ok.
+expect(Mod, Func, Arity, Result)
+  when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
+    call(Mod, {expect, Func, Arity, Result});
+expect(Mod, Func, Arity, Result) when is_list(Mod) ->
+    [expect(M, Func, Arity, Result) || M <- Mod],
     ok.
 
 %% @spec exception(Class:: throw | error | exit, Reason::term()) -> no_return()
@@ -193,24 +209,32 @@ init([Mod, Options]) ->
 handle_call({get_expect, Func, Arity}, _From, S) ->
     Expect = fetch(S#state.expects, Func, Arity),
     {reply, Expect, S};
-handle_call({expect, Func, Expect}, _From, #state{expects = Expects} = S) ->
-    NewExpects = store(Expects, Func, Expect),
-    % only recompile if function was added or arity was changed
-    case interface_equal(NewExpects, Expects) of
-        true  -> ok;
-        false -> compile_and_load(to_forms(S#state.mod, NewExpects))
-    end,
+handle_call({expect, Func, Expect}, _From, S) ->
+    NewExpects = store_expect(S#state.mod, Func, Expect, S#state.expects),
+    {reply, ok, S#state{expects = NewExpects}};
+handle_call({expect, Func, Arity, Result}, _From, S) ->
+    NewExpects = store_expect(S#state.mod, Func, {anon, Arity, Result},
+                              S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
 handle_call(history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
 handle_call({add_history, Item}, _From, S) ->
-    {reply, ok, S#state{history = [Item|S#state.history]}};
+    {reply, ok, S#state{history = [Item| S#state.history]}};
 handle_call(invalidate, _From, S) ->
     {reply, ok, S#state{valid = false}};
 handle_call(validate, _From, S) ->
     {reply, S#state.valid, S};
 handle_call(stop, _From, S) ->
     {stop, normal, ok, S}.
+
+store_expect(Mod, Func, Expect, Expects) ->
+    NewExpects = store(Expects, Func, Expect),
+    % only recompile if function was added or arity was changed
+    case interface_equal(NewExpects, Expects) of
+      true -> ok;
+      false -> compile_and_load(to_forms(Mod, NewExpects))
+    end,
+    NewExpects.
 
 %% @hidden
 handle_cast(_Msg, S) ->
@@ -334,7 +358,9 @@ var(Name) ->
 var_name(A) ->
     list_to_atom("A"++integer_to_list(A)).
 
-arity(Fun) ->
+arity({anon, Arity, _Result}) ->
+    Arity;
+arity(Fun) when is_function(Fun) ->
     {arity, Arity} = erlang:fun_info(Fun, arity),
     Arity.
 
@@ -386,6 +412,9 @@ passthrough_fun(Args) ->
         {passthrough, Args}
     end.
 
+call_expect(_Mod, _Func, {anon, Arity, Return}, VarList)
+  when Arity == length(VarList) ->
+    Return;
 call_expect(Mod, Func, passthrough, VarList) ->
     apply(original_name(Mod), Func, VarList);
 call_expect(_Mod, _Func, Fun, VarList) when is_function(Fun) ->
