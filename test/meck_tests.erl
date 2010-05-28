@@ -50,7 +50,11 @@ meck_test_() ->
                            fun history_meck_throw_/1,
                            fun history_meck_throw_fun_/1,
                            fun history_meck_exit_/1,
-                           fun history_meck_error_/1]]}.
+                           fun history_meck_error_/1,
+                           fun shortcut_expect_/1,
+                           fun shortcut_expect_negative_arity_/1,
+                           fun shortcut_call_return_value_/1,
+                           fun shortcut_call_argument_/1]]}.
 
 setup() ->
     % Uncomment to run tests with dbg:
@@ -255,6 +259,23 @@ history_meck_error_(Mod) ->
     ?assertMatch([{{Mod, test, []}, error, test_error, _Stacktrace}],
                  meck:history(Mod)).
 
+shortcut_expect_(Mod) ->
+    meck:expect(Mod, test, 0, ok),
+    ?assertEqual(true, meck:validate(Mod)).
+
+shortcut_expect_negative_arity_(Mod) ->
+    ?assertError(function_clause, meck:expect(Mod, test, -1, ok)).
+
+shortcut_call_return_value_(Mod) ->
+    meck:expect(Mod, test, 0, apa),
+    ?assertEqual(apa, Mod:test()),
+    ?assertEqual(true, meck:validate(Mod)).
+
+shortcut_call_argument_(Mod) ->
+    meck:expect(Mod, test, fun(hest, 1) -> apa end),
+    ?assertEqual(apa, Mod:test(hest, 1)),
+    ?assertEqual(true, meck:validate(Mod)).
+
 %% --- Tests with own setup ----------------------------------------------------
 
 call_original_test() ->
@@ -359,6 +380,7 @@ multi_test() ->
     Mods = [mod1, mod2, mod3],
     meck:new(Mods),
     meck:expect(Mods, test, fun() -> ok end),
+    meck:expect(Mods, test2, 0, ok),
     [?assertEqual(ok, M:test()) || M <- Mods],
     ?assert(meck:validate(Mods)),
     meck:unload(Mods).
