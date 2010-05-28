@@ -85,9 +85,11 @@ expect_(Mod) ->
 
 exports_(Mod) ->
     meck:expect(Mod, test1, fun() -> ok end),
-    meck:expect(Mod, test2, fun() -> ok end),
+    meck:expect(Mod, test2, fun(_) -> ok end),
+    meck:expect(Mod, test3, fun(_, _) -> ok end),
     ?assertEqual(0, proplists:get_value(test1, Mod:module_info(exports))),
-    ?assertEqual(0, proplists:get_value(test2, Mod:module_info(exports))),
+    ?assertEqual(1, proplists:get_value(test2, Mod:module_info(exports))),
+    ?assertEqual(2, proplists:get_value(test3, Mod:module_info(exports))),
     ?assertEqual(true, meck:validate(Mod)).
 
 call_return_value_(Mod) ->
@@ -298,6 +300,33 @@ passthrough_test() ->
     ?assertEqual({1, 2}, meck_test_module:c(1, 2)),
     meck:unload(meck_test_module).
 
+cover_test() ->
+    cover:compile("test/meck_test_module.erl"),
+    a = meck_test_module:a(),
+    b = meck_test_module:b(),
+    {1, 2} = meck_test_module:c(1, 2),
+    {ok, {meck_test_module, {3,0}}} = cover:analyze(meck_test_module, module),
+
+    meck:new(meck_test_module),
+    meck:expect(meck_test_module, a, fun() -> c end),
+    ?assertEqual(c, meck_test_module:a()),
+
+    meck:unload(meck_test_module),
+    {ok, {meck_test_module, {3,0}}} = cover:analyze(meck_test_module, module).
+
+cover_passthrough_test() ->
+    cover:compile("test/meck_test_module.erl"),
+    {ok, {meck_test_module, {0,3}}} = cover:analyze(meck_test_module, module),
+
+    meck:new(meck_test_module, [passthrough]),
+    meck:expect(meck_test_module, a, fun() -> c end),
+    ?assertEqual(c, meck_test_module:a()),
+    ?assertEqual(b, meck_test_module:b()),
+    ?assertEqual({1, 2}, meck_test_module:c(1, 2)),
+
+    meck:unload(meck_test_module),
+    {ok, {meck_test_module, {0,3}}} = cover:analyze(meck_test_module, module).
+
 % @doc The mocked module is unloaded if the meck process crashes.
 unload_when_crashed_test() ->
     meck:new(mymod),
@@ -320,7 +349,9 @@ history_passthrough_test() ->
     meck:new(meck_test_module, [passthrough]),
     meck:expect(meck_test_module, a, fun() -> c end),
     c = meck_test_module:a(),
-    ?assertEqual([{{meck_test_module, a, []}, c}],
+    b = meck_test_module:b(),
+    ?assertEqual([{{meck_test_module, a, []}, c},
+                  {{meck_test_module, b, []}, b}],
                  meck:history(meck_test_module)),
     meck:unload(meck_test_module).
 

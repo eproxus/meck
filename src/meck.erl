@@ -62,7 +62,8 @@
 -record(state, {mod :: atom(),
                 expects :: dict(),
                 valid = true :: boolean(),
-                history = [] :: history()}).
+                history = [] :: history(),
+                original :: term()}).
 
 %%==============================================================================
 %% Interface exports
@@ -182,24 +183,24 @@ unload(Mods) when is_list(Mods) ->
 
 %% @hidden
 init([Mod, Options]) ->
-    rename_original(Mod),
+    Original = backup_original(Mod),
     process_flag(trap_exit, true),
-    S = #state{mod = Mod, expects = init_expects(Mod, Options)},
-    compile_and_load(to_forms(S)),
-    {ok, S}.
+    Expects = init_expects(Mod, Options),
+    compile_and_load(to_forms(Mod, Expects)),
+    {ok, #state{mod = Mod, expects = Expects, original = Original}}.
 
 %% @hidden
 handle_call({get_expect, Func, Arity}, _From, S) ->
     Expect = fetch(S#state.expects, Func, Arity),
     {reply, Expect, S};
-handle_call({expect, Func, Expect}, _From, S) ->
-    NewS = S#state{expects = store(S#state.expects, Func, Expect)},
+handle_call({expect, Func, Expect}, _From, #state{expects = Expects} = S) ->
+    NewExpects = store(Expects, Func, Expect),
     % only recompile if function was added or arity was changed
-    case interface_equal(NewS#state.expects, S#state.expects) of
+    case interface_equal(NewExpects, Expects) of
         true  -> ok;
-        false -> compile_and_load(to_forms(NewS))
+        false -> compile_and_load(to_forms(S#state.mod, NewExpects))
     end,
-    {reply, ok, NewS};
+    {reply, ok, S#state{expects = NewExpects}};
 handle_call(history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
 handle_call({add_history, Item}, _From, S) ->
@@ -208,8 +209,7 @@ handle_call(invalidate, _From, S) ->
     {reply, ok, S#state{valid = false}};
 handle_call(validate, _From, S) ->
     {reply, S#state.valid, S};
-handle_call(stop, _From, #state{mod = Mod} = S) ->
-    cleanup(Mod),
+handle_call(stop, _From, S) ->
     {stop, normal, ok, S}.
 
 %% @hidden
@@ -221,8 +221,9 @@ handle_info(_Info, S) ->
     {noreply, S}.
 
 %% @hidden
-terminate(_Reason, #state{mod = Mod}) ->
+terminate(_Reason, #state{mod = Mod, original = OriginalState}) ->
     cleanup(Mod),
+    restore_original(Mod, OriginalState),
     ok.
 
 %% @hidden
@@ -303,7 +304,7 @@ func(Mod, {Func, Arity}) ->
        [{call, ?LINE, {remote, ?LINE, atom(?MODULE), atom(exec)},
          [atom(Mod), atom(Func), integer(Arity), var_list(Args)]}]}]}.
 
-to_forms(#state{mod = Mod, expects = Expects}) ->
+to_forms(Mod, Expects) ->
     {Exports, Functions} = functions(Mod, Expects),
     [attribute(module, Mod)] ++ Exports ++ Functions.
 
@@ -402,7 +403,8 @@ is_mock_exception(Fun) ->
 
 %% --- Original module handling ------------------------------------------------
 
-rename_original(Module) ->
+backup_original(Module) ->
+    Cover = get_cover_state(Module),
     try
         Forms = abstract_code(beam_file(Module)),
         NewName = original_name(Module),
@@ -413,7 +415,7 @@ rename_original(Module) ->
             {ok, NewName, Binary, []} ->
                 load_binary(NewName, Binary);
             {ok, NewName, Binary, Warnings} ->
-                io:format(user, "meck:rename_original/1: module: ~p, warnings: ~p~n", [Module, Warnings]),
+                io:format(user, "meck:backup_original/1: module: ~p, warnings: ~p~n", [Module, Warnings]),
                 load_binary(NewName, Binary)
         end
     catch
@@ -421,7 +423,25 @@ rename_original(Module) ->
             ok;
         throw:no_abstract_code ->
             ok
-    end.
+    end,
+    Cover.
+
+restore_original(_Mod, false) ->
+    ok;
+restore_original(Mod, {File, Data}) ->
+    {ok, Mod} = cover:compile(File),
+    ok = cover:import(Data),
+    {file, File} = cover:is_compiled(Mod).
+
+get_cover_state(Module) ->
+    get_cover_state(Module, cover:is_compiled(Module)).
+
+get_cover_state(_Module, false) ->
+    false;
+get_cover_state(Module, {file, File}) ->
+    Data = atom_to_list(Module) ++ ".coverdata",
+    ok = cover:export(Data, Module),
+    {File, Data}.
 
 exists(Module) ->
     code:which(Module) /= non_existing.
