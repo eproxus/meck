@@ -460,7 +460,6 @@ restore_original(_Mod, false) ->
 restore_original(Mod, {File, Data}) ->
     {ok, Mod} = cover:compile(File),
     ok = cover:import(Data),
-    {file, File} = cover:is_compiled(Mod),
     file:delete(Data),
     ok.
 
