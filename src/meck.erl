@@ -24,6 +24,7 @@
 -export([new/2]).
 -export([expect/3]).
 -export([expect/4]).
+-export([delete/3]).
 -export([exception/2]).
 -export([passthrough/1]).
 -export([history/1]).
@@ -54,7 +55,7 @@
 %%                        Reason::term(), Stacktrace::list(mfa())}].
 %% History is a list of either successful function calls with a
 %% returned result or function calls that resulted in an exception
-%% with a type, reason and a stacktrace.
+%% with a type, reason and a stack trace.
 -type history() :: [{meck_mfa(), Result::term()}
                     | {meck_mfa(), Class:: exit | error | throw,
                        Reason::term(), Stacktrace::list(mfa())}].
@@ -132,6 +133,21 @@ expect(Mod, Func, Arity, Result) when is_list(Mod) ->
     [expect(M, Func, Arity, Result) || M <- Mod],
     ok.
 
+%% @spec delete(Mod:: atom() | list(atom()), Func::atom(),
+%%              Arity::pos_integer()) -> ok
+%% @doc Deletes an expectation.
+%%
+%% Deletes the expectation for the function `Func' with the matching
+%% arity `Arity'.
+-spec delete(Mod:: atom() | list(atom()), Func::atom(), Arity::pos_integer()) ->
+    ok.
+delete(Mod, Func, Arity)
+  when is_atom(Mod), is_atom(Func), Arity >= 0 ->
+    call(Mod, {delete, Func, Arity});
+delete(Mod, Func, Arity) when is_list(Mod) ->
+    [delete(M, Func, Arity) || M <- Mod],
+    ok.
+
 %% @spec exception(Class:: throw | error | exit, Reason::term()) -> no_return()
 %% @doc Throws an expected exception inside an expect fun.
 %%
@@ -173,7 +189,7 @@ validate(Mod) when is_list(Mod) ->
 %%
 %% Returns a list of calls to the mocked module and their
 %% results. Results can be either normal Erlang terms or exceptions
-%% that occured.
+%% that occurred.
 -spec history(Mod::atom()) -> history().
 history(Mod) when is_atom(Mod) ->
     call(Mod, history).
@@ -181,10 +197,10 @@ history(Mod) when is_atom(Mod) ->
 %% @spec unload(Mod:: atom() | list(atom())) -> ok
 %% @doc Unload a mocked module or a list of mocked modules.
 %%
-%% This will purge and delete the module(s) from the Erlang VM. If the
-%% mocked module(s) replaced an existing module, this module will still
-%% be in the Erlang load path and can be loaded manually or when
-%% called.
+%% This will purge and delete the module(s) from the Erlang virtual
+%% machine. If the mocked module(s) replaced an existing module, this
+%% module will still be in the Erlang load path and can be loaded
+%% manually or when called.
 -spec unload(Mods:: atom() | list(atom())) -> ok.
 unload(Mod) when is_atom(Mod) ->
     call(Mod, stop),
@@ -207,7 +223,7 @@ init([Mod, Options]) ->
 
 %% @hidden
 handle_call({get_expect, Func, Arity}, _From, S) ->
-    Expect = fetch(S#state.expects, Func, Arity),
+    Expect = e_fetch(S#state.expects, Func, Arity),
     {reply, Expect, S};
 handle_call({expect, Func, Expect}, _From, S) ->
     NewExpects = store_expect(S#state.mod, Func, Expect, S#state.expects),
@@ -215,6 +231,9 @@ handle_call({expect, Func, Expect}, _From, S) ->
 handle_call({expect, Func, Arity, Result}, _From, S) ->
     NewExpects = store_expect(S#state.mod, Func, {anon, Arity, Result},
                               S#state.expects),
+    {reply, ok, S#state{expects = NewExpects}};
+handle_call({delete, Func, Arity}, _From, S) ->
+    NewExpects = delete_expect(S#state.mod, Func, Arity, S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
 handle_call(history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
@@ -228,11 +247,17 @@ handle_call(stop, _From, S) ->
     {stop, normal, ok, S}.
 
 store_expect(Mod, Func, Expect, Expects) ->
-    NewExpects = store(Expects, Func, Expect),
+    change_expects(fun e_store/3, Mod, Func, Expect, Expects).
+
+delete_expect(Mod, Func, Arity, Expects) ->
+    change_expects(fun e_delete/3, Mod, Func, Arity, Expects).
+
+change_expects(Op, Mod, Func, Value, Expects) ->
+    NewExpects = Op(Expects, Func, Value),
     % only recompile if function was added or arity was changed
     case interface_equal(NewExpects, Expects) of
-      true -> ok;
-      false -> compile_and_load(to_forms(Mod, NewExpects))
+        true  -> ok;          
+        false -> compile_and_load(to_forms(Mod, NewExpects))
     end,
     NewExpects.
 
@@ -300,11 +325,14 @@ init_expects(Mod, Options) ->
         _    -> dict:new()
     end.
 
-store(Expects, Func, Expect) ->
+e_store(Expects, Func, Expect) ->
     dict:store({Func, arity(Expect)}, Expect, Expects).
 
-fetch(Expects, Func, Arity) ->
+e_fetch(Expects, Func, Arity) ->
     dict:fetch({Func, Arity}, Expects).
+
+e_delete(Expects, Func, Arity) ->
+    dict:erase({Func, Arity}, Expects).
 
 interface_equal(NewExpects, OldExpects) ->
     dict:fetch_keys(NewExpects) == dict:fetch_keys(OldExpects).

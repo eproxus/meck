@@ -54,7 +54,8 @@ meck_test_() ->
                            fun shortcut_expect_/1,
                            fun shortcut_expect_negative_arity_/1,
                            fun shortcut_call_return_value_/1,
-                           fun shortcut_call_argument_/1]]}.
+                           fun shortcut_call_argument_/1,
+                           fun delete_/1]]}.
 
 setup() ->
     % Uncomment to run tests with dbg:
@@ -276,6 +277,12 @@ shortcut_call_argument_(Mod) ->
     ?assertEqual(apa, Mod:test(hest, 1)),
     ?assertEqual(true, meck:validate(Mod)).
 
+delete_(Mod) ->
+    meck:expect(Mod, test, 2, ok),
+    ?assertEqual(ok, meck:delete(Mod, test, 2)),
+    ?assertError(undef, Mod:test(a, b)),
+    ?assert(meck:validate(Mod)).
+
 %% --- Tests with own setup ----------------------------------------------------
 
 call_original_test() ->
@@ -409,5 +416,14 @@ multi_shortcut_test() ->
     meck:new(Mods),
     meck:expect(Mods, test, 0, ok),
     [?assertEqual(ok, M:test()) || M <- Mods],
+    ?assert(meck:validate(Mods)),
+    meck:unload(Mods).
+
+multi_delete_test() ->
+    Mods = [mod1, mod2, mod3],
+    meck:new(Mods),
+    meck:expect(Mods, test, 0, ok),
+    ?assertEqual(ok, meck:delete(Mods, test, 0)),
+    [?assertError(undef, M:test()) || M <- Mods],
     ?assert(meck:validate(Mods)),
     meck:unload(Mods).
