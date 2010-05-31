@@ -403,3 +403,11 @@ multi_option_test() ->
     [?assertEqual(ok, M:test()) || M <- Mods],
     ?assert(meck:validate(Mods)),
     meck:unload(Mods).
+
+multi_shortcut_test() ->
+    Mods = [mod1, mod2, mod3],
+    meck:new(Mods),
+    meck:expect(Mods, test, 0, ok),
+    [?assertEqual(ok, M:test()) || M <- Mods],
+    ?assert(meck:validate(Mods)),
+    meck:unload(Mods).
