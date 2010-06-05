@@ -427,3 +427,11 @@ multi_delete_test() ->
     [?assertError(undef, M:test()) || M <- Mods],
     ?assert(meck:validate(Mods)),
     meck:unload(Mods).
+
+handle_cast_unmodified_state_test() ->
+    S = dummy_state,
+    ?assertEqual({noreply, S}, meck:handle_cast(dummy_msg, S)).
+
+code_change_unmodified_state_test() ->
+    S = dummy_state,
+    ?assertEqual({ok, S}, meck:code_change(old_version, S, [])).

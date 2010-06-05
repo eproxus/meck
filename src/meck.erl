@@ -40,11 +40,6 @@
 -export([code_change/3]).
 -export([exec/4]).
 
-%% Includes
--ifdef(TEST).
--include("test/meck_tests.hrl").
--endif.
-
 %% Types
 %% @type meck_mfa() = {Mod::atom(), Func::atom(), Args::list(term())}.
 %% Module, function and arguments that the mock module got called with.
@@ -74,11 +69,8 @@
 %% @spec new(Mod:: atom() | list(atom())) -> ok
 %% @equiv new(Mod, [])
 -spec new(Mod::atom()) -> ok.
-new(Mod) when is_atom(Mod) ->
-    new(Mod, []);
-new(Mod) when is_list(Mod) ->
-    [new(M) || M <- Mod],
-    ok.
+new(Mod) when is_atom(Mod) -> new(Mod, []);
+new(Mod) when is_list(Mod) -> [new(M) || M <- Mod], ok.
 
 %% @spec new(Mod:: atom() | list(atom()), Options::list(term())) -> ok
 %% @doc Creates new mocked module(s).
@@ -164,8 +156,7 @@ exception(Class, Reason) when Class == throw; Class == error; Class == exit ->
 %% This call does not return, thus everything after this call inside
 %% an expectation fun will be ignored.
 -spec passthrough(Args::list(term())) -> no_return().
-passthrough(Args) ->
-    throw(passthrough_fun(Args)).
+passthrough(Args) -> throw(passthrough_fun(Args)).
 
 %% @spec validate(Mod:: atom() | list(atom())) -> boolean()
 %% @doc Validate the state of the mock module(s).
@@ -181,8 +172,7 @@ passthrough(Args) ->
 validate(Mod) when is_atom(Mod) ->
     call(Mod, validate);
 validate(Mod) when is_list(Mod) ->
-    lists:all(fun(true) -> true; (false) -> false end,
-              [validate(M) || M <- Mod]).
+    not lists:member(false, [validate(M) || M <- Mod]).
 
 %% @spec history(Mod::atom()) -> history()
 %% @doc Return the call history of the mocked module.
@@ -191,8 +181,7 @@ validate(Mod) when is_list(Mod) ->
 %% results. Results can be either normal Erlang terms or exceptions
 %% that occurred.
 -spec history(Mod::atom()) -> history().
-history(Mod) when is_atom(Mod) ->
-    call(Mod, history).
+history(Mod) when is_atom(Mod) -> call(Mod, history).
 
 %% @spec unload(Mod:: atom() | list(atom())) -> ok
 %% @doc Unload a mocked module or a list of mocked modules.
@@ -202,12 +191,8 @@ history(Mod) when is_atom(Mod) ->
 %% module will still be in the Erlang load path and can be loaded
 %% manually or when called.
 -spec unload(Mods:: atom() | list(atom())) -> ok.
-unload(Mod) when is_atom(Mod) ->
-    call(Mod, stop),
-    wait_for_exit(Mod);
-unload(Mods) when is_list(Mods) ->
-    [unload(Mod) || Mod <- Mods],
-    ok.
+unload(Mod) when is_atom(Mod) -> call(Mod, stop), wait_for_exit(Mod);
+unload(Mods) when is_list(Mods) -> [unload(Mod) || Mod <- Mods], ok.
 
 %%==============================================================================
 %% Callback functions
@@ -218,12 +203,12 @@ init([Mod, Options]) ->
     Original = backup_original(Mod),
     process_flag(trap_exit, true),
     Expects = init_expects(Mod, Options),
-    compile_and_load(to_forms(Mod, Expects)),
+    compile_forms(to_forms(Mod, Expects)),
     {ok, #state{mod = Mod, expects = Expects, original = Original}}.
 
 %% @hidden
 handle_call({get_expect, Func, Arity}, _From, S) ->
-    Expect = e_fetch(S#state.expects, Func, Arity),
+    Expect = get_expect(S#state.expects, Func, Arity),
     {reply, Expect, S};
 handle_call({expect, Func, Expect}, _From, S) ->
     NewExpects = store_expect(S#state.mod, Func, Expect, S#state.expects),
@@ -246,28 +231,11 @@ handle_call(validate, _From, S) ->
 handle_call(stop, _From, S) ->
     {stop, normal, ok, S}.
 
-store_expect(Mod, Func, Expect, Expects) ->
-    change_expects(fun e_store/3, Mod, Func, Expect, Expects).
-
-delete_expect(Mod, Func, Arity, Expects) ->
-    change_expects(fun e_delete/3, Mod, Func, Arity, Expects).
-
-change_expects(Op, Mod, Func, Value, Expects) ->
-    NewExpects = Op(Expects, Func, Value),
-    % only recompile if function was added or arity was changed
-    case interface_equal(NewExpects, Expects) of
-        true  -> ok;          
-        false -> compile_and_load(to_forms(Mod, NewExpects))
-    end,
-    NewExpects.
+%% @hidden
+handle_cast(_Msg, S)  -> {noreply, S}.
 
 %% @hidden
-handle_cast(_Msg, S) ->
-    {noreply, S}.
-
-%% @hidden
-handle_info(_Info, S) ->
-    {noreply, S}.
+handle_info(_Info, S) -> {noreply, S}.
 
 %% @hidden
 terminate(_Reason, #state{mod = Mod, original = OriginalState}) ->
@@ -276,23 +244,19 @@ terminate(_Reason, #state{mod = Mod, original = OriginalState}) ->
     ok.
 
 %% @hidden
-code_change(_OldVsn, S, _Extra) ->
-    {ok, S}.
+code_change(_OldVsn, S, _Extra) -> {ok, S}.
 
 %% @hidden
 exec(Mod, Func, Arity, Args) ->
     Expect = call(Mod, {get_expect, Func, Arity}),
-    try
-        Result = call_expect(Mod, Func, Expect, Args),
+    try Result = call_expect(Mod, Func, Expect, Args),
         call(Mod, {add_history, {{Mod, Func, Args}, Result}}),
         Result
     catch
         throw:Fun when is_function(Fun) ->
             case is_mock_exception(Fun) of
-                true ->
-                    handle_mock_exception(Mod, Func, Fun, Args);
-                false ->
-                    invalidate_and_raise(Mod, Func, Args, throw, Fun)
+                true  -> handle_mock_exception(Mod, Func, Fun, Args);
+                false -> invalidate_and_raise(Mod, Func, Args, throw, Fun)
             end;
         Class:Reason ->
             invalidate_and_raise(Mod, Func, Args, Class, Reason)
@@ -309,21 +273,42 @@ start_link(Mod, Options) ->
 
 call(Mod, Msg) ->
     try gen_server:call(proc_name(Mod), Msg)
-    catch exit:{noproc, _Reason} ->
-            erlang:error({not_mocked, Mod})
-    end.
+    catch exit:{noproc, _Reason} -> erlang:error({not_mocked, Mod}) end.
 
-proc_name(Name) ->
-    list_to_atom(atom_to_list(Name) ++ "_meck").
+proc_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck").
 
-original_name(Name) ->
-    list_to_atom(atom_to_list(Name) ++ "_meck_original").
+original_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck_original").
+
+wait_for_exit(Mod) ->
+    MonitorRef = erlang:monitor(process, proc_name(Mod)),
+    receive {'DOWN', MonitorRef, _Type, _Object, _Info} -> ok end.
+
+%% --- Mock handling -----------------------------------------------------------
 
 init_expects(Mod, Options) ->
     case proplists:get_value(passthrough, Options, false) andalso exists(Mod) of
         true -> dict:from_list([{FA, passthrough} || FA <- exports(Mod)]);
         _    -> dict:new()
     end.
+
+
+get_expect(Expects, Func, Arity) ->
+    e_fetch(Expects, Func, Arity).
+
+store_expect(Mod, Func, Expect, Expects) ->
+    change_expects(fun e_store/3, Mod, Func, Expect, Expects).
+
+delete_expect(Mod, Func, Arity, Expects) ->
+    change_expects(fun e_delete/3, Mod, Func, Arity, Expects).
+
+change_expects(Op, Mod, Func, Value, Expects) ->
+    NewExpects = Op(Expects, Func, Value),
+    % only recompile if function was added or arity was changed
+    case interface_equal(NewExpects, Expects) of
+        true  -> ok;          
+        false -> compile_forms(to_forms(Mod, NewExpects))
+    end,
+    NewExpects.
 
 e_store(Expects, Func, Expect) ->
     dict:store({Func, arity(Expect)}, Expect, Expects).
@@ -336,16 +321,6 @@ e_delete(Expects, Func, Arity) ->
 
 interface_equal(NewExpects, OldExpects) ->
     dict:fetch_keys(NewExpects) == dict:fetch_keys(OldExpects).
-
-cleanup(Mod) ->
-    code:purge(Mod),
-    code:delete(Mod),
-    code:purge(original_name(Mod)),
-    code:delete(original_name(Mod)).
-
-wait_for_exit(Mod) ->
-    MonitorRef = erlang:monitor(process, proc_name(Mod)),
-    receive {'DOWN', MonitorRef, _Type, _Object, _Info} -> ok end.
 
 %% --- Code generation ---------------------------------------------------------
 
@@ -366,25 +341,15 @@ functions(Mod, Expects) ->
                        [func(Mod, Export)|Functions]}
               end, {[], []}, Expects).
 
-compile_and_load(Forms) ->
-    {ok, Mod, Beam} = compile:forms(Forms),
-    {module, Mod} = code:load_binary(Mod, "", Beam).
+args(0)     -> [];
+args(Arity) -> [var(var_name(N)) || N<- lists:seq(1, Arity)].
 
-args(0) ->
-    [];
-args(Arity) ->
-    [var(var_name(N)) || N<- lists:seq(1, Arity)].
+var_list([])    -> {nil, ?LINE};
+var_list([H|T]) -> {cons, ?LINE, H, var_list(T)}.
 
-var_list([]) ->
-    {nil, ?LINE};
-var_list([H|T]) ->
-    {cons, ?LINE, H, var_list(T)}.
+var(Name) -> {var, ?LINE, Name}.
 
-var(Name) ->
-    {var, ?LINE, Name}.
-
-var_name(A) ->
-    list_to_atom("A"++integer_to_list(A)).
+var_name(A) -> list_to_atom("A"++integer_to_list(A)).
 
 arity({anon, Arity, _Result}) ->
     Arity;
@@ -392,14 +357,11 @@ arity(Fun) when is_function(Fun) ->
     {arity, Arity} = erlang:fun_info(Fun, arity),
     Arity.
 
-attribute(Attribute, Args) ->
-    {attribute, ?LINE, Attribute, Args}.
+attribute(Attribute, Args) -> {attribute, ?LINE, Attribute, Args}.
 
-atom(Atom) when is_atom(Atom) ->
-    {atom, ?LINE, Atom}.
+atom(Atom) when is_atom(Atom) -> {atom, ?LINE, Atom}.
 
-integer(Integer) when is_integer(Integer) ->
-    {integer, ?LINE, Integer}.
+integer(Integer) when is_integer(Integer) -> {integer, ?LINE, Integer}.
 
 %% --- Execution utilities -----------------------------------------------------
 
@@ -409,12 +371,12 @@ is_local_function(Fun) ->
 
 handle_mock_exception(Mod, Func, Fun, Args) ->
     case Fun() of
-        % exception created with the mock:exception function, 
-        % do not invalidate Mod
         {exception, Class, Reason} ->
+            % exception created with the mock:exception function, 
+            % do not invalidate Mod
             raise(Mod, Func, Args, Class, Reason);
-        % call_original(Args) called from mock function
         {passthrough, Args} ->
+            % call_original(Args) called from mock function
             Result = apply(original_name(Mod), Func, Args),
             call(Mod, {add_history, {{Mod, Func, Args}, Result}}),
             Result
@@ -430,15 +392,9 @@ raise(Mod, Func, Args, Class, Reason) ->
     call(Mod, {add_history, {{Mod, Func, Args}, Class, Reason, Stacktrace}}),
     erlang:raise(Class, Reason, Stacktrace).
 
-mock_exception_fun(Class, Reason) ->
-    fun() ->
-        {exception, Class, Reason}
-    end.
+mock_exception_fun(Class, Reason) -> fun() -> {exception, Class, Reason} end.
 
-passthrough_fun(Args) ->
-    fun() ->
-        {passthrough, Args}
-    end.
+passthrough_fun(Args) -> fun() -> {passthrough, Args} end.
 
 call_expect(_Mod, _Func, {anon, Arity, Return}, VarList)
   when Arity == length(VarList) ->
@@ -455,8 +411,7 @@ inject(Mod, Func, Args, [{meck, exec, _Arity} = Meck|Stack]) ->
 inject(Mod, Func, Args, [H|Stack]) ->
     [H|inject(Mod, Func, Args, Stack)].
 
-is_mock_exception(Fun) ->
-    is_local_function(Fun).
+is_mock_exception(Fun) -> is_local_function(Fun).
 
 %% --- Original module handling ------------------------------------------------
 
@@ -465,21 +420,10 @@ backup_original(Module) ->
     try
         Forms = abstract_code(beam_file(Module)),
         NewName = original_name(Module),
-        case compile:forms(rename_module(Forms, NewName),
-                           compile_options(Module)) of
-            {ok, NewName, Binary} ->
-                load_binary(NewName, Binary);
-            {ok, NewName, Binary, []} ->
-                load_binary(NewName, Binary);
-            {ok, NewName, Binary, Warnings} ->
-                io:format(user, "meck:backup_original/1: module: ~p, warnings: ~p~n", [Module, Warnings]),
-                load_binary(NewName, Binary)
-        end
+        compile_forms(rename_module(Forms, NewName), compile_options(Module))
     catch
-        throw:{object_code_not_found, _Module} ->
-            ok;
-        throw:no_abstract_code ->
-            ok
+        throw:{object_code_not_found, _Module} -> ok; % TODO: What to do here?
+        throw:no_abstract_code                 -> ok  % TODO: What to do here?
     end,
     Cover.
 
@@ -491,8 +435,7 @@ restore_original(Mod, {File, Data}) ->
     file:delete(Data),
     ok.
 
-get_cover_state(Module) ->
-    get_cover_state(Module, cover:is_compiled(Module)).
+get_cover_state(Module) -> get_cover_state(Module, cover:is_compiled(Module)).
 
 get_cover_state(_Module, false) ->
     false;
@@ -506,15 +449,26 @@ exists(Module) ->
 
 exports(Module) ->
     [ FA ||  FA  <- Module:module_info(exports),
-             FA /= {module_info, 0},
-             FA /= {module_info, 1}].
+             FA /= {module_info, 0}, FA /= {module_info, 1}].
+
+compile_forms(AbsCode) -> compile_forms(AbsCode, []).
+    
+compile_forms(AbsCode, Opts) ->
+    case compile:forms(AbsCode, Opts) of
+        {ok, ModName, Binary} ->
+            load_binary(ModName, Binary);
+        {ok, ModName, Binary, []} ->
+            load_binary(ModName, Binary);
+        {ok, ModName, Binary, Warnings} ->
+            io:format(user, "meck:compile_forms/2: module: ~p, warnings: ~p~n",
+                      [ModName, Warnings]),
+            load_binary(ModName, Binary)
+    end.
 
 load_binary(Name, Binary) ->
     case code:load_binary(Name, "", Binary) of
-        {module, Name} ->
-            ok;
-        {error, What} ->
-            throw(What) % TODO: Leaks outside the module interface!
+        {module, Name}  -> ok;
+        {error, Reason} -> exit({error_loading_module, Name, Reason})
     end.
 
 beam_file(Module) ->
@@ -539,3 +493,9 @@ rename_module([{attribute, Line, module, _OldName}|T], NewName) ->
     [{attribute, Line, module, NewName}|T];
 rename_module([H|T], NewName) ->
     [H|rename_module(T, NewName)].
+
+cleanup(Mod) ->
+    code:purge(Mod),
+    code:delete(Mod),
+    code:purge(original_name(Mod)),
+    code:delete(original_name(Mod)).
