@@ -29,6 +29,7 @@
 -export([passthrough/1]).
 -export([history/1]).
 -export([validate/1]).
+-export([unload/0]).
 -export([unload/1]).
 
 %% Callback exports
@@ -68,7 +69,7 @@
 
 %% @spec new(Mod:: atom() | list(atom())) -> ok
 %% @equiv new(Mod, [])
--spec new(Mod::atom()) -> ok.
+-spec new(Mod:: atom() | list(atom())) -> ok.
 new(Mod) when is_atom(Mod) -> new(Mod, []);
 new(Mod) when is_list(Mod) -> [new(M) || M <- Mod], ok.
 
@@ -168,7 +169,7 @@ passthrough(Args) -> throw(passthrough_fun(Args)).
 %% (function clause) or unexpected exceptions.
 %%
 %% Use the {@link history/1} function to analyze errors.
--spec validate(Mod::atom()) -> boolean().
+-spec validate(Mod:: atom() | list(atom())) -> boolean().
 validate(Mod) when is_atom(Mod) ->
     call(Mod, validate);
 validate(Mod) when is_list(Mod) ->
@@ -182,6 +183,14 @@ validate(Mod) when is_list(Mod) ->
 %% that occurred.
 -spec history(Mod::atom()) -> history().
 history(Mod) when is_atom(Mod) -> call(Mod, history).
+
+%% @spec unload() -> list(atom())
+%% @doc Unloads all mocked modules from memory.
+%%
+%% The function returns the list of mocked modules that were unloaded
+%% in the process.
+-spec unload() -> list(atom()).
+unload() -> lists:foldl(fun unload_if_mocked/2, [], registered()).
 
 %% @spec unload(Mod:: atom() | list(atom())) -> ok
 %% @doc Unload a mocked module or a list of mocked modules.
@@ -282,6 +291,20 @@ original_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck_original").
 wait_for_exit(Mod) ->
     MonitorRef = erlang:monitor(process, proc_name(Mod)),
     receive {'DOWN', MonitorRef, _Type, _Object, _Info} -> ok end.
+
+unload_if_mocked(P, L) when is_atom(P) ->
+    unload_if_mocked(atom_to_list(P), L);
+unload_if_mocked(P, L) when length(P) > 5 ->
+    case lists:split(length(P) - 5, P) of
+        {Name, "_meck"} ->
+            Mocked = list_to_existing_atom(Name),
+            unload(Mocked),
+            [Mocked|L];
+        _Else ->
+            L
+    end;
+unload_if_mocked(_P, L) ->
+    L.
 
 %% --- Mock handling -----------------------------------------------------------
 

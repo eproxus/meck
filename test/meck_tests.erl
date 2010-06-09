@@ -300,6 +300,12 @@ unload_renamed_original_test() ->
     meck:unload(meck_test_module),
     ?assertEqual(false, code:is_loaded(meck_test_module_meck_original)).
 
+unload_all_test() ->
+    Mods = [test_a, test_b, test_c, test_d, test_e],
+    meck:new(Mods),
+    ?assertEqual(lists:sort(Mods), lists:sort(meck:unload())),
+    [?assertEqual(false, code:is_loaded(M)) || M <- Mods].
+
 original_no_file_test() ->
     {ok, Mod, Beam} = compile:forms([{attribute, 1, module, meck_not_on_disk}]),
     {module, Mod} = code:load_binary(Mod, "", Beam),
@@ -435,3 +441,4 @@ handle_cast_unmodified_state_test() ->
 code_change_unmodified_state_test() ->
     S = dummy_state,
     ?assertEqual({ok, S}, meck:code_change(old_version, S, [])).
+
