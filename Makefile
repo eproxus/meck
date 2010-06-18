@@ -4,4 +4,7 @@ all:
 test: force
 	@./rebar eunit
 
+clean:
+	@./rebar clean
+
 force: ;
