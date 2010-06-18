@@ -2,6 +2,6 @@
 *.log
 *.dump
 *.coverdata
-cover_report
 doc
 ebin
+.eunit

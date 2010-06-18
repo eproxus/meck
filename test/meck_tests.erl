@@ -335,7 +335,7 @@ passthrough_test() ->
     meck:unload(meck_test_module).
 
 cover_test() ->
-    cover:compile("test/meck_test_module.erl"),
+    {ok, _} = cover:compile("../test/meck_test_module.erl"),
     a = meck_test_module:a(),
     b = meck_test_module:b(),
     {1, 2} = meck_test_module:c(1, 2),
@@ -352,7 +352,7 @@ cover_test() ->
     {ok, {meck_test_module, {3,0}}} = cover:analyze(meck_test_module, module).
 
 cover_passthrough_test() ->
-    cover:compile("test/meck_test_module.erl"),
+    {ok, _} = cover:compile("../test/meck_test_module.erl"),
     {ok, {meck_test_module, {0,3}}} = cover:analyze(meck_test_module, module),
 
     meck:new(meck_test_module, [passthrough]),
