@@ -281,8 +281,9 @@ start_link(Mod, Options) ->
     gen_server:start_link({local, proc_name(Mod)}, ?MODULE, [Mod, Options], []).
 
 call(Mod, Msg) ->
-    try gen_server:call(proc_name(Mod), Msg)
-    catch exit:{noproc, _Reason} -> erlang:error({not_mocked, Mod}) end.
+    Name = proc_name(Mod),
+    try gen_server:call(Name, Msg)
+    catch exit:_Reason -> erlang:error({not_mocked, Mod}) end.
 
 proc_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck").
 
