@@ -481,11 +481,7 @@ compile_forms(AbsCode, Opts) ->
     case compile:forms(AbsCode, Opts) of
         {ok, ModName, Binary} ->
             load_binary(ModName, Binary);
-        {ok, ModName, Binary, []} ->
-            load_binary(ModName, Binary);
-        {ok, ModName, Binary, Warnings} ->
-            io:format(user, "meck:compile_forms/2: module: ~p, warnings: ~p~n",
-                      [ModName, Warnings]),
+        {ok, ModName, Binary, _Warnings} ->
             load_binary(ModName, Binary)
     end.
 
