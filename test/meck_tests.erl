@@ -359,17 +359,25 @@ cover_options_test_() ->
     {setup,
      fun() ->
 	     ok = file:rename("../test/cover_test_module.dontcompile",
-			      "../test/cover_test_module.erl")
+			      "../test/cover_test_module.erl"),
+	     OldPath = code:get_path(),
+	     code:add_path("../test"),
+	     OldPath
      end,
-     fun(_) ->
+     fun(OldPath) ->
 	     file:rename("../test/cover_test_module.erl",
-			 "../test/cover_test_module.dontcompile")
+			 "../test/cover_test_module.dontcompile"),
+	     code:set_path(OldPath)
      end,
      ?_test(
 	begin
+	    CompilerOptions = [{i, "../test/include"},
+			       {d, 'TEST', true}],
+	    %% The option recover feature depends on having the BEAM file available.
+	    {ok, _} = compile:file("../test/cover_test_module.erl",
+				   [{outdir, "../test"}|CompilerOptions]),
 	    {ok, _} = cover:compile("../test/cover_test_module.erl",
-				    [{i, "../test/include"},
-				     {d, 'TEST', true}]),
+				    CompilerOptions),
 	    a = cover_test_module:a(),
 	    b = cover_test_module:b(),
 	    {1, 2} = cover_test_module:c(1, 2),
@@ -389,7 +397,8 @@ cover_options_test_() ->
 
 	    ?assert(not filelib:is_file("cover_test_module.coverdata")),
 
-	    ?assertEqual({ok, {cover_test_module, {3,0}}},
+	    %% 2 instead of 3, as above
+	    ?assertEqual({ok, {cover_test_module, {2,0}}},
 			 cover:analyze(cover_test_module, module))
 	end)}.
 
