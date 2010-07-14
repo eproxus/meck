@@ -351,6 +351,48 @@ cover_test() ->
     
     {ok, {meck_test_module, {3,0}}} = cover:analyze(meck_test_module, module).
 
+cover_options_test_() ->
+    %% Test that compilation options (include paths and preprocessor
+    %% definitions) are used when un-mecking previously cover compiled
+    %% modules.  Our test module won't compile without compiler
+    %% options that rebar won't give it, thus the rename dance.
+    {setup,
+     fun() ->
+	     ok = file:rename("../test/cover_test_module.dontcompile",
+			      "../test/cover_test_module.erl")
+     end,
+     fun(_) ->
+	     file:rename("../test/cover_test_module.erl",
+			 "../test/cover_test_module.dontcompile")
+     end,
+     ?_test(
+	begin
+	    {ok, _} = cover:compile("../test/cover_test_module.erl",
+				    [{i, "../test/include"},
+				     {d, 'TEST', true}]),
+	    a = cover_test_module:a(),
+	    b = cover_test_module:b(),
+	    {1, 2} = cover_test_module:c(1, 2),
+	    %% We get 2 instead of 3 as expected.  Maybe because cover
+	    %% doesn't count include files?
+	    ?assertEqual({ok, {cover_test_module, {2,0}}},
+			 cover:analyze(cover_test_module, module)),
+
+	    ?debugHere,
+	    meck:new(cover_test_module),
+	    ?debugHere,
+	    meck:expect(cover_test_module, a, fun() -> c end),
+	    ?assertEqual(c, cover_test_module:a()),
+
+	    ?debugHere,
+	    meck:unload(cover_test_module),
+
+	    ?assert(not filelib:is_file("cover_test_module.coverdata")),
+
+	    ?assertEqual({ok, {cover_test_module, {3,0}}},
+			 cover:analyze(cover_test_module, module))
+	end)}.
+
 cover_passthrough_test() ->
     {ok, _} = cover:compile("../test/meck_test_module.erl"),
     {ok, {meck_test_module, {0,3}}} = cover:analyze(meck_test_module, module),
