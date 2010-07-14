@@ -466,7 +466,12 @@ get_cover_state(_Module, false) ->
 get_cover_state(Module, {file, File}) ->
     Data = atom_to_list(Module) ++ ".coverdata",
     ok = cover:export(Data, Module),
-    CompileOptions = compile_options(beam_file(Module)),
+    CompileOptions =
+        try
+            compile_options(beam_file(Module))
+        catch
+            throw:{object_code_not_found, _Module} -> []
+        end,
     {File, Data, CompileOptions}.
 
 exists(Module) ->
