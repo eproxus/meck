@@ -453,8 +453,8 @@ backup_original(Module) ->
 
 restore_original(_Mod, false) ->
     ok;
-restore_original(Mod, {File, Data}) ->
-    {ok, Mod} = cover:compile(File),
+restore_original(Mod, {File, Data, Options}) ->
+    {ok, Mod} = cover:compile(File, Options),
     ok = cover:import(Data),
     file:delete(Data),
     ok.
@@ -466,7 +466,8 @@ get_cover_state(_Module, false) ->
 get_cover_state(Module, {file, File}) ->
     Data = atom_to_list(Module) ++ ".coverdata",
     ok = cover:export(Data, Module),
-    {File, Data}.
+    CompileOptions = compile_options(beam_file(Module)),
+    {File, Data, CompileOptions}.
 
 exists(Module) ->
     code:which(Module) /= non_existing.
@@ -506,6 +507,13 @@ abstract_code(BeamFile) ->
             throw(no_abstract_code)
     end.
 
+compile_options(BeamFile) when is_binary(BeamFile) ->
+    case beam_lib:chunks(BeamFile, [compile_info]) of
+        {ok, {_, [{compile_info, Info}]}} ->
+            proplists:get_value(options, Info);
+        _ ->
+            throw(no_compile_options)
+    end;
 compile_options(Module) ->
     proplists:get_value(options, Module:module_info(compile)).
 
