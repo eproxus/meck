@@ -512,7 +512,7 @@ compile_options(BeamFile) when is_binary(BeamFile) ->
         {ok, {_, [{compile_info, Info}]}} ->
             proplists:get_value(options, Info);
         _ ->
-            throw(no_compile_options)
+            []
     end;
 compile_options(Module) ->
     proplists:get_value(options, Module:module_info(compile)).
