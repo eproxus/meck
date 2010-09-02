@@ -454,7 +454,12 @@ backup_original(Module) ->
 restore_original(_Mod, false) ->
     ok;
 restore_original(Mod, {File, Data, Options}) ->
-    {ok, Mod} = cover:compile(File, Options),
+    case filename:extension(File) of
+        ".erl" ->
+            {ok, Mod} = cover:compile_module(File, Options);
+        ".beam" ->
+            cover:compile_beam(File)
+    end,
     ok = cover:import(Data),
     file:delete(Data),
     ok.
