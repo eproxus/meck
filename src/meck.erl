@@ -83,7 +83,7 @@ new(Mod) when is_list(Mod) -> [new(M) || M <- Mod], ok.
 %% function links a process for each mock to the calling process.
 -spec new(Mod:: atom() | list(atom()), Options::list(term())) -> ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
-    case start_link(Mod, Options) of
+    case start(Mod, Options) of
         {ok, _Pid} -> ok;
         {error, Reason} -> erlang:error(Reason)
     end;
@@ -277,8 +277,14 @@ exec(Mod, Func, Arity, Args) ->
 
 %% --- Process functions -------------------------------------------------------
 
-start_link(Mod, Options) ->
-    gen_server:start_link({local, proc_name(Mod)}, ?MODULE, [Mod, Options], []).
+start(Mod, Options) ->
+    case proplists:is_defined(no_link, Options) of
+        true  -> start(start, Mod, Options);
+        false -> start(start_link, Mod, Options)
+    end.
+
+start(Func, Mod, Options) ->
+    gen_server:Func({local, proc_name(Mod)}, ?MODULE, [Mod, Options], []).
 
 call(Mod, Msg) ->
     Name = proc_name(Mod),
@@ -329,7 +335,7 @@ change_expects(Op, Mod, Func, Value, Expects) ->
     NewExpects = Op(Expects, Func, Value),
     % only recompile if function was added or arity was changed
     case interface_equal(NewExpects, Expects) of
-        true  -> ok;          
+        true  -> ok;
         false -> compile_forms(to_forms(Mod, NewExpects))
     end,
     NewExpects.
@@ -396,7 +402,7 @@ is_local_function(Fun) ->
 handle_mock_exception(Mod, Func, Fun, Args) ->
     case Fun() of
         {exception, Class, Reason} ->
-            % exception created with the mock:exception function, 
+            % exception created with the mock:exception function,
             % do not invalidate Mod
             raise(Mod, Func, Args, Class, Reason);
         {passthrough, Args} ->
@@ -466,8 +472,6 @@ restore_original(Mod, {File, Data, Options}) ->
 
 get_cover_state(Module) -> get_cover_state(Module, cover:is_compiled(Module)).
 
-get_cover_state(_Module, false) ->
-    false;
 get_cover_state(Module, {file, File}) ->
     Data = atom_to_list(Module) ++ ".coverdata",
     ok = cover:export(Data, Module),
@@ -477,7 +481,9 @@ get_cover_state(Module, {file, File}) ->
         catch
             throw:{object_code_not_found, _Module} -> []
         end,
-    {File, Data, CompileOptions}.
+    {File, Data, CompileOptions};
+get_cover_state(_Module, _IsCompiled) ->
+    false.
 
 exists(Module) ->
     code:which(Module) /= non_existing.
@@ -487,7 +493,7 @@ exports(Module) ->
              FA /= {module_info, 0}, FA /= {module_info, 1}].
 
 compile_forms(AbsCode) -> compile_forms(AbsCode, []).
-    
+
 compile_forms(AbsCode, Opts) ->
     case compile:forms(AbsCode, Opts) of
         {ok, ModName, Binary} ->
