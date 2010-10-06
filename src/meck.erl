@@ -81,6 +81,15 @@ new(Mod) when is_list(Mod) -> [new(M) || M <- Mod], ok.
 %%
 %% Since this library is intended to use from test code, this
 %% function links a process for each mock to the calling process.
+%%
+%% The valid options are:
+%% <dl>
+%%   <dt>`passthrough'</dt><dd>Retains the original functions, if not
+%%                             mocked by meck.</dd>
+%%   <dt>`no_link'</dt>    <dd>Does not link the meck process to the caller
+%%                             process (needed for using meck in rpc calls).
+%%                         </dd>
+%% </dl>
 -spec new(Mod:: atom() | list(atom()), Options::list(term())) -> ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
     case start(Mod, Options) of
@@ -147,6 +156,8 @@ delete(Mod, Func, Arity) when is_list(Mod) ->
 %% This exception will get thrown without invalidating the mocked
 %% module. That is, the code using the mocked module is expected to
 %% handle this exception.
+%%
+%% <em>Note: this code should only be used inside an expect fun.</em>
 -spec exception(Class:: throw | error | exit, Reason::term()) -> no_return().
 exception(Class, Reason) when Class == throw; Class == error; Class == exit ->
     throw(mock_exception_fun(Class, Reason)).
@@ -156,6 +167,8 @@ exception(Class, Reason) when Class == throw; Class == error; Class == exit ->
 %%
 %% This call does not return, thus everything after this call inside
 %% an expectation fun will be ignored.
+%%
+%% <em>Note: this code should only be used inside an expect fun.</em>
 -spec passthrough(Args::list(term())) -> no_return().
 passthrough(Args) -> throw(passthrough_fun(Args)).
 
