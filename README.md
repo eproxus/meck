@@ -40,9 +40,9 @@ Here's an example of using meck in the Erlang shell:
                                       ok
                               end).
     ok
-    9> dog:jump(2).  
+    9> dog:jump(2).
     ok
-    10> catch dog:jump(5).                                            
+    10> catch dog:jump(5).
     {'EXIT',{too_high,[{meck,exec,4},
                        {dog,jump,[5]},
                        {erl_eval,do_apply,5},
@@ -59,14 +59,14 @@ Here's an example of using meck inside an EUnit test case:
         meck:new(library_module),
         meck:expect(library_module, fib, fun(8) -> 21 end),
         ?assertEqual(21, code_under_test:run(fib, 8)),
-        ?assert(meck:validate(library_module).
+        ?assert(meck:validate(library_module)).
 
 Pass-through in action:
 
     Eshell V5.7.5  (abort with ^G)
     1> code:unstick_mod(string).
     true
-    2> meck:new(string).   
+    2> meck:new(string).
     ok
     3> meck:expect(string, strip, fun(String) -> meck:passthrough([String]) end).
     ok
