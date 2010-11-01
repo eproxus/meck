@@ -506,7 +506,7 @@ remote_meck_test_() ->
 
 remote_setup() ->
     {ok, Hostname} = inet:gethostname(),
-    Myself = list_to_atom("meck_eunit_test@" ++ Hostname),
+    Myself = list_to_atom("meck_eunit_test"),
     net_kernel:start([Myself, shortnames]),
     {ok, Node} = slave:start_link(list_to_atom(Hostname), meck_remote_test,
                                   "-pa test"),
