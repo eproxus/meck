@@ -24,10 +24,13 @@
 -export([new/2]).
 -export([expect/3]).
 -export([expect/4]).
+-export([expect_times/4]).
+-export([expect_times/5]).
 -export([delete/3]).
 -export([exception/2]).
 -export([passthrough/1]).
 -export([history/1]).
+-export([expect_times_result/1]).
 -export([validate/1]).
 -export([unload/0]).
 -export([unload/1]).
@@ -40,6 +43,7 @@
 -export([terminate/2]).
 -export([code_change/3]).
 -export([exec/4]).
+-export([exec_times/5]).
 
 %% Types
 %% @type meck_mfa() = {Mod::atom(), Func::atom(), Args::list(term())}.
@@ -59,6 +63,7 @@
 %% Records
 -record(state, {mod :: atom(),
                 expects :: dict(),
+                expect_times :: dict(),
                 valid = true :: boolean(),
                 history = [] :: history(),
                 original :: term()}).
@@ -135,6 +140,46 @@ expect(Mod, Func, Arity, Result) when is_list(Mod) ->
     [expect(M, Func, Arity, Result) || M <- Mod],
     ok.
 
+
+%% @spec expect_times(Mod::atom() | list(atom()), Func::atom(),
+%%                    Times::non_neg_integer(), Expect::fun()) -> ok
+%% @doc Add expectation for `Times` calls to a function `Func'
+%%      to the mocked modules `Mod'.
+%%
+%% An expectation is a fun that is executed whenever the function
+%% `Func' is called.
+%%
+%% It affects the validation status of the mocked module(s). If an
+%% expectation is called with the wrong number of arguments or invalid
+%% arguments or the wrong number of times the mock module(s) is
+%% invalidated. It is also invalidated if an unexpected exception occurs.
+-spec expect_times(Mod::atom()| list(atom()), Func::atom(),
+                   Times::integer(), Expect::fun()) -> ok.
+expect_times(Mod, Func, Times, Expect)
+  when is_atom(Mod), is_atom(Func), is_integer(Times), is_function(Expect), Times >= 0 ->
+    call(Mod, {expect_times, Func, Times, Expect});
+expect_times(Mods, Func, Times, Expect) when is_list(Mods) ->
+    [expect_times(Mod, Func, Times, Expect) || Mod <- Mods],
+    ok.
+
+%% @spec expect_times(Mod::atom() | list(atom()), Func::atom(),
+%%                    Arity::pos_integer(),
+%%                    Times::non_neg_integer(), Result::term()) -> ok
+%% @doc Add expectation for `Times` calls to a function `Func'
+%%      to the mocked modules `Mod'. Calls to this function will result
+%%      in the value `Result'.
+%%
+%% @see expect_times/4.
+-spec expect_times(Mod::atom()| list(atom()), Func::atom(), Arity::integer(),
+                   Times::integer(), Result::term()) -> ok.
+expect_times(Mod, Func, Arity, Times, Result)
+  when is_atom(Mod), is_atom(Func), is_integer(Arity), is_integer(Times),
+       Arity >= 0,Times >= 0 ->
+    call(Mod, {expect_times, Func, Arity, Times, Result});
+expect_times(Mods, Func, Arity, Times, Result) when is_list(Mods) ->
+    [expect_times(Mod, Func, Arity, Times, Result) || Mod <- Mods],
+    ok.
+
 %% @spec delete(Mod:: atom() | list(atom()), Func::atom(),
 %%              Arity::pos_integer()) -> ok
 %% @doc Deletes an expectation.
@@ -197,6 +242,19 @@ validate(Mod) when is_list(Mod) ->
 -spec history(Mod::atom()) -> history().
 history(Mod) when is_atom(Mod) -> call(Mod, history).
 
+%% @spec expect_times_result(Mod::atom()) ->
+%%    list({{Mod::atom(), Arity::non_neg_integer()}, Times::integer()}).
+%% @doc Returns a list of tuples describing how many calls more were
+%%      expected to the corresponding function.
+%%
+%% When`Times` is 0 it means that there were the correct amount of calls to
+%% the function. A positive value means there were too few, while a negative
+%% value means there were too many calls.
+-spec expect_times_result(Mod::atom()) ->
+    list({{Mod::atom(), Arity::non_neg_integer()}, Times::integer()}).
+expect_times_result(Mod) when is_atom(Mod) ->
+    call(Mod, expect_times_result).
+
 %% @spec unload() -> list(atom())
 %% @doc Unloads all mocked modules from memory.
 %%
@@ -226,7 +284,8 @@ init([Mod, Options]) ->
     process_flag(trap_exit, true),
     Expects = init_expects(Mod, Options),
     compile_forms(to_forms(Mod, Expects)),
-    {ok, #state{mod = Mod, expects = Expects, original = Original}}.
+    {ok, #state{mod = Mod, expects = Expects, expect_times = dict:new(),
+                original = Original}}.
 
 %% @hidden
 handle_call({get_expect, Func, Arity}, _From, S) ->
@@ -239,17 +298,38 @@ handle_call({expect, Func, Arity, Result}, _From, S) ->
     NewExpects = store_expect(S#state.mod, Func, {anon, Arity, Result},
                               S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
+handle_call({expect_times, Func, Times, Expect}, _From, S) ->
+    {ok, NewExpects, NewExpectTimes} =
+        handle_expect_times(S#state.mod, Func, arity(Expect),
+                            Times, Expect,
+                            S#state.expects, S#state.expect_times),
+    {reply, ok, S#state{expect_times = NewExpectTimes, expects = NewExpects}};
+handle_call({expect_times, Func, Arity, Times, Result}, _From, S) ->
+    {ok, NewExpects, NewExpectTimes} =
+        handle_expect_times(S#state.mod, Func, Arity,
+                            Times, {anon, Result},
+                            S#state.expects, S#state.expect_times),
+    {reply, ok, S#state{expect_times = NewExpectTimes, expects = NewExpects}};
 handle_call({delete, Func, Arity}, _From, S) ->
     NewExpects = delete_expect(S#state.mod, Func, Arity, S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
 handle_call(history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
+handle_call(expect_times_result, _From, S) ->
+    {reply, dict:to_list(S#state.expect_times), S};
 handle_call({add_history, Item}, _From, S) ->
     {reply, ok, S#state{history = [Item| S#state.history]}};
+handle_call({exec_times, Func, Arity}, _From, S) ->
+    NewExpectTimes = increase_expect_times(Func, Arity, S#state.expect_times),
+    {reply, ok, S#state{expect_times = NewExpectTimes}};
 handle_call(invalidate, _From, S) ->
     {reply, ok, S#state{valid = false}};
 handle_call(validate, _From, S) ->
-    {reply, S#state.valid, S};
+    Valid = case S#state.valid of
+                true -> expect_times_all_zero(S#state.expect_times);
+                false -> false
+            end,
+    {reply, Valid, S};
 handle_call(stop, _From, S) ->
     {stop, normal, ok, S}.
 
@@ -283,6 +363,14 @@ exec(Mod, Func, Arity, Args) ->
         Class:Reason ->
             invalidate_and_raise(Mod, Func, Args, Class, Reason)
     end.
+
+%% @hidden
+exec_times(Mod, Func, Arity, {anon, Result}, _Args) ->
+    call(Mod, {exec_times, Func, Arity}),
+    Result;
+exec_times(Mod, Func, Arity, Expect, Args) ->
+    call(Mod, {exec_times, Func, Arity}),
+    apply(Expect, Args).
 
 %%==============================================================================
 %% Internal functions
@@ -365,6 +453,36 @@ e_delete(Expects, Func, Arity) ->
 interface_equal(NewExpects, OldExpects) ->
     dict:fetch_keys(NewExpects) == dict:fetch_keys(OldExpects).
 
+handle_expect_times(Mod, Func, Arity,
+                    Times, AbstractExpect,
+                    Expects, ExpectTimes) ->
+    ExpectWrap = expect_times_wrapper(Mod, Func, Arity, AbstractExpect),
+    NewExpects = store_expect(Mod, Func, ExpectWrap, Expects),
+    NewExpectTimes = store_expect_times(Func, Arity,
+                                        Times, ExpectTimes),
+    {ok, NewExpects, NewExpectTimes}.
+
+store_expect_times(Func, Arity, Times, ExpectTimes) ->
+    dict:store({Func, Arity}, Times, ExpectTimes).
+
+increase_expect_times(Func, Arity, ExpectTimes) ->
+    Times = dict:fetch({Func, Arity}, ExpectTimes),
+    dict:store({Func, Arity}, Times - 1, ExpectTimes).
+
+expect_times_all_zero(ExpectTimes) ->
+    F = fun(K, V, Acc) ->
+            if V == 0 -> Acc;
+               true ->
+                   if is_list(Acc) -> [K | Acc];
+                      true -> [K]
+                   end
+            end
+        end,
+    case dict:fold(F, true, ExpectTimes) of
+        true -> true;
+        _ -> false
+    end.
+
 %% --- Code generation ---------------------------------------------------------
 
 func(Mod, {Func, Arity}) ->
@@ -405,6 +523,48 @@ attribute(Attribute, Args) -> {attribute, ?LINE, Attribute, Args}.
 atom(Atom) when is_atom(Atom) -> {atom, ?LINE, Atom}.
 
 integer(Integer) when is_integer(Integer) -> {integer, ?LINE, Integer}.
+
+-define(N_ARGS(Args), [{var, ?LINE, Arg} || Arg <- Args]).
+
+expect_times_wrapper(Mod, Func, Arity, Expect) when is_function(Expect) ->
+    expect_times_wrapper1(Mod, Func, Arity, Expect);
+expect_times_wrapper(Mod, Func, Arity, {anon, Result}) ->
+    expect_times_wrapper1(Mod, Func, Arity, {anon, Result}).
+
+expect_times_wrapper1(Mod, Func, Arity, Expect) ->
+    % Generate a function object with a given arity
+    Args = [list_to_atom([$A | integer_to_list(N)]) || N <- range(Arity)],
+    MetaCode = [{'fun', ?LINE,
+                 {clauses,
+                  [{clause, ?LINE,
+                    ?N_ARGS(Args),
+                    [],
+                    [{call, ?LINE,
+                      {remote, ?LINE,
+                       {atom, ?LINE, ?MODULE},
+                       {atom, ?LINE, exec_times}},
+                      [{atom, ?LINE, Mod},
+                       {atom, ?LINE, Func},
+                       {integer, ?LINE, Arity},
+                       {var, ?LINE, 'Expect'},
+                       list_to_linked_cons(?N_ARGS(Args), ?LINE)]}]}]}}],
+    Bindings = erl_eval:add_binding('Expect', Expect,
+        erl_eval:bindings(erl_eval:new_bindings())),
+    {value, F, _} = erl_eval:exprs(MetaCode, Bindings),
+    F.
+
+list_to_linked_cons(List, Line) ->
+    lists:foldr(fun(El, In) ->
+                    {cons, Line, El, In}
+                end, {nil, Line}, List).
+
+range(Num) ->
+    range1(1, 1 + Num).
+
+range1(I, Num) when I < Num ->
+    [I | range1(I + 1, Num)];
+range1(_, _) ->
+    [].
 
 %% --- Execution utilities -----------------------------------------------------
 

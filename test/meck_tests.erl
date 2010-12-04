@@ -27,6 +27,12 @@ meck_test_() ->
                            fun double_new_/1,
                            fun validate_/1,
                            fun expect_/1,
+                           fun expect_times_/1,
+                           fun expect_times_arity_/1,
+                           fun expect_times_fail_lack_/1,
+                           fun expect_times_fail_exceed_/1,
+                           fun expect_times_arity_fail_/1,
+                           fun expect_times_many_result_/1,
                            fun exports_/1,
                            fun call_return_value_/1,
                            fun call_argument_/1,
@@ -87,6 +93,53 @@ validate_(Mod) ->
 expect_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> ok end),
     ?assertEqual(true, meck:validate(Mod)).
+
+expect_times_(Mod) ->
+    ok = meck:expect_times(Mod, test, 2, fun(X, Y) -> {banan, X * Y} end),
+    ?assertEqual({banan, 110}, Mod:test(10, 11)),
+    ?assertEqual({banan, 126}, Mod:test(42, 3)),
+    ?assertEqual(true, meck:validate(Mod)),
+    ?assertEqual([{{test, 2}, 0}], meck:expect_times_result(Mod)).
+
+expect_times_arity_(Mod) ->
+    ok = meck:expect_times(Mod, test, 1, 2, foo),
+    ?assertEqual(foo, Mod:test(bar)),
+    ?assertEqual(foo, Mod:test(baz)),
+    ?assertEqual(true, meck:validate(Mod)),
+    ?assertEqual([{{test, 1}, 0}], meck:expect_times_result(Mod)).
+
+expect_times_fail_lack_(Mod) ->
+    ok = meck:expect_times(Mod, test, 3, fun(N) -> {banan, N + 1000} end),
+    ?assertEqual({banan, 1001}, Mod:test(1)),
+    ?assertEqual({banan, 1042}, Mod:test(42)),
+    ?assertEqual(false, meck:validate(Mod)),
+    ?assertEqual([{{test, 1}, 1}], meck:expect_times_result(Mod)).
+
+expect_times_fail_exceed_(Mod) ->
+    ok = meck:expect_times(Mod, test, 1, fun(N) -> {banan, N + 1000} end),
+    ?assertEqual({banan, 1001}, Mod:test(1)),
+    ?assertEqual({banan, 1042}, Mod:test(42)),
+    ?assertEqual(false, meck:validate(Mod)),
+    ?assertEqual([{{test, 1}, -1}], meck:expect_times_result(Mod)).
+
+expect_times_arity_fail_(Mod) ->
+    ok = meck:expect_times(Mod, test, 1, 3, foo),
+    ?assertEqual(foo, Mod:test(bar)),
+    ?assertEqual(foo, Mod:test(baz)),
+    ?assertEqual(false, meck:validate(Mod)),
+    ?assertEqual([{{test, 1}, 1}], meck:expect_times_result(Mod)).
+
+expect_times_many_result_(Mod) ->
+    ok = meck:expect_times(Mod, test1, 1, 1, foo),
+    ok = meck:expect_times(Mod, test2, 1, 2, bar),
+    ?assertEqual(foo, Mod:test1(baz)),
+    ?assertEqual(bar, Mod:test2(bunny)),
+    ?assertEqual(bar, Mod:test2(rabbit)),
+    ?assertEqual(true, meck:validate(Mod)),
+    Result = meck:expect_times_result(Mod),
+    ?assertEqual(2, length(Result)),
+    ?assert(lists:member({{test1, 1}, 0}, Result)),
+    ?assert(lists:member({{test2, 1}, 0}, Result)).
 
 exports_(Mod) ->
     ok = meck:expect(Mod, test1, fun() -> ok end),
