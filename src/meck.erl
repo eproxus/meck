@@ -24,8 +24,7 @@
 -export([new/2]).
 -export([expect/3]).
 -export([expect/4]).
--export([expect_times/4]).
--export([expect_times/5]).
+-export([expect/5]).
 -export([delete/3]).
 -export([exception/2]).
 -export([passthrough/1]).
@@ -67,6 +66,27 @@
                 valid = true :: boolean(),
                 history = [] :: history(),
                 original :: term()}).
+
+%% @type times_option() = {times, Num::non_neg_integer()} |
+%%                        {times_min, Min::non_neg_integer()} |
+%%                        {times_max, Max::non_neg_integer()} |
+%%                        {times_between,
+%%                         BMin::non_neg_integer(), BMax::non_neg_integer()}.
+%% Time option specifies call constraints, such as maximum allowed number of
+%% calls or specific number of allowed calls.
+-type times_option() :: {times, Num::non_neg_integer()} |
+                        {times_min, Min::non_neg_integer()} |
+                        {times_max, Max::non_neg_integer()} |
+                        {times_between,
+                         BMin::non_neg_integer(), BMax::non_neg_integer()}.
+
+ %% @type options() = list(times_option()).
+ %%
+ %% Options to expect calls.
+-type options() :: [times_option()].
+
+%% Internal options representation.
+-record(options, {times :: undefined | times_option()}).
 
 %%==============================================================================
 %% Interface exports
@@ -117,77 +137,104 @@ new(Mod, Options) when is_list(Mod) ->
 %% an unexpected exception occurs.
 -spec expect(Mod:: atom() | list(atom()), Func::atom(), Expect::fun()) -> ok.
 expect(Mod, Func, Expect)
-  when is_atom(Mod), is_atom(Func), is_function(Expect) ->
-    call(Mod, {expect, Func, Expect});
-expect(Mod, Func, Expect) when is_list(Mod) ->
-    [expect(M, Func, Expect) || M <- Mod],
-    ok.
+  when (is_list(Mod) or is_atom(Mod)), is_atom(Func), is_function(Expect) ->
+    expect(Mod, Func, Expect, []).
 
 %% @spec expect(Mod:: atom() | list(atom()), Func::atom(),
-%%              Arity::pos_integer(), Result::term()) -> ok
-%% @doc Adds an expectation with the supplied arity and return value.
+%%              ExpectOrArity, OptionsOrResult) -> ok
+%%       ExpectOrArity = Expect | Arity
+%%       Expect = fun()
+%%       Arity = non_neg_integer()
+%%       OptionsOrResult = Options | Result
+%%       Options = options()
+%%       Result = term()
+%% @doc Adds an expectation.
 %%
-%% This creates an expectation which takes `Arity' number of functions
-%% and always returns `Result'.
+%% If this function is called with `ExpectOrArity' and `OptionsOrResult' as
+%% `Expect' and `Options' respectively, then an expectation will be added for
+%% `Func' as in expect/3 given extra options. If the options are invalid, a
+%% `badarg' error will be thrown.
+%%
+%% If this function instead is called `Arity' and `Result' respectively then
+%% this function would create an expectation which takes `Arity' number of
+%% arguments and always returns `Result'.
+%%
+%% Available `Options' are:
+%% <dl>
+%%   <dt>`{times, Num}'</dt>
+%%   <dd>Expects `Num' calls to the function specified. If the number of
+%%       calls exceed this number, an error will be raised (`times_exceeded')
+%%       and the module will be invalidated. Calling too few times also
+%%       invalidates the module.</dd>
+%%
+%%   <dt>`{times_min, Min}'</dt>
+%%   <dd>Expects at least `Min' number of calls. If the function was called too
+%%       few times, the module will be invalidated.</dd>
+%%
+%%   <dt>`{times_min, Max}'</dt>
+%%   <dd>Expects maximum `Max` number of calls. If the number of calls exceed
+%%       `Max' an exception will be raised (`times_exceeded') and the module
+%%       will be invalidaed.</dd>
+%%
+%%   <dt>`{times_between, BMin, BMax}'</dt>
+%%   <dd>Expects at least `BMin' and at most `BMax` calls to the function. If
+%%       the number of calls exceed `BMax` an error will be raised
+%%       (`times_exceeded') and the module will be invalidated. If the number
+%%       of calls deceed `BMin' the module will also be invalidated.</dd>
+%% </dl>
 %%
 %% @see expect/3.
 -spec expect(Mod:: atom() | list(atom()), Func::atom(),
-             Arity::pos_integer(), Result::term()) -> ok.
+             ExpectOrArity:: fun() | non_neg_integer(),
+             OptionsOrResult:: options() | term()) -> ok.
+expect(Mod, Func, Expect, Options)
+  when is_atom(Mod), is_atom(Func), is_function(Expect), is_list(Options) ->
+    OptionsRecord = process_options(Options),
+    call(Mod, {expect, Func, Expect, OptionsRecord});
 expect(Mod, Func, Arity, Result)
+  when (is_list(Mod) or is_atom(Mod)), is_atom(Func),
+        is_integer(Arity), Arity >= 0 ->
+    expect(Mod, Func, Arity, Result, []);
+expect(Mod, Func, ExpectOrArity, OptionsOrResult) when is_list(Mod) ->
+    [expect(M, Func, ExpectOrArity, OptionsOrResult) || M <- Mod],
+    ok.
+
+%% @spec expect(Mod:: atom() | list(atom()), Func::atom(),
+%%              Arity::non_neg_integer(), Result::term(),
+%%              Options::options) -> ok
+%% @doc Adds an expectation with the supplied arity and return value.
+%%
+%% If this function is called with `ExpectOrArity' and `OptionsOrResult' as
+%% `Expect' and `Options' respectively, then an expectation will be added for
+%% `Func' as in expect/3 given extra options. If the options are invalid, a
+%% `badarg' error will be thrown.
+%%
+%% This function creates an expectation which takes `Arity' number of
+%% arguments and always returns `Result', given the options `Options'. If the
+%% options are invalid, an error `badarg' will be thrown.
+%%
+%% For available options see `expect/4'.
+%%
+%% @see expect/4.
+-spec expect(Mod:: atom() | list(atom()), Func::atom(),
+             Arity::non_neg_integer(), Result::term(),
+             Options::options()) -> ok.
+expect(Mod, Func, Arity, Result, Options)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
-    call(Mod, {expect, Func, Arity, Result});
-expect(Mod, Func, Arity, Result) when is_list(Mod) ->
-    [expect(M, Func, Arity, Result) || M <- Mod],
-    ok.
-
-
-%% @spec expect_times(Mod::atom() | list(atom()), Func::atom(),
-%%                    Times::non_neg_integer(), Expect::fun()) -> ok
-%% @doc Add expectation for `Times` calls to a function `Func'
-%%      to the mocked modules `Mod'.
-%%
-%% An expectation is a fun that is executed whenever the function
-%% `Func' is called.
-%%
-%% It affects the validation status of the mocked module(s). If an
-%% expectation is called with the wrong number of arguments or invalid
-%% arguments or the wrong number of times the mock module(s) is
-%% invalidated. It is also invalidated if an unexpected exception occurs.
--spec expect_times(Mod::atom()| list(atom()), Func::atom(),
-                   Times::integer(), Expect::fun()) -> ok.
-expect_times(Mod, Func, Times, Expect)
-  when is_atom(Mod), is_atom(Func), is_integer(Times), is_function(Expect), Times >= 0 ->
-    call(Mod, {expect_times, Func, Times, Expect});
-expect_times(Mods, Func, Times, Expect) when is_list(Mods) ->
-    [expect_times(Mod, Func, Times, Expect) || Mod <- Mods],
-    ok.
-
-%% @spec expect_times(Mod::atom() | list(atom()), Func::atom(),
-%%                    Arity::pos_integer(),
-%%                    Times::non_neg_integer(), Result::term()) -> ok
-%% @doc Add expectation for `Times` calls to a function `Func'
-%%      to the mocked modules `Mod'. Calls to this function will result
-%%      in the value `Result'.
-%%
-%% @see expect_times/4.
--spec expect_times(Mod::atom()| list(atom()), Func::atom(), Arity::integer(),
-                   Times::integer(), Result::term()) -> ok.
-expect_times(Mod, Func, Arity, Times, Result)
-  when is_atom(Mod), is_atom(Func), is_integer(Arity), is_integer(Times),
-       Arity >= 0,Times >= 0 ->
-    call(Mod, {expect_times, Func, Arity, Times, Result});
-expect_times(Mods, Func, Arity, Times, Result) when is_list(Mods) ->
-    [expect_times(Mod, Func, Arity, Times, Result) || Mod <- Mods],
+    OptionsRecord = process_options(Options),
+    call(Mod, {expect, Func, Arity, Result, OptionsRecord});
+expect(Mod, Func, Arity, Result, Options) when is_list(Mod) ->
+    [expect(M, Func, Arity, Result, Options) || M <- Mod],
     ok.
 
 %% @spec delete(Mod:: atom() | list(atom()), Func::atom(),
-%%              Arity::pos_integer()) -> ok
+%%              Arity::non_neg_integer()) -> ok
 %% @doc Deletes an expectation.
 %%
 %% Deletes the expectation for the function `Func' with the matching
 %% arity `Arity'.
--spec delete(Mod:: atom() | list(atom()), Func::atom(), Arity::pos_integer()) ->
-    ok.
+-spec delete(Mod:: atom() | list(atom()), Func::atom(),
+             Arity::non_neg_integer()) -> ok.
 delete(Mod, Func, Arity)
   when is_atom(Mod), is_atom(Func), Arity >= 0 ->
     call(Mod, {delete, Func, Arity});
@@ -243,15 +290,13 @@ validate(Mod) when is_list(Mod) ->
 history(Mod) when is_atom(Mod) -> call(Mod, history).
 
 %% @spec expect_times_result(Mod::atom()) ->
-%%    list({{Mod::atom(), Arity::non_neg_integer()}, Times::integer()}).
-%% @doc Returns a list of tuples describing how many calls more were
-%%      expected to the corresponding function.
-%%
-%% When`Times` is 0 it means that there were the correct amount of calls to
-%% the function. A positive value means there were too few, while a negative
-%% value means there were too many calls.
+%%    [{{Mod::atom(), Arity::non_neg_integer()},
+%%      {TimesOption::times_option(), Calls::non_neg_integer()}}]
+%% @doc Returns a list of expectations, their call count constraint
+%%      configuration and the number of times they were called.
 -spec expect_times_result(Mod::atom()) ->
-    list({{Mod::atom(), Arity::non_neg_integer()}, Times::integer()}).
+    [{{Mod::atom(), Arity::non_neg_integer()},
+      {TimesOption::times_option(), Calls::non_neg_integer()}}].
 expect_times_result(Mod) when is_atom(Mod) ->
     call(Mod, expect_times_result).
 
@@ -291,24 +336,17 @@ init([Mod, Options]) ->
 handle_call({get_expect, Func, Arity}, _From, S) ->
     Expect = get_expect(S#state.expects, Func, Arity),
     {reply, Expect, S};
-handle_call({expect, Func, Expect}, _From, S) ->
-    NewExpects = store_expect(S#state.mod, Func, Expect, S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
-handle_call({expect, Func, Arity, Result}, _From, S) ->
-    NewExpects = store_expect(S#state.mod, Func, {anon, Arity, Result},
-                              S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
-handle_call({expect_times, Func, Times, Expect}, _From, S) ->
-    {ok, NewExpects, NewExpectTimes} =
-        handle_expect_times(S#state.mod, Func, arity(Expect),
-                            Times, Expect,
-                            S#state.expects, S#state.expect_times),
+handle_call({expect, Func, Expect, Options}, _From, S) ->
+    {ok, ExpectWrap, NewExpectTimes} =
+        handle_expect_times(S#state.mod, Func, arity(Expect), Expect,
+                            S#state.expect_times, Options),
+    NewExpects = store_expect(S#state.mod, Func, ExpectWrap, S#state.expects),
     {reply, ok, S#state{expect_times = NewExpectTimes, expects = NewExpects}};
-handle_call({expect_times, Func, Arity, Times, Result}, _From, S) ->
-    {ok, NewExpects, NewExpectTimes} =
-        handle_expect_times(S#state.mod, Func, Arity,
-                            Times, {anon, Result},
-                            S#state.expects, S#state.expect_times),
+handle_call({expect, Func, Arity, Result, Options}, _From, S) ->
+    {ok, ExpectWrap, NewExpectTimes} =
+        handle_expect_times(S#state.mod, Func, Arity, {anon, Arity, Result},
+                            S#state.expect_times, Options),
+    NewExpects = store_expect(S#state.mod, Func, ExpectWrap, S#state.expects),
     {reply, ok, S#state{expect_times = NewExpectTimes, expects = NewExpects}};
 handle_call({delete, Func, Arity}, _From, S) ->
     NewExpects = delete_expect(S#state.mod, Func, Arity, S#state.expects),
@@ -320,13 +358,17 @@ handle_call(expect_times_result, _From, S) ->
 handle_call({add_history, Item}, _From, S) ->
     {reply, ok, S#state{history = [Item| S#state.history]}};
 handle_call({exec_times, Func, Arity}, _From, S) ->
-    NewExpectTimes = increase_expect_times(Func, Arity, S#state.expect_times),
-    {reply, ok, S#state{expect_times = NewExpectTimes}};
+    Response = case process_expect_times_call(Func, Arity,
+                                              S#state.expect_times) of
+        {ok, NewExpectTimes}            -> ok;
+        {error, Reason, NewExpectTimes} -> {error, Reason}
+    end,
+    {reply, Response, S#state{expect_times = NewExpectTimes}};
 handle_call(invalidate, _From, S) ->
     {reply, ok, S#state{valid = false}};
 handle_call(validate, _From, S) ->
     Valid = case S#state.valid of
-                true -> expect_times_all_zero(S#state.expect_times);
+                true  -> validate_expect_times(S#state.expect_times);
                 false -> false
             end,
     {reply, Valid, S};
@@ -365,12 +407,16 @@ exec(Mod, Func, Arity, Args) ->
     end.
 
 %% @hidden
-exec_times(Mod, Func, Arity, {anon, Result}, _Args) ->
-    call(Mod, {exec_times, Func, Arity}),
-    Result;
 exec_times(Mod, Func, Arity, Expect, Args) ->
-    call(Mod, {exec_times, Func, Arity}),
-    apply(Expect, Args).
+    case call(Mod, {exec_times, Func, Arity}) of
+        ok              -> ok;
+        {error, Reason} -> invalidate_and_raise(Mod, Func, Args, error, Reason)
+    end,
+
+    case Expect of
+        {anon, _, Result} -> Result;
+        _                 -> apply(Expect, Args)
+    end.
 
 %%==============================================================================
 %% Internal functions
@@ -453,35 +499,102 @@ e_delete(Expects, Func, Arity) ->
 interface_equal(NewExpects, OldExpects) ->
     dict:fetch_keys(NewExpects) == dict:fetch_keys(OldExpects).
 
-handle_expect_times(Mod, Func, Arity,
-                    Times, AbstractExpect,
-                    Expects, ExpectTimes) ->
-    ExpectWrap = expect_times_wrapper(Mod, Func, Arity, AbstractExpect),
-    NewExpects = store_expect(Mod, Func, ExpectWrap, Expects),
-    NewExpectTimes = store_expect_times(Func, Arity,
-                                        Times, ExpectTimes),
-    {ok, NewExpects, NewExpectTimes}.
+%% --- Options -----------------------------------------------------------------
 
-store_expect_times(Func, Arity, Times, ExpectTimes) ->
-    dict:store({Func, Arity}, Times, ExpectTimes).
+-define(OPTION_PROCESSORS, [fun process_times_option/2]).
 
-increase_expect_times(Func, Arity, ExpectTimes) ->
-    Times = dict:fetch({Func, Arity}, ExpectTimes),
-    dict:store({Func, Arity}, Times - 1, ExpectTimes).
+process_options(Options) ->
+    F = fun(Option, Record) ->
+            process_option(Option, Record, ?OPTION_PROCESSORS)
+        end,
+    lists:foldl(F, #options{}, Options).
 
-expect_times_all_zero(ExpectTimes) ->
-    F = fun(K, V, Acc) ->
-            if V == 0 -> Acc;
-               true ->
-                   if is_list(Acc) -> [K | Acc];
-                      true -> [K]
-                   end
+process_option(Option, Record, [P | Ps]) ->
+    case P(Option, Record) of
+        false when Ps =:= [] -> erlang:error(badarg);
+        false                -> process_option(Option, Record, Ps);
+        RecordOut            -> RecordOut
+    end.
+
+%% --- Call constraints --------------------------------------------------------
+
+-define(TIMES_OPTIONS, [times, times_max, times_min, times_between]).
+
+process_times_option(Option, #options{times = Times}) when is_tuple(Option) ->
+    case {lists:member(element(1, Option), ?TIMES_OPTIONS), Times} of
+        {true, undefined} ->
+            Valid = case Option of
+                {times, N} when is_integer(N), N >= 0           -> true;
+                {times_max, Max} when is_integer(Max), Max >= 0 -> true;
+                {times_min, Min} when is_integer(Min), Min >= 0 -> true;
+                {times_between, BMin, BMax}
+                  when is_integer(BMax), BMax >= 0,
+                       is_integer(BMin), BMin >= 0,
+                       BMax >= BMin                             -> true;
+                _                                               -> false
+            end,
+            if Valid -> #options{times = Option};
+               true  -> false
+            end;
+        {true, _} ->
+            erlang:error(badarg);
+        _ ->
+            false
+    end;
+process_times_option(_, _) ->
+    false.
+
+handle_expect_times(Mod, Func, Arity, AbstractExpect,
+                    ExpectTimes, Options) ->
+    case Options of
+        #options{times = TimesOption} when is_tuple(TimesOption) ->
+            ExpectWrap = expect_times_wrapper(Mod, Func, Arity, AbstractExpect),
+            NewExpectTimes = store_expect_times(Func, Arity,
+                                                TimesOption, ExpectTimes),
+            {ok, ExpectWrap, NewExpectTimes};
+        _ ->
+            {ok, AbstractExpect, ExpectTimes}
+    end.
+
+store_expect_times(Func, Arity, TimesOpt, ExpectTimes) ->
+    dict:store({Func, Arity}, {TimesOpt, 0}, ExpectTimes).
+
+process_expect_times_call(Func, Arity, ExpectTimes) ->
+    {TimesOpt, OldCount} = dict:fetch({Func, Arity}, ExpectTimes),
+    Count = OldCount + 1,
+    NewExpectTimes = dict:store({Func, Arity}, {TimesOpt, Count},
+                                ExpectTimes),
+    case TimesOpt of
+        {times, N} when Count > N ->
+            {error, times_exceeded, NewExpectTimes};
+        {times_max, Max} when Count > Max ->
+            {error, times_exceeded, NewExpectTimes};
+        {times_between, _, BMax} when Count > BMax ->
+            {error, times_exceeded, NewExpectTimes};
+        _ ->
+            {ok, NewExpectTimes}
+    end.
+
+validate_expect_times(ExpectTimes) ->
+    F = fun(_K, V, Acc) ->
+            if
+                Acc ->
+                    case V of
+                        {{times, N1}, N2} when N1 /= N2 ->
+                            false;
+                        {{times_min, Min}, N2} when Min > N2 ->
+                            false;
+                        {{times_between, BMin, _BMax}, N3} when BMin > N3 ->
+                            false;
+                        _ ->
+                            true
+                    end;
+                true ->
+                    Acc
             end
         end,
-    case dict:fold(F, true, ExpectTimes) of
-        true -> true;
-        _ -> false
-    end.
+
+    dict:fold(F, true, ExpectTimes).
 
 %% --- Code generation ---------------------------------------------------------
 
@@ -526,12 +639,7 @@ integer(Integer) when is_integer(Integer) -> {integer, ?LINE, Integer}.
 
 -define(N_ARGS(Args), [{var, ?LINE, Arg} || Arg <- Args]).
 
-expect_times_wrapper(Mod, Func, Arity, Expect) when is_function(Expect) ->
-    expect_times_wrapper1(Mod, Func, Arity, Expect);
-expect_times_wrapper(Mod, Func, Arity, {anon, Result}) ->
-    expect_times_wrapper1(Mod, Func, Arity, {anon, Result}).
-
-expect_times_wrapper1(Mod, Func, Arity, Expect) ->
+expect_times_wrapper(Mod, Func, Arity, Expect) ->
     % Generate a function object with a given arity
     Args = [list_to_atom([$A | integer_to_list(N)]) || N <- range(Arity)],
     MetaCode = [{'fun', ?LINE,
