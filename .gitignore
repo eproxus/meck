@@ -5,3 +5,4 @@
 doc
 ebin
 .eunit
+.DS_Store
