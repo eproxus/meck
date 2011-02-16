@@ -505,6 +505,7 @@ remote_meck_test_() ->
                            fun remote_meck_cover_/1]]}.
 
 remote_setup() ->
+    [] = os:cmd("epmd -daemon"),
     {ok, Hostname} = inet:gethostname(),
     Myself = list_to_atom("meck_eunit_test@" ++ Hostname),
     net_kernel:start([Myself, shortnames]),
