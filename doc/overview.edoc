@@ -14,7 +14,8 @@
 %% limitations under the License.
 %%==============================================================================
 
-@copyright 2010 Erlang Solutions Ltd.
+@author Adam Lindberg <eproxus@gmail.com>
+@copyright 2011, Adam Lindberg & Erlang Solutions Ltd
 @version 0.1
 @title meck, a Mocking Library for Erlang
 

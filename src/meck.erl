@@ -14,6 +14,8 @@
 %% limitations under the License.
 %%==============================================================================
 
+%% @author Adam Lindberg <eproxus@gmail.com>
+%% @copyright 2011, Adam Lindberg & Erlang Solutions Ltd
 %% @doc Module mocking library for Erlang.
 
 -module(meck).
