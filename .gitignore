@@ -2,7 +2,10 @@
 *.log
 *.dump
 *.coverdata
-doc
+doc/*.html
+doc/*.css
+doc/*.png
+doc/edoc-info
 ebin
 .eunit
 .DS_Store
