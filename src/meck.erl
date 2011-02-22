@@ -46,7 +46,7 @@
 %% Types
 %% @type meck_mfa() = {Mod::atom(), Func::atom(), Args::list(term())}.
 %% Module, function and arguments that the mock module got called with.
--type meck_mfa() :: {Mod::atom(), Func::atom(), Args::list(term())}.
+-type meck_mfa() :: {Mod::atom(), Func::atom(), Args::[term()]}.
 
 %% @type history() = [{meck_mfa(), Result::term()}
 %%                     | {meck_mfa(), Class:: exit | error | throw,
@@ -56,7 +56,7 @@
 %% with a type, reason and a stack trace.
 -type history() :: [{meck_mfa(), Result::term()}
                     | {meck_mfa(), Class:: exit | error | throw,
-                       Reason::term(), Stacktrace::list(mfa())}].
+                       Reason::term(), Stacktrace::[mfa()]}].
 
 %% Records
 -record(state, {mod :: atom(),
@@ -71,7 +71,7 @@
 
 %% @spec new(Mod:: atom() | list(atom())) -> ok
 %% @equiv new(Mod, [])
--spec new(Mod:: atom() | list(atom())) -> ok.
+-spec new(Mod:: atom() | [atom()]) -> ok.
 new(Mod) when is_atom(Mod) -> new(Mod, []);
 new(Mod) when is_list(Mod) -> [new(M) || M <- Mod], ok.
 
@@ -92,7 +92,7 @@ new(Mod) when is_list(Mod) -> [new(M) || M <- Mod], ok.
 %%                             process (needed for using meck in rpc calls).
 %%                         </dd>
 %% </dl>
--spec new(Mod:: atom() | list(atom()), Options::list(term())) -> ok.
+-spec new(Mod:: atom() | [atom()], Options::[term()]) -> ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
     case start(Mod, Options) of
         {ok, _Pid} -> ok;
@@ -112,7 +112,7 @@ new(Mod, Options) when is_list(Mod) ->
 %% expectation is called with the wrong number of arguments or invalid
 %% arguments the mock module(s) is invalidated. It is also invalidated if
 %% an unexpected exception occurs.
--spec expect(Mod:: atom() | list(atom()), Func::atom(), Expect::fun()) -> ok.
+-spec expect(Mod:: atom() | [atom()], Func::atom(), Expect::fun()) -> ok.
 expect(Mod, Func, Expect)
   when is_atom(Mod), is_atom(Func), is_function(Expect) ->
     call(Mod, {expect, Func, Expect});
@@ -128,7 +128,7 @@ expect(Mod, Func, Expect) when is_list(Mod) ->
 %% and always returns `Result'.
 %%
 %% @see expect/3.
--spec expect(Mod:: atom() | list(atom()), Func::atom(),
+-spec expect(Mod:: atom() | [atom()], Func::atom(),
              Arity::pos_integer(), Result::term()) -> ok.
 expect(Mod, Func, Arity, Result)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
@@ -143,7 +143,7 @@ expect(Mod, Func, Arity, Result) when is_list(Mod) ->
 %%
 %% Deletes the expectation for the function `Func' with the matching
 %% arity `Arity'.
--spec delete(Mod:: atom() | list(atom()), Func::atom(), Arity::pos_integer()) ->
+-spec delete(Mod:: atom() | [atom()], Func::atom(), Arity::pos_integer()) ->
     ok.
 delete(Mod, Func, Arity)
   when is_atom(Mod), is_atom(Func), Arity >= 0 ->
@@ -171,7 +171,7 @@ exception(Class, Reason) when Class == throw; Class == error; Class == exit ->
 %% an expectation fun will be ignored.
 %%
 %% <em>Note: this code should only be used inside an expect fun.</em>
--spec passthrough(Args::list(term())) -> no_return().
+-spec passthrough(Args::[term()]) -> no_return().
 passthrough(Args) -> throw(passthrough_fun(Args)).
 
 %% @spec validate(Mod:: atom() | list(atom())) -> boolean()
@@ -184,7 +184,7 @@ passthrough(Args) -> throw(passthrough_fun(Args)).
 %% (function clause) or unexpected exceptions.
 %%
 %% Use the {@link history/1} function to analyze errors.
--spec validate(Mod:: atom() | list(atom())) -> boolean().
+-spec validate(Mod:: atom() | [atom()]) -> boolean().
 validate(Mod) when is_atom(Mod) ->
     call(Mod, validate);
 validate(Mod) when is_list(Mod) ->
@@ -204,7 +204,7 @@ history(Mod) when is_atom(Mod) -> call(Mod, history).
 %%
 %% The function returns the list of mocked modules that were unloaded
 %% in the process.
--spec unload() -> list(atom()).
+-spec unload() -> [atom()].
 unload() -> lists:foldl(fun unload_if_mocked/2, [], registered()).
 
 %% @spec unload(Mod:: atom() | list(atom())) -> ok
@@ -214,7 +214,7 @@ unload() -> lists:foldl(fun unload_if_mocked/2, [], registered()).
 %% machine. If the mocked module(s) replaced an existing module, this
 %% module will still be in the Erlang load path and can be loaded
 %% manually or when called.
--spec unload(Mods:: atom() | list(atom())) -> ok.
+-spec unload(Mods:: atom() | [atom()]) -> ok.
 unload(Mod) when is_atom(Mod) -> call(Mod, stop), wait_for_exit(Mod);
 unload(Mods) when is_list(Mods) -> [unload(Mod) || Mod <- Mods], ok.
 
