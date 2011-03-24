@@ -33,6 +33,7 @@
 -export([validate/1]).
 -export([unload/0]).
 -export([unload/1]).
+-export([received/3]).
 
 %% Callback exports
 -export([init/1]).
@@ -218,6 +219,17 @@ unload() -> lists:foldl(fun unload_if_mocked/2, [], registered()).
 unload(Mod) when is_atom(Mod) -> call(Mod, stop), wait_for_exit(Mod);
 unload(Mods) when is_list(Mods) -> [unload(Mod) || Mod <- Mods], ok.
 
+%% @spec received(Mod:: atom(), Fun:: atom(), Arity:: int()) -> bool()
+%% @doc returns whether module receives function call with arguments.
+%%
+%% This will check the history for the module, Mod, to determine
+%% whether the function, Fun, was called with arguments, Args. If so,
+%% this function returns true, otherwise false.
+-spec received(Mod::atom(), Fun::atom(), Args::list()) -> boolean().
+received(Mod, Fun, Args) ->
+    History = meck:history(Mod),
+    has_call_info({Mod, Fun, Args}, History).
+
 %%==============================================================================
 %% Callback functions
 %%==============================================================================
@@ -327,6 +339,14 @@ unload_if_mocked(P, L) when length(P) > 5 ->
     end;
 unload_if_mocked(_P, L) ->
     L.
+
+has_call_info({_M, _F, _A}, []) -> false;
+has_call_info({M, F, A}, [{{M, F, A}, _Result} | _Rest]) ->
+    true;
+has_call_info({M, F, A}, [{{M, F, A}, _ExType, _Exception, _Stack} | _Rest]) ->
+    true;
+has_call_info({M, F, A}, [_Call | Rest]) ->
+    has_call_info({M, F, A}, Rest).
 
 %% --- Mock handling -----------------------------------------------------------
 

@@ -55,7 +55,16 @@ meck_test_() ->
                            fun shortcut_expect_negative_arity_/1,
                            fun shortcut_call_return_value_/1,
                            fun shortcut_call_argument_/1,
-                           fun delete_/1]]}.
+                           fun delete_/1,
+                           fun received_false_no_args_/1,
+                           fun received_true_no_args_/1,
+                           fun received_false_one_arg_/1,
+                           fun received_true_one_arg_/1,
+                           fun received_false_few_args_/1,
+                           fun received_true_few_args_/1,
+                           fun received_false_error_/1,
+                           fun received_true_error_/1
+                          ]]}.
 
 setup() ->
     % Uncomment to run tests with dbg:
@@ -281,6 +290,76 @@ delete_(Mod) ->
     ok = meck:expect(Mod, test, 2, ok),
     ?assertEqual(ok, meck:delete(Mod, test, 2)),
     ?assertError(undef, Mod:test(a, b)),
+    ?assert(meck:validate(Mod)).
+
+received_false_no_args_(Mod) ->
+    Args = [],
+    ok = meck:expect(Mod, test, length(Args), ok),
+    ?assertEqual(false, meck:received(Mod, test, Args)),
+    ?assert(meck:validate(Mod)).
+
+received_true_no_args_(Mod) ->
+    Args = [],
+    ok = meck:expect(Mod, test, length(Args), ok),
+    ok = Mod:test(),
+    ?assertEqual(true, meck:received(Mod, test, Args)),
+    ?assert(meck:validate(Mod)).
+
+received_false_one_arg_(Mod) ->
+    Arg = "hello",
+    Args = [Arg],
+    ok = meck:expect(Mod, test, length(Args), ok),
+    ?assertEqual(false, meck:received(Mod, test, [Arg])),
+    ?assert(meck:validate(Mod)).
+
+received_true_one_arg_(Mod) ->
+    Arg = "hello",
+    Args = [Arg],
+    ok = meck:expect(Mod, test, length(Args), ok),
+    ok = Mod:test(Arg),
+    ?assertEqual(true, meck:received(Mod, test, [Arg])),
+    ?assert(meck:validate(Mod)).
+
+received_false_few_args_(Mod) ->
+    Arg1 = one,
+    Arg2 = 2,
+    Arg3 = {three, 3},
+    Arg4 = "four",
+    Args = [Arg1, Arg2, Arg3, Arg4],
+    ok = meck:expect(Mod, test, length(Args), ok),
+    ?assertEqual(false, meck:received(Mod, test, Args)),
+    ?assert(meck:validate(Mod)).
+
+received_true_few_args_(Mod) ->
+    Arg1 = one,
+    Arg2 = 2,
+    Arg3 = {three, 3},
+    Arg4 = "four",
+    Args = [Arg1, Arg2, Arg3, Arg4],
+    ok = meck:expect(Mod, test, length(Args), ok),
+    ok = Mod:test(Arg1, Arg2, Arg3, Arg4),
+    ?assertEqual(true, meck:received(Mod, test, Args)),
+    ?assert(meck:validate(Mod)).
+
+received_false_error_(Mod) ->
+    Arg1 = one,
+    Arg2 = "two",
+    Arg3 = {3, 3},
+    Args = [Arg1, Arg2, Arg3],
+    TestFun = fun (_, _, _) -> meck:exception(error, my_error) end,
+    ok = meck:expect(Mod, test, TestFun),
+    ?assertEqual(false, meck:received(Mod, test, Args)),
+    ?assert(meck:validate(Mod)).
+
+received_true_error_(Mod) ->
+    Arg1 = one,
+    Arg2 = "two",
+    Arg3 = {3, 3},
+    Args = [Arg1, Arg2, Arg3],
+    TestFun = fun (_, _, _) -> meck:exception(error, my_error) end,
+    ok = meck:expect(Mod, test, TestFun),
+    catch Mod:test(Arg1, Arg2, Arg3),
+    ?assertEqual(true, meck:received(Mod, test, Args)),
     ?assert(meck:validate(Mod)).
 
 %% --- Tests with own setup ----------------------------------------------------
