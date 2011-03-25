@@ -295,21 +295,21 @@ delete_(Mod) ->
 received_false_no_args_(Mod) ->
     Args = [],
     ok = meck:expect(Mod, test, length(Args), ok),
-    ?assertEqual(false, meck:received(Mod, test, Args)),
+    ?assertEqual(false, meck:called(Mod, test, Args)),
     ?assert(meck:validate(Mod)).
 
 received_true_no_args_(Mod) ->
     Args = [],
     ok = meck:expect(Mod, test, length(Args), ok),
     ok = Mod:test(),
-    ?assertEqual(true, meck:received(Mod, test, Args)),
+    ?assertEqual(true, meck:called(Mod, test, Args)),
     ?assert(meck:validate(Mod)).
 
 received_false_one_arg_(Mod) ->
     Arg = "hello",
     Args = [Arg],
     ok = meck:expect(Mod, test, length(Args), ok),
-    ?assertEqual(false, meck:received(Mod, test, [Arg])),
+    ?assertEqual(false, meck:called(Mod, test, [Arg])),
     ?assert(meck:validate(Mod)).
 
 received_true_one_arg_(Mod) ->
@@ -317,7 +317,7 @@ received_true_one_arg_(Mod) ->
     Args = [Arg],
     ok = meck:expect(Mod, test, length(Args), ok),
     ok = Mod:test(Arg),
-    ?assertEqual(true, meck:received(Mod, test, [Arg])),
+    ?assertEqual(true, meck:called(Mod, test, [Arg])),
     ?assert(meck:validate(Mod)).
 
 received_false_few_args_(Mod) ->
@@ -327,7 +327,7 @@ received_false_few_args_(Mod) ->
     Arg4 = "four",
     Args = [Arg1, Arg2, Arg3, Arg4],
     ok = meck:expect(Mod, test, length(Args), ok),
-    ?assertEqual(false, meck:received(Mod, test, Args)),
+    ?assertEqual(false, meck:called(Mod, test, Args)),
     ?assert(meck:validate(Mod)).
 
 received_true_few_args_(Mod) ->
@@ -338,7 +338,7 @@ received_true_few_args_(Mod) ->
     Args = [Arg1, Arg2, Arg3, Arg4],
     ok = meck:expect(Mod, test, length(Args), ok),
     ok = Mod:test(Arg1, Arg2, Arg3, Arg4),
-    ?assertEqual(true, meck:received(Mod, test, Args)),
+    ?assertEqual(true, meck:called(Mod, test, Args)),
     ?assert(meck:validate(Mod)).
 
 received_false_error_(Mod) ->
@@ -348,7 +348,7 @@ received_false_error_(Mod) ->
     Args = [Arg1, Arg2, Arg3],
     TestFun = fun (_, _, _) -> meck:exception(error, my_error) end,
     ok = meck:expect(Mod, test, TestFun),
-    ?assertEqual(false, meck:received(Mod, test, Args)),
+    ?assertEqual(false, meck:called(Mod, test, Args)),
     ?assert(meck:validate(Mod)).
 
 received_true_error_(Mod) ->
@@ -359,7 +359,7 @@ received_true_error_(Mod) ->
     TestFun = fun (_, _, _) -> meck:exception(error, my_error) end,
     ok = meck:expect(Mod, test, TestFun),
     catch Mod:test(Arg1, Arg2, Arg3),
-    ?assertEqual(true, meck:received(Mod, test, Args)),
+    ?assertEqual(true, meck:called(Mod, test, Args)),
     ?assert(meck:validate(Mod)).
 
 %% --- Tests with own setup ----------------------------------------------------
