@@ -227,7 +227,7 @@ unload(Mods) when is_list(Mods) -> [unload(Mod) || Mod <- Mods], ok.
 %% this function returns true, otherwise false.
 -spec called(Mod::atom(), Fun::atom(), Args::list()) -> boolean().
 called(Mod, Fun, Args) ->
-    has_been_called({Mod, Fun, Args}, meck:history(Mod)).
+    has_call({Mod, Fun, Args}, meck:history(Mod)).
 
 %%==============================================================================
 %% Callback functions
@@ -339,13 +339,13 @@ unload_if_mocked(P, L) when length(P) > 5 ->
 unload_if_mocked(_P, L) ->
     L.
 
-has_been_called({_M, _F, _A}, []) -> false;
-has_been_called({M, F, A}, [{{M, F, A}, _Result} | _Rest]) ->
+has_call({_M, _F, _A}, []) -> false;
+has_call({M, F, A}, [{{M, F, A}, _Result} | _Rest]) ->
     true;
-has_been_called({M, F, A}, [{{M, F, A}, _ExType, _Exception, _Stack} | _Rest]) ->
+has_call({M, F, A}, [{{M, F, A}, _ExType, _Exception, _Stack} | _Rest]) ->
     true;
-has_been_called({M, F, A}, [_Call | Rest]) ->
-    has_been_called({M, F, A}, Rest).
+has_call({M, F, A}, [_Call | Rest]) ->
+    has_call({M, F, A}, Rest).
 
 %% --- Mock handling -----------------------------------------------------------
 
