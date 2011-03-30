@@ -339,14 +339,6 @@ unload_if_mocked(P, L) when length(P) > 5 ->
 unload_if_mocked(_P, L) ->
     L.
 
-has_call({_M, _F, _A}, []) -> false;
-has_call({M, F, A}, [{{M, F, A}, _Result} | _Rest]) ->
-    true;
-has_call({M, F, A}, [{{M, F, A}, _ExType, _Exception, _Stack} | _Rest]) ->
-    true;
-has_call({M, F, A}, [_Call | Rest]) ->
-    has_call({M, F, A}, Rest).
-
 %% --- Mock handling -----------------------------------------------------------
 
 init_expects(Mod, Options) ->
@@ -577,3 +569,13 @@ cleanup(Mod) ->
     code:delete(Mod),
     code:purge(original_name(Mod)),
     code:delete(original_name(Mod)).
+
+%% --- History utilities -------------------------------------------------------
+
+has_call({_M, _F, _A}, []) -> false;
+has_call({M, F, A}, [{{M, F, A}, _Result} | _Rest]) ->
+    true;
+has_call({M, F, A}, [{{M, F, A}, _ExType, _Exception, _Stack} | _Rest]) ->
+    true;
+has_call({M, F, A}, [_Call | Rest]) ->
+    has_call({M, F, A}, Rest).
