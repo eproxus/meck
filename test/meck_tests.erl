@@ -58,6 +58,7 @@ meck_test_() ->
                            fun delete_/1,
                            fun called_false_no_args_/1,
                            fun called_true_no_args_/1,
+                           fun called_true_two_functions_/1,
                            fun called_false_one_arg_/1,
                            fun called_true_one_arg_/1,
                            fun called_false_few_args_/1,
@@ -303,6 +304,15 @@ called_true_no_args_(Mod) ->
     ok = meck:expect(Mod, test, length(Args), ok),
     ok = Mod:test(),
     ?assertEqual(true, meck:called(Mod, test, Args)),
+    ?assert(meck:validate(Mod)).
+
+called_true_two_functions_(Mod) ->
+    Args = [],
+    ok = meck:expect(Mod, test1, length(Args), ok),
+    ok = meck:expect(Mod, test2, length(Args), ok),
+    ok = Mod:test1(),
+    ok = Mod:test2(),
+    ?assertEqual(true, meck:called(Mod, test2, Args)),
     ?assert(meck:validate(Mod)).
 
 called_false_one_arg_(Mod) ->
