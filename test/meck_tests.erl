@@ -56,14 +56,14 @@ meck_test_() ->
                            fun shortcut_call_return_value_/1,
                            fun shortcut_call_argument_/1,
                            fun delete_/1,
-                           fun received_false_no_args_/1,
-                           fun received_true_no_args_/1,
-                           fun received_false_one_arg_/1,
-                           fun received_true_one_arg_/1,
-                           fun received_false_few_args_/1,
-                           fun received_true_few_args_/1,
-                           fun received_false_error_/1,
-                           fun received_true_error_/1
+                           fun called_false_no_args_/1,
+                           fun called_true_no_args_/1,
+                           fun called_false_one_arg_/1,
+                           fun called_true_one_arg_/1,
+                           fun called_false_few_args_/1,
+                           fun called_true_few_args_/1,
+                           fun called_false_error_/1,
+                           fun called_true_error_/1
                           ]]}.
 
 setup() ->
@@ -292,27 +292,27 @@ delete_(Mod) ->
     ?assertError(undef, Mod:test(a, b)),
     ?assert(meck:validate(Mod)).
 
-received_false_no_args_(Mod) ->
+called_false_no_args_(Mod) ->
     Args = [],
     ok = meck:expect(Mod, test, length(Args), ok),
     ?assertEqual(false, meck:called(Mod, test, Args)),
     ?assert(meck:validate(Mod)).
 
-received_true_no_args_(Mod) ->
+called_true_no_args_(Mod) ->
     Args = [],
     ok = meck:expect(Mod, test, length(Args), ok),
     ok = Mod:test(),
     ?assertEqual(true, meck:called(Mod, test, Args)),
     ?assert(meck:validate(Mod)).
 
-received_false_one_arg_(Mod) ->
+called_false_one_arg_(Mod) ->
     Arg = "hello",
     Args = [Arg],
     ok = meck:expect(Mod, test, length(Args), ok),
     ?assertEqual(false, meck:called(Mod, test, [Arg])),
     ?assert(meck:validate(Mod)).
 
-received_true_one_arg_(Mod) ->
+called_true_one_arg_(Mod) ->
     Arg = "hello",
     Args = [Arg],
     ok = meck:expect(Mod, test, length(Args), ok),
@@ -320,7 +320,7 @@ received_true_one_arg_(Mod) ->
     ?assertEqual(true, meck:called(Mod, test, [Arg])),
     ?assert(meck:validate(Mod)).
 
-received_false_few_args_(Mod) ->
+called_false_few_args_(Mod) ->
     Arg1 = one,
     Arg2 = 2,
     Arg3 = {three, 3},
@@ -330,7 +330,7 @@ received_false_few_args_(Mod) ->
     ?assertEqual(false, meck:called(Mod, test, Args)),
     ?assert(meck:validate(Mod)).
 
-received_true_few_args_(Mod) ->
+called_true_few_args_(Mod) ->
     Arg1 = one,
     Arg2 = 2,
     Arg3 = {three, 3},
@@ -341,7 +341,7 @@ received_true_few_args_(Mod) ->
     ?assertEqual(true, meck:called(Mod, test, Args)),
     ?assert(meck:validate(Mod)).
 
-received_false_error_(Mod) ->
+called_false_error_(Mod) ->
     Arg1 = one,
     Arg2 = "two",
     Arg3 = {3, 3},
@@ -351,7 +351,7 @@ received_false_error_(Mod) ->
     ?assertEqual(false, meck:called(Mod, test, Args)),
     ?assert(meck:validate(Mod)).
 
-received_true_error_(Mod) ->
+called_true_error_(Mod) ->
     Arg1 = one,
     Arg2 = "two",
     Arg3 = {3, 3},
@@ -608,4 +608,3 @@ remote_meck_cover_({Node, Mod}) ->
     {ok, Mod} = cover:compile(Mod),
     {ok, _Nodes} = cover:start([Node]),
     ?assertEqual(ok, rpc:call(Node, meck, new, [Mod])).
-
