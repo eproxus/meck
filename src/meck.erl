@@ -220,11 +220,11 @@ unload(Mod) when is_atom(Mod) -> call(Mod, stop), wait_for_exit(Mod);
 unload(Mods) when is_list(Mods) -> [unload(Mod) || Mod <- Mods], ok.
 
 %% @spec called(Mod:: atom(), Fun:: atom(), Args:: list(term())) -> boolean()
-%% @doc Returns whether `Mod:Func` has been called with `Args`.
+%% @doc Returns whether `Mod:Func' has been called with `Args'.
 %%
-%% This will check the history for the module, Mod, to determine
-%% whether the function, Fun, was called with arguments, Args. If so,
-%% this function returns true, otherwise false.
+%% This will check the history for the module, `Mod', to determine
+%% whether the function, `Fun', was called with arguments, `Args'. If
+%% so, this function returns true, otherwise false.
 -spec called(Mod::atom(), Fun::atom(), Args::list()) -> boolean().
 called(Mod, Fun, Args) ->
     has_call({Mod, Fun, Args}, meck:history(Mod)).
