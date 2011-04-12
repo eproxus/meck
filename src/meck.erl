@@ -44,6 +44,14 @@
 -export([code_change/3]).
 -export([exec/4]).
 
+%% Library exports
+-export([abstract_code/1]).
+-export([beam_file/1]).
+-export([compile_forms/2]).
+-export([compile_options/1]).
+-export([rename_module/2]).
+
+
 %% Types
 %% @type meck_mfa() = {Mod::atom(), Func::atom(), Args::list(term())}.
 %% Module, function and arguments that the mock module got called with.
