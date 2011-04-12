@@ -74,7 +74,7 @@
 %% @equiv new(Mod, [])
 -spec new(Mod:: atom() | [atom()]) -> ok.
 new(Mod) when is_atom(Mod) -> new(Mod, []);
-new(Mod) when is_list(Mod) -> [new(M) || M <- Mod], ok.
+new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 
 %% @spec new(Mod:: atom() | list(atom()), Options::list(term())) -> ok
 %% @doc Creates new mocked module(s).
@@ -100,7 +100,7 @@ new(Mod, Options) when is_atom(Mod), is_list(Options) ->
         {error, Reason} -> erlang:error(Reason)
     end;
 new(Mod, Options) when is_list(Mod) ->
-    [new(M, Options) || M <- Mod],
+    lists:foreach(fun(M) -> new(M, Options) end, Mod),
     ok.
 
 %% @spec expect(Mod:: atom() | list(atom()), Func::atom(), Expect::fun()) -> ok
@@ -118,7 +118,7 @@ expect(Mod, Func, Expect)
   when is_atom(Mod), is_atom(Func), is_function(Expect) ->
     call(Mod, {expect, Func, Expect});
 expect(Mod, Func, Expect) when is_list(Mod) ->
-    [expect(M, Func, Expect) || M <- Mod],
+    lists:foreach(fun(M) -> expect(M, Func, Expect) end, Mod),
     ok.
 
 %% @spec expect(Mod:: atom() | list(atom()), Func::atom(),
@@ -135,7 +135,7 @@ expect(Mod, Func, Arity, Result)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
     call(Mod, {expect, Func, Arity, Result});
 expect(Mod, Func, Arity, Result) when is_list(Mod) ->
-    [expect(M, Func, Arity, Result) || M <- Mod],
+    lists:foreach(fun(M) -> expect(M, Func, Arity, Result) end, Mod),
     ok.
 
 %% @spec delete(Mod:: atom() | list(atom()), Func::atom(),
@@ -150,7 +150,7 @@ delete(Mod, Func, Arity)
   when is_atom(Mod), is_atom(Func), Arity >= 0 ->
     call(Mod, {delete, Func, Arity});
 delete(Mod, Func, Arity) when is_list(Mod) ->
-    [delete(M, Func, Arity) || M <- Mod],
+    lists:foreach(fun(M) -> delete(M, Func, Arity) end, Mod),
     ok.
 
 %% @spec exception(Class:: throw | error | exit, Reason::term()) -> no_return()
@@ -217,7 +217,7 @@ unload() -> lists:foldl(fun unload_if_mocked/2, [], registered()).
 %% manually or when called.
 -spec unload(Mods:: atom() | [atom()]) -> ok.
 unload(Mod) when is_atom(Mod) -> call(Mod, stop), wait_for_exit(Mod);
-unload(Mods) when is_list(Mods) -> [unload(Mod) || Mod <- Mods], ok.
+unload(Mods) when is_list(Mods) -> lists:foreach(fun unload/1, Mods), ok.
 
 %% @spec called(Mod:: atom(), Fun:: atom(), Args:: list(term())) -> boolean()
 %% @doc Returns whether `Mod:Func' has been called with `Args'.
@@ -493,7 +493,7 @@ restore_original(Mod, {File, Data, Options}) ->
             cover:compile_beam(File)
     end,
     ok = cover:import(Data),
-    file:delete(Data),
+    ok = file:delete(Data),
     ok.
 
 get_cover_state(Module) -> get_cover_state(Module, cover:is_compiled(Module)).
