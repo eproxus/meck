@@ -238,7 +238,7 @@ init([Mod, Options]) ->
     Original = backup_original(Mod),
     process_flag(trap_exit, true),
     Expects = init_expects(Mod, Options),
-    compile_forms(to_forms(Mod, Expects)),
+    meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
     {ok, #state{mod = Mod, expects = Expects, original = Original}}.
 
 %% @hidden
@@ -362,7 +362,7 @@ change_expects(Op, Mod, Func, Value, Expects) ->
     % only recompile if function was added or arity was changed
     case interface_equal(NewExpects, Expects) of
         true  -> ok;
-        false -> compile_forms(to_forms(Mod, NewExpects))
+        false -> meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects))
     end,
     NewExpects.
 
@@ -474,9 +474,10 @@ is_mock_exception(Fun) -> is_local_function(Fun).
 backup_original(Module) ->
     Cover = get_cover_state(Module),
     try
-        Forms = abstract_code(beam_file(Module)),
+        Forms = meck_mod:abstract_code(meck_mod:beam_file(Module)),
         NewName = original_name(Module),
-        compile_forms(rename_module(Forms, NewName), compile_options(Module))
+        meck_mod:compile_and_load_forms(meck_mod:rename_module(Forms, NewName),
+                                        meck_mod:compile_options(Module))
     catch
         throw:{object_code_not_found, _Module} -> ok; % TODO: What to do here?
         throw:no_abstract_code                 -> ok  % TODO: What to do here?
@@ -503,7 +504,7 @@ get_cover_state(Module, {file, File}) ->
     ok = cover:export(Data, Module),
     CompileOptions =
         try
-            compile_options(beam_file(Module))
+            meck_mod:compile_options(meck_mod:beam_file(Module))
         catch
             throw:{object_code_not_found, _Module} -> []
         end,
@@ -517,52 +518,6 @@ exists(Module) ->
 exports(Module) ->
     [ FA ||  FA  <- Module:module_info(exports),
              FA /= {module_info, 0}, FA /= {module_info, 1}].
-
-compile_forms(AbsCode) -> compile_forms(AbsCode, []).
-
-compile_forms(AbsCode, Opts) ->
-    case compile:forms(AbsCode, Opts) of
-        {ok, ModName, Binary} ->
-            load_binary(ModName, Binary);
-        {ok, ModName, Binary, _Warnings} ->
-            load_binary(ModName, Binary)
-    end.
-
-load_binary(Name, Binary) ->
-    case code:load_binary(Name, "", Binary) of
-        {module, Name}  -> ok;
-        {error, Reason} -> exit({error_loading_module, Name, Reason})
-    end.
-
-beam_file(Module) ->
-    % code:which/1 cannot be used for cover_compiled modules
-    case code:get_object_code(Module) of
-        {_, Binary, _Filename} -> Binary;
-        error                  -> throw({object_code_not_found, Module})
-    end.
-
-abstract_code(BeamFile) ->
-    case beam_lib:chunks(BeamFile, [abstract_code]) of
-        {ok, {_, [{abstract_code, {raw_abstract_v1, Forms}}]}} ->
-            Forms;
-        {ok, {_, [{abstract_code, no_abstract_code}]}} ->
-            throw(no_abstract_code)
-    end.
-
-compile_options(BeamFile) when is_binary(BeamFile) ->
-    case beam_lib:chunks(BeamFile, [compile_info]) of
-        {ok, {_, [{compile_info, Info}]}} ->
-            proplists:get_value(options, Info);
-        _ ->
-            []
-    end;
-compile_options(Module) ->
-    proplists:get_value(options, Module:module_info(compile)).
-
-rename_module([{attribute, Line, module, _OldName}|T], NewName) ->
-    [{attribute, Line, module, NewName}|T];
-rename_module([H|T], NewName) ->
-    [H|rename_module(T, NewName)].
 
 cleanup(Mod) ->
     code:purge(Mod),
