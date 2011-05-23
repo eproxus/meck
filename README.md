@@ -56,6 +56,11 @@ Here's an example of using meck in the Erlang shell:
     "Woof!"
     4> meck:validate(dog).
     true
+
+Exceptions can be anticipated by meck (resulting in validation
+passing). This is intended to be used to test code that can and should
+handle certain exceptions indeed does take care of them:
+
     5> meck:expect(dog, meow, fun() -> meck:exception(error, not_a_cat) end).
     ok
     6> catch dog:meow().
@@ -69,6 +74,12 @@ Here's an example of using meck in the Erlang shell:
                         {shell,eval_loop,3}]}}
     7> meck:validate(dog).
     true
+
+Normal Erlang exceptions result in a failed validation. The following
+example is just to demonstrate the behavior, in real test code the
+exception would normally come from the code under test (which should,
+if not expected, invalidate the mocked module):
+
     8> meck:expect(dog, jump, fun(Height) when Height > 3 ->
                                       erlang:error(too_high);
                                  (Height) ->
@@ -96,7 +107,25 @@ Here's an example of using meck inside an EUnit test case:
         ?assertEqual(21, code_under_test:run(fib, 8)),
         ?assert(meck:validate(library_module)).
 
-Pass-through in action:
+Pass-through is used when the original functionality of a module
+should be kept. When the option `passthrough` is used when calling
+`new/2` all functions in the original module will be kept in the
+mock. These can later be overridden by calling `expect/3` or
+`expect/4`.
+
+    Eshell V5.7.5  (abort with ^G)
+    1> code:unstick_mod(string).
+    true
+    2> meck:new(string, [passthrough]).
+    ok
+    3> string:strip("  test  ").
+    "test"
+
+It's also possible to pass calls to the original function allowing us
+to override only a certain behavior of a function (this usage is
+compatible with the `passthrough` option). `passthrough/1` will always
+call the original function with the same name as the expect is is
+defined in):
 
     Eshell V5.7.5  (abort with ^G)
     1> code:unstick_mod(string).
@@ -115,8 +144,10 @@ Pass-through in action:
 Contribute
 ----------
 
+Patches are greatly appreciated!
+
 Should you find yourself using meck and have issues, comments or
-feedback please [create an issue!] [3]
+feedback please [create an issue.] [3]
 
   [1]: https://github.com/basho/rebar "Rebar - A build tool for Erlang"
   [2]: http://erlagner.org/ "Agner - Erlang Package Index & Package Manager"
