@@ -4,9 +4,44 @@ A mocking library for Erlang.
 
 Introduction
 ------------
-With meck you can easily mock modules in Erlang. Since meck is intended to be used in testing, you can also perform some basic validations on the mocked modules, such as making sure no function is called in a way it should not.
 
-meck automatically renames existing modules in case they are loaded when you want to mock them, and restores them upon unloading of the mocked module. It is also possible to call the original functions from a mocked module using `meck:passthrough/1` from inside an expectation.
+With meck you can easily mock modules in Erlang. Since meck is
+intended to be used in testing, you can also perform some basic
+validations on the mocked modules, such as making sure no function is
+called in a way it should not.
+
+meck automatically renames existing modules in case they are loaded
+when you want to mock them, and restores them upon unloading of the
+mocked module. It is also possible to call the original functions from
+a mocked module using `meck:passthrough/1` from inside an expectation.
+
+Build
+-----
+
+meck requires [rebar][1] to build. Either install rebar by building it
+manually and putting it in your path or by using [Agner][2] (`agner
+install rebar`).
+
+To build meck, got to the meck directory and simply type:
+
+    $ rebar compile
+
+Make sure meck works on your platform (requires the `eunit`
+application, which is included by default in Erlang):
+
+    $ rebar eunit
+
+Install
+-------
+
+To install meck permanently, use of [Agner][2] is recommended:
+
+    $ agner install meck
+
+If you want to install your own built version of meck add the ebin
+directory to your Erlang code path or move the meck folder into your
+release folder and make sure that folder is in your `ERL_LIBS`
+environment variable.
 
 Examples
 --------
@@ -79,6 +114,10 @@ Pass-through in action:
 
 Contribute
 ----------
-Should you find yourself using meck and have issues, comments or feedback please [create an issue!] [1]
 
-[1]: http://github.com/eproxus/meck/issues "meck issues"
+Should you find yourself using meck and have issues, comments or
+feedback please [create an issue!] [3]
+
+  [1]: https://github.com/basho/rebar "Rebar - A build tool for Erlang"
+  [2]: http://erlagner.org/ "Agner - Erlang Package Index & Package Manager"
+  [3]: http://github.com/eproxus/meck/issues "meck issues"
