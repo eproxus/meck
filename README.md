@@ -31,6 +31,12 @@ application, which is included by default in Erlang):
 
     $ rebar eunit
 
+Two things might seem alarming when running the tests: 1. Warnings
+emitted by cover and 2. an exception printed by SASL. Both are
+expected due to the way Erlang currently prints errors. The important line you
+should look for is `All XX tests passed`, if that appears all is
+correct.
+
 Install
 -------
 
