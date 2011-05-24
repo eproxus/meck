@@ -29,6 +29,8 @@
 -export([delete/3]).
 -export([exception/2]).
 -export([passthrough/1]).
+-export([put/2]).
+-export([get/1]).
 -export([history/1]).
 -export([validate/1]).
 -export([unload/0]).
@@ -64,7 +66,8 @@
                 expects :: dict(),
                 valid = true :: boolean(),
                 history = [] :: history(),
-                original :: term()}).
+                original :: term(),
+                dict :: dict()}).
 
 %%==============================================================================
 %% Interface exports
@@ -133,6 +136,7 @@ expect(Mod, Func, Expect) when is_list(Mod) ->
              Arity::pos_integer(), Result::term()) -> ok.
 expect(Mod, Func, Arity, Result)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
+
     call(Mod, {expect, Func, Arity, Result});
 expect(Mod, Func, Arity, Result) when is_list(Mod) ->
     lists:foreach(fun(M) -> expect(M, Func, Arity, Result) end, Mod),
@@ -174,6 +178,16 @@ exception(Class, Reason) when Class == throw; Class == error; Class == exit ->
 %% <em>Note: this code should only be used inside an expect fun.</em>
 -spec passthrough(Args::[term()]) -> no_return().
 passthrough(Args) -> throw(passthrough_fun(Args)).
+
+put(Key, Value) ->
+    send(erlang:get('$meck_proc'), {put_dict, Key, Value}),
+    {_, {value, OldValue}} = recv(),
+    OldValue.
+
+get(Key) ->
+    send(erlang:get('$meck_proc'), {get_dict, Key}),
+    {_, {value, Value}} = recv(),
+    Value.
 
 %% @spec validate(Mod:: atom() | list(atom())) -> boolean()
 %% @doc Validate the state of the mock module(s).
@@ -239,12 +253,10 @@ init([Mod, Options]) ->
     process_flag(trap_exit, true),
     Expects = init_expects(Mod, Options),
     meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
-    {ok, #state{mod = Mod, expects = Expects, original = Original}}.
+    {ok, #state{mod = Mod, expects = Expects, original = Original,
+                dict = dict:from_list(proplists:get_value(dict, Options, []))}}.
 
 %% @hidden
-handle_call({get_expect, Func, Arity}, _From, S) ->
-    Expect = get_expect(S#state.expects, Func, Arity),
-    {reply, Expect, S};
 handle_call({expect, Func, Expect}, _From, S) ->
     NewExpects = store_expect(S#state.mod, Func, Expect, S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
@@ -257,17 +269,30 @@ handle_call({delete, Func, Arity}, _From, S) ->
     {reply, ok, S#state{expects = NewExpects}};
 handle_call(history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
-handle_call({add_history, Item}, _From, S) ->
-    {reply, ok, S#state{history = [Item| S#state.history]}};
-handle_call(invalidate, _From, S) ->
-    {reply, ok, S#state{valid = false}};
 handle_call(validate, _From, S) ->
     {reply, S#state.valid, S};
 handle_call(stop, _From, S) ->
     {stop, normal, ok, S}.
 
 %% @hidden
-handle_cast(_Msg, S)  -> {noreply, S}.
+handle_cast({From, {exec, Func, Arity}}, S) ->
+    Expect = get_expect(S#state.expects, Func, Arity),
+    send(From, {expect, Expect}),
+    NewS = exec_loop(recv(), S),
+    {noreply, NewS};
+handle_cast(_Msg, S) ->
+    {noreply, S}.
+
+exec_loop({From, {put_dict, Key, Value}}, S) ->
+    send(From, {value, find(Key, S#state.dict)}),
+    exec_loop(recv(), S#state{dict = dict:store(Key, Value, S#state.dict)});
+exec_loop({From, {get_dict, Key}}, S) ->
+    send(From, {value, find(Key, S#state.dict)}),
+    exec_loop(recv(), S);
+exec_loop({_, {add_history, Item}}, S) ->
+    S#state{history = [Item| S#state.history]};
+exec_loop({_, invalidate}, S) ->
+    exec_loop(recv(), S#state{valid = false}).
 
 %% @hidden
 handle_info(_Info, S) -> {noreply, S}.
@@ -283,18 +308,22 @@ code_change(_OldVsn, S, _Extra) -> {ok, S}.
 
 %% @hidden
 exec(Mod, Func, Arity, Args) ->
-    Expect = call(Mod, {get_expect, Func, Arity}),
+    cast(Mod, {exec, Func, Arity}),
+    {From, {expect, Expect}} = recv(),
+    erlang:put('$meck_proc', From),
     try Result = call_expect(Mod, Func, Expect, Args),
-        call(Mod, {add_history, {{Mod, Func, Args}, Result}}),
+        send(From, {add_history, {{Mod, Func, Args}, Result}}),
         Result
     catch
         throw:Fun when is_function(Fun) ->
             case is_mock_exception(Fun) of
-                true  -> handle_mock_exception(Mod, Func, Fun, Args);
-                false -> invalidate_and_raise(Mod, Func, Args, throw, Fun)
+                true  -> handle_mock_exception(From, Mod, Func, Fun, Args);
+                false -> invalidate_and_raise(From, Mod, Func, Args, throw, Fun)
             end;
         Class:Reason ->
-            invalidate_and_raise(Mod, Func, Args, Class, Reason)
+            invalidate_and_raise(From, Mod, Func, Args, Class, Reason)
+    after
+        erlang:erase('$meck_proc')
     end.
 
 %%==============================================================================
@@ -312,10 +341,17 @@ start(Mod, Options) ->
 start(Func, Mod, Options) ->
     gen_server:Func({local, proc_name(Mod)}, ?MODULE, [Mod, Options], []).
 
-call(Mod, Msg) ->
+call(Mod, Msg) -> gen_server(call, Mod, Msg).
+cast(Mod, Msg) -> gen_server(cast, Mod, {self(), Msg}).
+
+gen_server(Func, Mod, Msg) ->
     Name = proc_name(Mod),
-    try gen_server:call(Name, Msg)
+    try gen_server:Func(Name, Msg)
     catch exit:_Reason -> erlang:error({not_mocked, Mod}) end.
+
+send(To, Msg) -> To ! {'$meck_msg', self(), Msg}.
+
+recv() -> receive {'$meck_msg', From, Msg} -> {From, Msg} end.
 
 proc_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck").
 
@@ -425,27 +461,32 @@ is_local_function(Fun) ->
     {module, Module} = erlang:fun_info(Fun, module),
     ?MODULE == Module.
 
-handle_mock_exception(Mod, Func, Fun, Args) ->
+handle_mock_exception(Proc, Mod, Func, Fun, Args) ->
     case Fun() of
         {exception, Class, Reason} ->
             % exception created with the mock:exception function,
             % do not invalidate Mod
-            raise(Mod, Func, Args, Class, Reason);
+            raise(Proc, Mod, Func, Args, Class, Reason);
         {passthrough, Args} ->
-            % call_original(Args) called from mock function
-            Result = apply(original_name(Mod), Func, Args),
-            call(Mod, {add_history, {{Mod, Func, Args}, Result}}),
-            Result
+            try
+                % passthrough(Args) called from mock function
+                Result = apply(original_name(Mod), Func, Args),
+                send(Proc, {add_history, {{Mod, Func, Args}, Result}}),
+                Result
+            catch
+                Class:Reason ->
+                    invalidate_and_raise(Proc, Mod, Func, Args, Class, Reason)
+            end
     end.
 
--spec invalidate_and_raise(_, _, _, _, _) -> no_return().
-invalidate_and_raise(Mod, Func, Args, Class, Reason) ->
-    call(Mod, invalidate),
-    raise(Mod, Func, Args, Class, Reason).
+-spec invalidate_and_raise(_, _, _, _, _, _) -> no_return().
+invalidate_and_raise(Proc, Mod, Func, Args, Class, Reason) ->
+    send(Proc, invalidate),
+    raise(Proc, Mod, Func, Args, Class, Reason).
 
-raise(Mod, Func, Args, Class, Reason) ->
+raise(Proc, Mod, Func, Args, Class, Reason) ->
     Stacktrace = inject(Mod, Func, Args, erlang:get_stacktrace()),
-    call(Mod, {add_history, {{Mod, Func, Args}, Class, Reason, Stacktrace}}),
+    send(Proc, {add_history, {{Mod, Func, Args}, Class, Reason, Stacktrace}}),
     erlang:raise(Class, Reason, Stacktrace).
 
 mock_exception_fun(Class, Reason) -> fun() -> {exception, Class, Reason} end.
@@ -468,6 +509,12 @@ inject(Mod, Func, Args, [H|Stack]) ->
     [H|inject(Mod, Func, Args, Stack)].
 
 is_mock_exception(Fun) -> is_local_function(Fun).
+
+find(Key, Dict) ->
+    case dict:find(Key, Dict) of
+        {ok, Value} -> Value;
+        error -> undefined
+    end.
 
 %% --- Original module handling ------------------------------------------------
 
