@@ -150,7 +150,7 @@ expect(Mod, Func, Arity, Result) when is_list(Mod) ->
 %% the last value is reached. That value is then returned for all
 %% subsequent calls.
 -spec sequence(Mod:: atom() | [atom()], Func::atom(),
-               Arity::pos_integer(), Result::[term()]) -> ok.
+               Arity::pos_integer(), Sequence::[term()]) -> ok.
 sequence(Mod, Func, Arity, Sequence)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
     call(Mod, {sequence, Func, Arity, Sequence});
