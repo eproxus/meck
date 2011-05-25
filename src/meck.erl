@@ -142,8 +142,8 @@ expect(Mod, Func, Arity, Result) when is_list(Mod) ->
 
 %% @spec sequence(Mod:: atom() | list(atom()), Func::atom(),
 %%                Arity::pos_integer(), Sequence::[term()]) -> ok
-%% @doc Adds an expectation with the supplied arity which returns a
-%% value from `Sequence' until exhausted.
+%% @doc Adds an expectation which returns a value from `Sequence'
+%% until exhausted.
 %%
 %% This creates an expectation which takes `Arity' number of arguments
 %% and returns one element from `Sequence' at a time. Thus, calls to
@@ -161,8 +161,8 @@ sequence(Mod, Func, Arity, Sequence) when is_list(Mod) ->
 
 %% @spec loop(Mod:: atom() | list(atom()), Func::atom(),
 %%            Arity::pos_integer(), Loop::[term()]) -> ok
-%% @doc Adds an expectation with the supplied arity which returns a
-%% value from `Loop' infinitely.
+%% @doc Adds an expectation which returns a value from `Loop'
+%% infinitely.
 %%
 %% This creates an expectation which takes `Arity' number of arguments
 %% and returns one element from `Loop' at a time. Thus, calls to this
