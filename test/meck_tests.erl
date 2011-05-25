@@ -66,7 +66,9 @@ meck_test_() ->
                            fun called_false_error_/1,
                            fun called_true_error_/1,
                            fun sequence_/1,
-                           fun sequence_multi_/1
+                           fun sequence_multi_/1,
+                           fun loop_/1,
+                           fun loop_multi_/1
                           ]]}.
 
 setup() ->
@@ -396,6 +398,21 @@ sequence_multi_(Mod) ->
                  [mymod2:s(a, b) || _ <- lists:seq(1, length(Sequence))]),
     ?assertEqual([e, e, e, e, e],
                  [mymod2:s(a, b) || _ <- lists:seq(1, 5)]),
+    ?assert(meck:validate(Mods)).
+
+loop_(Mod) ->
+    Loop = [a, b, c, d, e],
+    ?assertEqual(ok, meck:loop(Mod, l, 2, Loop)),
+    [?assertEqual(V, Mod:l(a, b)) || _ <- lists:seq(1, length(Loop)), V <- Loop],
+    ?assert(meck:validate(Mod)).
+
+loop_multi_(Mod) ->
+    meck:new(mymod2),
+    Mods = [Mod, mymod2],
+    Loop = [a, b, c, d, e],
+    ?assertEqual(ok, meck:loop(Mods, l, 2, Loop)),
+    [[?assertEqual(V, M:l(a, b)) || _ <- lists:seq(1, length(Loop)), V <- Loop]
+     || M <- Mods],
     ?assert(meck:validate(Mods)).
 
 %% --- Tests with own setup ----------------------------------------------------
