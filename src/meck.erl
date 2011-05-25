@@ -26,6 +26,7 @@
 -export([new/2]).
 -export([expect/3]).
 -export([expect/4]).
+-export([sequence/4]).
 -export([delete/3]).
 -export([exception/2]).
 -export([passthrough/1]).
@@ -138,6 +139,25 @@ expect(Mod, Func, Arity, Result) when is_list(Mod) ->
     lists:foreach(fun(M) -> expect(M, Func, Arity, Result) end, Mod),
     ok.
 
+%% @spec sequence(Mod:: atom() | list(atom()), Func::atom(),
+%%                Arity::pos_integer(), Sequence::[term()]) -> ok
+%% @doc Adds an expectation with the supplied arity which returns a
+%% value from `Sequence' one at a time.
+%%
+%% This creates an expectation which takes `Arity' number of arguments
+%% and returns one element from `Sequence' at a time. Thus, calls to
+%% this expect will exhaust the list of return values in order until
+%% the last value is reached. That value is then returned for all
+%% subsequent calls.
+-spec sequence(Mod:: atom() | [atom()], Func::atom(),
+               Arity::pos_integer(), Result::[term()]) -> ok.
+sequence(Mod, Func, Arity, Sequence)
+  when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
+    call(Mod, {sequence, Func, Arity, Sequence});
+sequence(Mod, Func, Arity, Sequence) when is_list(Mod) ->
+    lists:foreach(fun(M) -> sequence(M, Func, Arity, Sequence) end, Mod),
+    ok.
+
 %% @spec delete(Mod:: atom() | list(atom()), Func::atom(),
 %%              Arity::pos_integer()) -> ok
 %% @doc Deletes an expectation.
@@ -243,13 +263,17 @@ init([Mod, Options]) ->
 
 %% @hidden
 handle_call({get_expect, Func, Arity}, _From, S) ->
-    Expect = get_expect(S#state.expects, Func, Arity),
-    {reply, Expect, S};
+    {Expect, NewExpects} = get_expect(S#state.expects, Func, Arity),
+    {reply, Expect, S#state{expects = NewExpects}};
 handle_call({expect, Func, Expect}, _From, S) ->
     NewExpects = store_expect(S#state.mod, Func, Expect, S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
 handle_call({expect, Func, Arity, Result}, _From, S) ->
     NewExpects = store_expect(S#state.mod, Func, {anon, Arity, Result},
+                              S#state.expects),
+    {reply, ok, S#state{expects = NewExpects}};
+handle_call({sequence, Func, Arity, Sequence}, _From, S) ->
+    NewExpects = store_expect(S#state.mod, Func, {sequence, Arity, Sequence},
                               S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
 handle_call({delete, Func, Arity}, _From, S) ->
@@ -349,7 +373,15 @@ init_expects(Mod, Options) ->
 
 
 get_expect(Expects, Func, Arity) ->
-    e_fetch(Expects, Func, Arity).
+    case e_fetch(Expects, Func, Arity) of
+        {sequence, Arity, [Last]} ->
+            {{sequence, Arity, Last}, Expects};
+        {sequence, Arity, [Result|Rest]} ->
+            {{sequence, Arity, Result},
+             e_store(Expects, Func, {sequence, Arity, Rest})};
+        Other ->
+            {Other, Expects}
+    end.
 
 store_expect(Mod, Func, Expect, Expects) ->
     change_expects(fun e_store/3, Mod, Func, Expect, Expects).
@@ -407,7 +439,7 @@ var(Name) -> {var, ?LINE, Name}.
 
 var_name(A) -> list_to_atom("A"++integer_to_list(A)).
 
-arity({anon, Arity, _Result}) ->
+arity({Type, Arity, _Result}) when Type == anon; Type == sequence ->
     Arity;
 arity(Fun) when is_function(Fun) ->
     {arity, Arity} = erlang:fun_info(Fun, arity),
@@ -453,6 +485,9 @@ mock_exception_fun(Class, Reason) -> fun() -> {exception, Class, Reason} end.
 passthrough_fun(Args) -> fun() -> {passthrough, Args} end.
 
 call_expect(_Mod, _Func, {anon, Arity, Return}, VarList)
+  when Arity == length(VarList) ->
+    Return;
+call_expect(_Mod, _Func, {sequence, Arity, Return}, VarList)
   when Arity == length(VarList) ->
     Return;
 call_expect(Mod, Func, passthrough, VarList) ->

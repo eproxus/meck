@@ -64,7 +64,9 @@ meck_test_() ->
                            fun called_false_few_args_/1,
                            fun called_true_few_args_/1,
                            fun called_false_error_/1,
-                           fun called_true_error_/1
+                           fun called_true_error_/1,
+                           fun sequence_/1,
+                           fun sequence_multi_/1
                           ]]}.
 
 setup() ->
@@ -371,6 +373,30 @@ called_true_error_(Mod) ->
     catch Mod:test(Arg1, Arg2, Arg3),
     ?assertEqual(true, meck:called(Mod, test, Args)),
     ?assert(meck:validate(Mod)).
+
+sequence_(Mod) ->
+    Sequence = [a, b, c, d, e],
+    ?assertEqual(ok, meck:sequence(Mod, s, 2, Sequence)),
+    ?assertEqual(Sequence,
+                 [Mod:s(a, b) || _ <- lists:seq(1, length(Sequence))]),
+    ?assertEqual([e, e, e, e, e],
+                 [Mod:s(a, b) || _ <- lists:seq(1, 5)]),
+    ?assert(meck:validate(Mod)).
+
+sequence_multi_(Mod) ->
+    meck:new(mymod2),
+    Mods = [Mod, mymod2],
+    Sequence = [a, b, c, d, e],
+    ?assertEqual(ok, meck:sequence(Mods, s, 2, Sequence)),
+    ?assertEqual(Sequence,
+                 [Mod:s(a, b) || _ <- lists:seq(1, length(Sequence))]),
+    ?assertEqual([e, e, e, e, e],
+                 [Mod:s(a, b) || _ <- lists:seq(1, 5)]),
+    ?assertEqual(Sequence,
+                 [mymod2:s(a, b) || _ <- lists:seq(1, length(Sequence))]),
+    ?assertEqual([e, e, e, e, e],
+                 [mymod2:s(a, b) || _ <- lists:seq(1, 5)]),
+    ?assert(meck:validate(Mods)).
 
 %% --- Tests with own setup ----------------------------------------------------
 
