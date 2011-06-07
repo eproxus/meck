@@ -1,10 +1,10 @@
 all:
-	@./rebar compile
+	@rebar compile
 
 test: force
-	@./rebar eunit
+	@rebar eunit
 
 clean:
-	@./rebar clean
+	@rebar clean
 
 force: ;
