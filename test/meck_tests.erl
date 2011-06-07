@@ -638,7 +638,7 @@ remote_meck_test_() ->
 
 remote_setup() ->
     [] = os:cmd("epmd -daemon"),
-    {ok, Hostname} = inet:gethostname(),
+    Hostname = "localhost",
     Myself = list_to_atom("meck_eunit_test@" ++ Hostname),
     net_kernel:start([Myself, shortnames]),
     {ok, Node} = slave:start_link(list_to_atom(Hostname), meck_remote_test,
