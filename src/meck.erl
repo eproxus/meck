@@ -454,7 +454,8 @@ func(Mod, {Func, Arity}) ->
               [?clause(Args,
                        [?call(?MODULE, exec,
                               [?atom(Mod), ?atom(Func), ?integer(Arity),
-                               var_list(Args)])])]).
+                               list(Args)])])]).
+
 
 to_forms(Mod, Expects) ->
     {Exports, Functions} = functions(Mod, Expects),
@@ -469,8 +470,8 @@ functions(Mod, Expects) ->
 args(0)     -> [];
 args(Arity) -> [?var(var_name(N)) || N<- lists:seq(1, Arity)].
 
-var_list([])    -> {nil, ?LINE};
-var_list([H|T]) -> {cons, ?LINE, H, var_list(T)}.
+list([])    -> {nil, ?LINE};
+list([H|T]) -> {cons, ?LINE, H, list(T)}.
 
 var_name(A) -> list_to_atom("A"++integer_to_list(A)).
 
