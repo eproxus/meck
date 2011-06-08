@@ -68,6 +68,9 @@
                 history = [] :: history(),
                 original :: term()}).
 
+%% Includes
+-include("meck_abstract.hrl").
+
 %%==============================================================================
 %% Interface exports
 %%==============================================================================
@@ -443,28 +446,27 @@ interface_equal(NewExpects, OldExpects) ->
 
 func(Mod, {Func, Arity}) ->
     Args = args(Arity),
-    {function, ?LINE, Func, Arity,
-     [{clause, ?LINE, Args, [],
-       [{call, ?LINE, {remote, ?LINE, atom(?MODULE), atom(exec)},
-         [atom(Mod), atom(Func), integer(Arity), var_list(Args)]}]}]}.
+    ?function(Func, Arity,
+              [?clause(Args,
+                       [?call(?MODULE, exec,
+                              [?atom(Mod), ?atom(Func), ?integer(Arity),
+                               var_list(Args)])])]).
 
 to_forms(Mod, Expects) ->
     {Exports, Functions} = functions(Mod, Expects),
-    [attribute(module, Mod)] ++ Exports ++ Functions.
+    [?attribute(module, Mod)] ++ Exports ++ Functions.
 
 functions(Mod, Expects) ->
     dict:fold(fun(Export, _Expect, {Exports, Functions}) ->
-                      {[attribute(export, [Export])|Exports],
+                      {[?attribute(export, [Export])|Exports],
                        [func(Mod, Export)|Functions]}
               end, {[], []}, Expects).
 
 args(0)     -> [];
-args(Arity) -> [var(var_name(N)) || N<- lists:seq(1, Arity)].
+args(Arity) -> [?var(var_name(N)) || N<- lists:seq(1, Arity)].
 
 var_list([])    -> {nil, ?LINE};
 var_list([H|T]) -> {cons, ?LINE, H, var_list(T)}.
-
-var(Name) -> {var, ?LINE, Name}.
 
 var_name(A) -> list_to_atom("A"++integer_to_list(A)).
 
@@ -477,12 +479,6 @@ arity({loop, Arity, _Current, _Loop}) ->
 arity(Fun) when is_function(Fun) ->
     {arity, Arity} = erlang:fun_info(Fun, arity),
     Arity.
-
-attribute(Attribute, Args) -> {attribute, ?LINE, Attribute, Args}.
-
-atom(Atom) when is_atom(Atom) -> {atom, ?LINE, Atom}.
-
-integer(Integer) when is_integer(Integer) -> {integer, ?LINE, Integer}.
 
 %% --- Execution utilities -----------------------------------------------------
 
