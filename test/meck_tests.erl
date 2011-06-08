@@ -290,7 +290,7 @@ shortcut_call_return_value_(Mod) ->
     ?assertEqual(true, meck:validate(Mod)).
 
 shortcut_call_argument_(Mod) ->
-    ok = meck:expect(Mod, test, fun(hest, 1) -> apa end),
+    ok = meck:expect(Mod, test, 2, apa),
     ?assertEqual(apa, Mod:test(hest, 1)),
     ?assertEqual(true, meck:validate(Mod)).
 
