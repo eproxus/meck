@@ -294,6 +294,13 @@ shortcut_call_argument_(Mod) ->
     ?assertEqual(apa, Mod:test(hest, 1)),
     ?assertEqual(true, meck:validate(Mod)).
 
+shortcut_re_add(Mod) ->
+    ok = meck:expect(Mod, test, 2, apa),
+    ?assertEqual(apa, Mod:test(hest, 1)),
+    ok = meck:expect(Mod, test, 2, new),
+    ?assertEqual(new, Mod:test(hest, 1)),
+    ?assertEqual(true, meck:validate(Mod)).
+
 delete_(Mod) ->
     ok = meck:expect(Mod, test, 2, ok),
     ?assertEqual(ok, meck:delete(Mod, test, 2)),
