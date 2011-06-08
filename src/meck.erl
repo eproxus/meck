@@ -448,7 +448,21 @@ interface_equal(NewExpects, OldExpects) ->
 
 %% --- Code generation ---------------------------------------------------------
 
-func(Mod, {Func, Arity}) ->
+func(Mod, {Func, Arity}, {anon, Arity, Result}) ->
+    Args = args(Arity),
+    AbsResult = erl_parse:abstract(Result),
+    ?function(
+       Func, Arity,
+       [?clause(
+           Args,
+           [?call(gen_server, cast,
+                  [?atom(proc_name(Mod)),
+                   ?tuple([?atom(add_history),
+                           ?tuple([?tuple([?atom(Mod), ?atom(Func),
+                                           list(Args)]),
+                                   AbsResult])])]),
+            AbsResult])]);
+func(Mod, {Func, Arity}, _Expect) ->
     Args = args(Arity),
     ?function(Func, Arity,
               [?clause(Args,
@@ -462,13 +476,13 @@ to_forms(Mod, Expects) ->
     [?attribute(module, Mod)] ++ Exports ++ Functions.
 
 functions(Mod, Expects) ->
-    dict:fold(fun(Export, _Expect, {Exports, Functions}) ->
+    dict:fold(fun(Export, Expect, {Exports, Functions}) ->
                       {[?attribute(export, [Export])|Exports],
-                       [func(Mod, Export)|Functions]}
+                       [func(Mod, Export, Expect)|Functions]}
               end, {[], []}, Expects).
 
 args(0)     -> [];
-args(Arity) -> [?var(var_name(N)) || N<- lists:seq(1, Arity)].
+args(Arity) -> [?var(var_name(N)) || N <- lists:seq(1, Arity)].
 
 list([])    -> {nil, ?LINE};
 list([H|T]) -> {cons, ?LINE, H, list(T)}.

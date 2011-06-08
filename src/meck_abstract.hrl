@@ -15,3 +15,5 @@
         {function, ?LINE, Name, Arity, Clauses}).
 
 -define(clause(Arguments, Body), {clause, ?LINE, Arguments, [], Body}).
+
+-define(tuple(Elements), {tuple, ?LINE, Elements}).
