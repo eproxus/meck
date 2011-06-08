@@ -307,8 +307,6 @@ handle_call({delete, Func, Arity}, _From, S) ->
     {reply, ok, S#state{expects = NewExpects}};
 handle_call(history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
-handle_call({add_history, Item}, _From, S) ->
-    {reply, ok, S#state{history = [Item| S#state.history]}};
 handle_call(invalidate, _From, S) ->
     {reply, ok, S#state{valid = false}};
 handle_call(validate, _From, S) ->
@@ -317,7 +315,10 @@ handle_call(stop, _From, S) ->
     {stop, normal, ok, S}.
 
 %% @hidden
-handle_cast(_Msg, S)  -> {noreply, S}.
+handle_cast({add_history, Item}, S) ->
+    {noreply, S#state{history = [Item| S#state.history]}};
+handle_cast(_Msg, S)  ->
+    {noreply, S}.
 
 %% @hidden
 handle_info(_Info, S) -> {noreply, S}.
@@ -335,7 +336,7 @@ code_change(_OldVsn, S, _Extra) -> {ok, S}.
 exec(Mod, Func, Arity, Args) ->
     Expect = call(Mod, {get_expect, Func, Arity}),
     try Result = call_expect(Mod, Func, Expect, Args),
-        call(Mod, {add_history, {{Mod, Func, Args}, Result}}),
+        cast(Mod, {add_history, {{Mod, Func, Args}, Result}}),
         Result
     catch
         throw:Fun when is_function(Fun) ->
@@ -362,9 +363,12 @@ start(Mod, Options) ->
 start(Func, Mod, Options) ->
     gen_server:Func({local, proc_name(Mod)}, ?MODULE, [Mod, Options], []).
 
-call(Mod, Msg) ->
+cast(Mod, Msg) -> gen_server(cast, Mod, Msg).
+call(Mod, Msg) -> gen_server(call, Mod, Msg).
+
+gen_server(Func, Mod, Msg) ->
     Name = proc_name(Mod),
-    try gen_server:call(Name, Msg)
+    try gen_server:Func(Name, Msg)
     catch exit:_Reason -> erlang:error({not_mocked, Mod}) end.
 
 proc_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck").
@@ -495,7 +499,7 @@ handle_mock_exception(Mod, Func, Fun, Args) ->
         {passthrough, Args} ->
             % call_original(Args) called from mock function
             Result = apply(original_name(Mod), Func, Args),
-            call(Mod, {add_history, {{Mod, Func, Args}, Result}}),
+            cast(Mod, {add_history, {{Mod, Func, Args}, Result}}),
             Result
     end.
 
@@ -506,7 +510,7 @@ invalidate_and_raise(Mod, Func, Args, Class, Reason) ->
 
 raise(Mod, Func, Args, Class, Reason) ->
     Stacktrace = inject(Mod, Func, Args, erlang:get_stacktrace()),
-    call(Mod, {add_history, {{Mod, Func, Args}, Class, Reason, Stacktrace}}),
+    cast(Mod, {add_history, {{Mod, Func, Args}, Class, Reason, Stacktrace}}),
     erlang:raise(Class, Reason, Stacktrace).
 
 mock_exception_fun(Class, Reason) -> fun() -> {exception, Class, Reason} end.
