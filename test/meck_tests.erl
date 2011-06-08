@@ -209,10 +209,13 @@ history_empty_(Mod) ->
 history_call_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> ok end),
     ok = meck:expect(Mod, test2, fun(_, _) -> result end),
+    ok = meck:expect(Mod, test3, 0, 3),
     Mod:test(),
     Mod:test2(a, b),
-    ?assertEqual([{{Mod, test, []}, ok},
-                  {{Mod, test2, [a, b]}, result}], meck:history(Mod)).
+    Mod:test3(),
+    ?assertEqual([{{Mod, test,  []},     ok},
+                  {{Mod, test2, [a, b]}, result},
+                  {{Mod, test3, []},     3}], meck:history(Mod)).
 
 history_throw_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> throw(test_exception) end),
