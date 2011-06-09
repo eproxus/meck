@@ -427,11 +427,7 @@ delete_expect(Mod, Func, Arity, Expects) ->
 
 change_expects(Op, Mod, Func, Value, Expects) ->
     NewExpects = Op(Expects, Func, Value),
-    % only recompile if function was added or arity was changed
-    case interface_equal(NewExpects, Expects) of
-        true  -> ok;
-        false -> meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects))
-    end,
+    meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
     NewExpects.
 
 e_store(Expects, Func, Expect) ->

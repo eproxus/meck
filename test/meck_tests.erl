@@ -55,6 +55,7 @@ meck_test_() ->
                            fun shortcut_expect_negative_arity_/1,
                            fun shortcut_call_return_value_/1,
                            fun shortcut_call_argument_/1,
+                           fun shortcut_re_add_/1,
                            fun delete_/1,
                            fun called_false_no_args_/1,
                            fun called_true_no_args_/1,
@@ -192,12 +193,8 @@ caller_does_not_crash_on_reload_(Mod) ->
 change_func_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> 1 end),
     ?assertEqual(1, Mod:test()),
-    MTime = proplists:get_value(time, Mod:module_info(compile)),
-    % recompile will result in increased module_info time
-    timer:sleep(1100),
     ok = meck:expect(Mod, test, fun() -> 2 end),
-    ?assertEqual(2, Mod:test()),
-    ?assertEqual(MTime, proplists:get_value(time, Mod:module_info(compile))).
+    ?assertEqual(2, Mod:test()).
 
 call_original_undef_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> meck:passthrough([]) end),
@@ -294,7 +291,7 @@ shortcut_call_argument_(Mod) ->
     ?assertEqual(apa, Mod:test(hest, 1)),
     ?assertEqual(true, meck:validate(Mod)).
 
-shortcut_re_add(Mod) ->
+shortcut_re_add_(Mod) ->
     ok = meck:expect(Mod, test, 2, apa),
     ?assertEqual(apa, Mod:test(hest, 1)),
     ok = meck:expect(Mod, test, 2, new),
