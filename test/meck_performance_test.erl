@@ -20,6 +20,9 @@ run(N) ->
               test_avg(meck, expect, [test, shortcut, 0, ok], N)),
     io:format("expect/4+args\t~p\t~p\t~p\t~p~n",
               test_avg(meck, expect, [test, shortcut_args, 2, ok], N)),
+
+    meck:expect(test, shortcut_opaque, 0, self()),
+
     io:format("~n\t\tMin\tMax\tMed\tAvg~n"),
     io:format("normal\t\t~p\t~p\t~p\t~p~n",
               test_avg(test, normal, [], N)),
@@ -29,6 +32,8 @@ run(N) ->
               test_avg(test, shortcut, [], N)),
     io:format("shortcut_args\t~p\t~p\t~p\t~p~n",
               test_avg(test, shortcut_args, [a, b], N)),
+    io:format("shortcut_opaque\t~p\t~p\t~p\t~p~n",
+              test_avg(test, shortcut_opaque, [], N)),
     meck:unload(test),
     ok.
 

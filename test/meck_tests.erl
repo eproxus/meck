@@ -56,6 +56,7 @@ meck_test_() ->
                            fun shortcut_call_return_value_/1,
                            fun shortcut_call_argument_/1,
                            fun shortcut_re_add_/1,
+                           fun shortcut_opaque_/1,
                            fun delete_/1,
                            fun called_false_no_args_/1,
                            fun called_true_no_args_/1,
@@ -297,6 +298,10 @@ shortcut_re_add_(Mod) ->
     ok = meck:expect(Mod, test, 2, new),
     ?assertEqual(new, Mod:test(hest, 1)),
     ?assertEqual(true, meck:validate(Mod)).
+
+shortcut_opaque_(Mod) ->
+    ok = meck:expect(Mod, test, 0, self()),
+    ?assertMatch(P when is_pid(P), Mod:test()).
 
 delete_(Mod) ->
     ok = meck:expect(Mod, test, 2, ok),

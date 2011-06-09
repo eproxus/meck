@@ -439,12 +439,27 @@ e_fetch(Expects, Func, Arity) ->
 e_delete(Expects, Func, Arity) ->
     dict:erase({Func, Arity}, Expects).
 
-interface_equal(NewExpects, OldExpects) ->
-    dict:fetch_keys(NewExpects) == dict:fetch_keys(OldExpects).
-
 %% --- Code generation ---------------------------------------------------------
 
 func(Mod, {Func, Arity}, {anon, Arity, Result}) ->
+   case contains_opaque(Result) of
+       true ->
+            func_exec(Mod, Func, Arity);
+       false ->
+           func_native(Mod, Func, Arity, Result)
+   end;
+func(Mod, {Func, Arity}, _Expect) ->
+    func_exec(Mod, Func, Arity).
+
+func_exec(Mod, Func, Arity) ->
+    Args = args(Arity),
+    ?function(Func, Arity,
+              [?clause(Args,
+                       [?call(?MODULE, exec,
+                              [?atom(Mod), ?atom(Func), ?integer(Arity),
+                               list(Args)])])]).
+
+func_native(Mod, Func, Arity, Result) ->
     Args = args(Arity),
     AbsResult = erl_parse:abstract(Result),
     ?function(
@@ -457,14 +472,16 @@ func(Mod, {Func, Arity}, {anon, Arity, Result}) ->
                            ?tuple([?tuple([?atom(Mod), ?atom(Func),
                                            list(Args)]),
                                    AbsResult])])]),
-            AbsResult])]);
-func(Mod, {Func, Arity}, _Expect) ->
-    Args = args(Arity),
-    ?function(Func, Arity,
-              [?clause(Args,
-                       [?call(?MODULE, exec,
-                              [?atom(Mod), ?atom(Func), ?integer(Arity),
-                               list(Args)])])]).
+            AbsResult])]).
+
+contains_opaque(Term) when is_pid(Term); is_port(Term); is_function(Term) ->
+    true;
+contains_opaque(Term) when is_list(Term) ->
+    lists:any(fun contains_opaque/1, Term);
+contains_opaque(Term) when is_tuple(Term) ->
+    lists:any(fun contains_opaque/1, tuple_to_list(Term));
+contains_opaque(_Term) ->
+    false.
 
 
 to_forms(Mod, Expects) ->
