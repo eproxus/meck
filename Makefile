@@ -1,10 +1,14 @@
-all:
-	@rebar compile
+REBAR=`which rebar || ./rebar`
+
+all: compile
+
+compile:
+	@$(REBAR) compile
 
 test: force
-	@rebar eunit
+	@$(REBAR) eunit
 
 clean:
-	@rebar clean
+	@$(REBAR) clean
 
 force: ;
