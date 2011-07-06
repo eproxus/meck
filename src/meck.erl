@@ -66,7 +66,8 @@
                 expects :: dict(),
                 valid = true :: boolean(),
                 history = [] :: history(),
-                original :: term()}).
+                original :: term(),
+                originally_sticky :: boolean()}).
 
 %% Includes
 -include("meck_abstract.hrl").
@@ -277,11 +278,12 @@ called(Mod, Fun, Args) ->
 
 %% @hidden
 init([Mod, Options]) ->
+    OriginallySticky = unstick_original(Mod),
     Original = backup_original(Mod),
     process_flag(trap_exit, true),
     Expects = init_expects(Mod, Options),
     meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
-    {ok, #state{mod = Mod, expects = Expects, original = Original}}.
+    {ok, #state{mod = Mod, expects = Expects, original = Original, originally_sticky = OriginallySticky}}.
 
 %% @hidden
 handle_call({get_expect, Func, Arity}, _From, S) ->
@@ -324,9 +326,9 @@ handle_cast(_Msg, S)  ->
 handle_info(_Info, S) -> {noreply, S}.
 
 %% @hidden
-terminate(_Reason, #state{mod = Mod, original = OriginalState}) ->
+terminate(_Reason, #state{mod = Mod, original = OriginalState, originally_sticky = OriginallySticky}) ->
     cleanup(Mod),
-    restore_original(Mod, OriginalState),
+    restore_original(Mod, OriginalState, OriginallySticky),
     ok.
 
 %% @hidden
@@ -577,18 +579,27 @@ backup_original(Module) ->
     end,
     Cover.
 
-restore_original(_Mod, false) ->
+restore_original(_Mod, false, _OriginallySticky) ->
     ok;
-restore_original(Mod, {File, Data, Options}) ->
+restore_original(Mod, {File, Data, Options}, OriginallySticky) ->
     case filename:extension(File) of
         ".erl" ->
             {ok, Mod} = cover:compile_module(File, Options);
         ".beam" ->
             cover:compile_beam(File)
     end,
+    restick_original(Mod, OriginallySticky),
     ok = cover:import(Data),
     ok = file:delete(Data),
     ok.
+
+unstick_original(Module) -> unstick_original(Module, code:is_sticky(Module)).
+
+unstick_original(Module, true) -> code:unstick_mod(Module);
+unstick_original(_,_) -> false.
+
+restick_original(Module, true) -> code:stick_mod(Module), ok;
+restick_original(_,_) -> ok.
 
 get_cover_state(Module) -> get_cover_state(Module, cover:is_compiled(Module)).
 

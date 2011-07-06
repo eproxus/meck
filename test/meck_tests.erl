@@ -673,3 +673,10 @@ remote_meck_cover_({Node, Mod}) ->
     {ok, Mod} = cover:compile(Mod),
     {ok, _Nodes} = cover:start([Node]),
     ?assertEqual(ok, rpc:call(Node, meck, new, [Mod])).
+
+can_mock_sticky_modules_test() ->
+    code:stick_mod(meck_test_module),
+    meck:new(meck_test_module),
+    ?assertNot(code:is_sticky(meck_test_module)),
+    meck:unload(meck_test_module),
+    ?assert(code:is_sticky(meck_test_module)).
