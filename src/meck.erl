@@ -67,7 +67,7 @@
                 valid = true :: boolean(),
                 history = [] :: history(),
                 original :: term(),
-                originally_sticky :: boolean()}).
+                was_sticky :: boolean()}).
 
 %% Includes
 -include("meck_abstract.hrl").
@@ -278,12 +278,12 @@ called(Mod, Fun, Args) ->
 
 %% @hidden
 init([Mod, Options]) ->
-    OriginallySticky = unstick_original(Mod),
+    WasSticky = unstick_original(Mod),
     Original = backup_original(Mod),
     process_flag(trap_exit, true),
     Expects = init_expects(Mod, Options),
     meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
-    {ok, #state{mod = Mod, expects = Expects, original = Original, originally_sticky = OriginallySticky}}.
+    {ok, #state{mod = Mod, expects = Expects, original = Original, was_sticky = WasSticky}}.
 
 %% @hidden
 handle_call({get_expect, Func, Arity}, _From, S) ->
@@ -326,9 +326,9 @@ handle_cast(_Msg, S)  ->
 handle_info(_Info, S) -> {noreply, S}.
 
 %% @hidden
-terminate(_Reason, #state{mod = Mod, original = OriginalState, originally_sticky = OriginallySticky}) ->
+terminate(_Reason, #state{mod = Mod, original = OriginalState, was_sticky = WasSticky}) ->
     cleanup(Mod),
-    restore_original(Mod, OriginalState, OriginallySticky),
+    restore_original(Mod, OriginalState, WasSticky),
     ok.
 
 %% @hidden
@@ -579,16 +579,16 @@ backup_original(Module) ->
     end,
     Cover.
 
-restore_original(_Mod, false, _OriginallySticky) ->
+restore_original(_Mod, false, _WasSticky) ->
     ok;
-restore_original(Mod, {File, Data, Options}, OriginallySticky) ->
+restore_original(Mod, {File, Data, Options}, WasSticky) ->
     case filename:extension(File) of
         ".erl" ->
             {ok, Mod} = cover:compile_module(File, Options);
         ".beam" ->
             cover:compile_beam(File)
     end,
-    restick_original(Mod, OriginallySticky),
+    restick_original(Mod, WasSticky),
     ok = cover:import(Data),
     ok = file:delete(Data),
     ok.

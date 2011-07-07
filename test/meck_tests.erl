@@ -679,4 +679,5 @@ can_mock_sticky_modules_test() ->
     meck:new(meck_test_module),
     ?assertNot(code:is_sticky(meck_test_module)),
     meck:unload(meck_test_module),
-    ?assert(code:is_sticky(meck_test_module)).
+    ?assert(code:is_sticky(meck_test_module)),
+    code:unstick_mod(meck_test_module).
