@@ -579,7 +579,8 @@ backup_original(Module) ->
     end,
     Cover.
 
-restore_original(_Mod, false, _WasSticky) ->
+restore_original(Mod, false, WasSticky) ->
+    restick_original(Mod, WasSticky),
     ok;
 restore_original(Mod, {File, Data, Options}, WasSticky) ->
     case filename:extension(File) of
@@ -598,7 +599,10 @@ unstick_original(Module) -> unstick_original(Module, code:is_sticky(Module)).
 unstick_original(Module, true) -> code:unstick_mod(Module);
 unstick_original(_,_) -> false.
 
-restick_original(Module, true) -> code:stick_mod(Module), ok;
+restick_original(Module, true) ->
+    code:stick_mod(Module),
+    _ = Module:module_info(),
+    ok;
 restick_original(_,_) -> ok.
 
 get_cover_state(Module) -> get_cover_state(Module, cover:is_compiled(Module)).
