@@ -98,6 +98,9 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%   <dt>`no_link'</dt>    <dd>Does not link the meck process to the caller
 %%                             process (needed for using meck in rpc calls).
 %%                         </dd>
+%%   <dt>`unstick'</dt>    <dd>Unstick the module to be mocked (needed
+%%                             to using meck with kernel and stdlib modules).
+%%                         </dd>
 %% </dl>
 -spec new(Mod:: atom() | [atom()], Options::[term()]) -> ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
@@ -278,8 +281,11 @@ called(Mod, Fun, Args) ->
 
 %% @hidden
 init([Mod, Options]) ->
-    code:ensure_loaded(Mod),
-    WasSticky = unstick_original(Mod),
+    WasSticky = case proplists:is_defined(unstick, Options) of
+        true -> code:ensure_loaded(Mod),
+                unstick_original(Mod);
+        _    -> false
+    end,
     Original = backup_original(Mod),
     process_flag(trap_exit, true),
     Expects = init_expects(Mod, Options),

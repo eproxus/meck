@@ -676,7 +676,7 @@ remote_meck_cover_({Node, Mod}) ->
 
 can_mock_sticky_modules_test() ->
     code:stick_mod(meck_test_module),
-    meck:new(meck_test_module),
+    meck:new(meck_test_module, [unstick]),
     ?assertNot(code:is_sticky(meck_test_module)),
     meck:unload(meck_test_module),
     ?assert(code:is_sticky(meck_test_module)),
@@ -684,7 +684,7 @@ can_mock_sticky_modules_test() ->
 
 can_mock_supervisor_module_test() ->
     ?assert(code:is_sticky(supervisor)),
-    meck:new(supervisor),
+    meck:new(supervisor, [unstick]),
     ?assertNot(code:is_sticky(supervisor)),
     meck:unload(supervisor),
     ?assert(code:is_sticky(supervisor)).
@@ -692,7 +692,7 @@ can_mock_supervisor_module_test() ->
 can_mock_sticky_module_not_yet_loaded_test() ->
     code:purge(supervisor),
     code:delete(supervisor),
-    meck:new(supervisor),
+    meck:new(supervisor, [unstick]),
     ?assertNot(code:is_sticky(supervisor)),
     meck:unload(supervisor),
     ?assert(code:is_sticky(supervisor)).
