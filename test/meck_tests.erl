@@ -688,3 +688,11 @@ can_mock_supervisor_module_test() ->
     ?assertNot(code:is_sticky(supervisor)),
     meck:unload(supervisor),
     ?assert(code:is_sticky(supervisor)).
+
+can_mock_sticky_module_not_yet_loaded_test() ->
+    code:purge(supervisor),
+    code:delete(supervisor),
+    meck:new(supervisor),
+    ?assertNot(code:is_sticky(supervisor)),
+    meck:unload(supervisor),
+    ?assert(code:is_sticky(supervisor)).

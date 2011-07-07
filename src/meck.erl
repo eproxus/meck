@@ -278,6 +278,7 @@ called(Mod, Fun, Args) ->
 
 %% @hidden
 init([Mod, Options]) ->
+    code:ensure_loaded(Mod),
     WasSticky = unstick_original(Mod),
     Original = backup_original(Mod),
     process_flag(trap_exit, true),
