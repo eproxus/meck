@@ -578,7 +578,7 @@ unlink_test() ->
     ?assert(not lists:member(self(), Links)),
     ok = meck:unload(mymod).
 
-%% @doc Exception is thrown when you run expect on a non-existing module.
+%% @doc Exception is thrown when you run expect on a non-existing (and not yet mocked) module.
 expect_without_new_test() ->
     ?assertError({not_mocked, othermod},
                  meck:expect(othermod, test, fun() -> ok end)).
