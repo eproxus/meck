@@ -98,8 +98,8 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%   <dt>`no_link'</dt>    <dd>Does not link the meck process to the caller
 %%                             process (needed for using meck in rpc calls).
 %%                         </dd>
-%%   <dt>`unstick'</dt>    <dd>Unstick the module to be mocked (needed
-%%                             to using meck with kernel and stdlib modules).
+%%   <dt>`unstick'</dt>    <dd>Unstick the module to be mocked (e.g. needed
+%%                             for using meck with kernel and stdlib modules).
 %%                         </dd>
 %% </dl>
 -spec new(Mod:: atom() | [atom()], Options::[term()]) -> ok.
