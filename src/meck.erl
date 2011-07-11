@@ -608,7 +608,7 @@ unstick_original(_,_) -> false.
 
 restick_original(Module, true) ->
     code:stick_mod(Module),
-    _ = Module:module_info(),
+    code:ensure_loaded(Module),
     ok;
 restick_original(_,_) -> ok.
 
