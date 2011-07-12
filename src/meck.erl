@@ -282,7 +282,7 @@ called(Mod, Fun, Args) ->
 %% @hidden
 init([Mod, Options]) ->
     WasSticky = case proplists:is_defined(unstick, Options) of
-        true -> code:ensure_loaded(Mod),
+        true -> {module, Mod} = code:ensure_loaded(Mod),
                 unstick_original(Mod);
         _    -> false
     end,
@@ -608,7 +608,7 @@ unstick_original(_,_) -> false.
 
 restick_original(Module, true) ->
     code:stick_mod(Module),
-    code:ensure_loaded(Module),
+    {module, Module} = code:ensure_loaded(Module),
     ok;
 restick_original(_,_) -> ok.
 
