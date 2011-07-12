@@ -66,7 +66,8 @@
                 expects :: dict(),
                 valid = true :: boolean(),
                 history = [] :: history(),
-                original :: term()}).
+                original :: term(),
+                was_sticky :: boolean()}).
 
 %% Includes
 -include("meck_abstract.hrl").
@@ -96,6 +97,9 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%                             mocked by meck.</dd>
 %%   <dt>`no_link'</dt>    <dd>Does not link the meck process to the caller
 %%                             process (needed for using meck in rpc calls).
+%%                         </dd>
+%%   <dt>`unstick'</dt>    <dd>Unstick the module to be mocked (e.g. needed
+%%                             for using meck with kernel and stdlib modules).
 %%                         </dd>
 %% </dl>
 -spec new(Mod:: atom() | [atom()], Options::[term()]) -> ok.
@@ -277,11 +281,16 @@ called(Mod, Fun, Args) ->
 
 %% @hidden
 init([Mod, Options]) ->
+    WasSticky = case proplists:is_defined(unstick, Options) of
+        true -> {module, Mod} = code:ensure_loaded(Mod),
+                unstick_original(Mod);
+        _    -> false
+    end,
     Original = backup_original(Mod),
     process_flag(trap_exit, true),
     Expects = init_expects(Mod, Options),
     meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
-    {ok, #state{mod = Mod, expects = Expects, original = Original}}.
+    {ok, #state{mod = Mod, expects = Expects, original = Original, was_sticky = WasSticky}}.
 
 %% @hidden
 handle_call({get_expect, Func, Arity}, _From, S) ->
@@ -324,9 +333,9 @@ handle_cast(_Msg, S)  ->
 handle_info(_Info, S) -> {noreply, S}.
 
 %% @hidden
-terminate(_Reason, #state{mod = Mod, original = OriginalState}) ->
+terminate(_Reason, #state{mod = Mod, original = OriginalState, was_sticky = WasSticky}) ->
     cleanup(Mod),
-    restore_original(Mod, OriginalState),
+    restore_original(Mod, OriginalState, WasSticky),
     ok.
 
 %% @hidden
@@ -577,18 +586,31 @@ backup_original(Module) ->
     end,
     Cover.
 
-restore_original(_Mod, false) ->
+restore_original(Mod, false, WasSticky) ->
+    restick_original(Mod, WasSticky),
     ok;
-restore_original(Mod, {File, Data, Options}) ->
+restore_original(Mod, {File, Data, Options}, WasSticky) ->
     case filename:extension(File) of
         ".erl" ->
             {ok, Mod} = cover:compile_module(File, Options);
         ".beam" ->
             cover:compile_beam(File)
     end,
+    restick_original(Mod, WasSticky),
     ok = cover:import(Data),
     ok = file:delete(Data),
     ok.
+
+unstick_original(Module) -> unstick_original(Module, code:is_sticky(Module)).
+
+unstick_original(Module, true) -> code:unstick_mod(Module);
+unstick_original(_,_) -> false.
+
+restick_original(Module, true) ->
+    code:stick_mod(Module),
+    {module, Module} = code:ensure_loaded(Module),
+    ok;
+restick_original(_,_) -> ok.
 
 get_cover_state(Module) -> get_cover_state(Module, cover:is_compiled(Module)).
 
