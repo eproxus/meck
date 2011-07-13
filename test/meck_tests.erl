@@ -722,3 +722,10 @@ can_mock_sticky_module_not_yet_loaded_({Mod, _}) ->
     ?assertNot(code:is_sticky(Mod)),
     ?assertEqual(ok, meck:unload(Mod)),
     ?assert(code:is_sticky(Mod)).
+
+can_mock_non_sticky_module_test() ->
+    ?assertNot(code:is_sticky(meck_test_module)),
+    ?assertEqual(ok, meck:new(meck_test_module, [unstick])),
+    ?assertNot(code:is_sticky(meck_test_module)),
+    ?assertEqual(ok, meck:unload(meck_test_module)),
+    ?assertNot(code:is_sticky(meck_test_module)).
