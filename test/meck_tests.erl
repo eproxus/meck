@@ -723,6 +723,9 @@ can_mock_sticky_module_not_yet_loaded_({Mod, _}) ->
     ?assertEqual(ok, meck:unload(Mod)),
     ?assert(code:is_sticky(Mod)).
 
+cannot_mock_sticky_module_without_unstick_({Mod, _}) ->
+    ?assertError(module_is_sticky, meck:new(Mod, [no_link])).
+
 can_mock_non_sticky_module_test() ->
     ?assertNot(code:is_sticky(meck_test_module)),
     ?assertEqual(ok, meck:new(meck_test_module, [unstick])),

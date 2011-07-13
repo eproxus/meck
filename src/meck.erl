@@ -289,8 +289,14 @@ init([Mod, Options]) ->
     Original = backup_original(Mod),
     process_flag(trap_exit, true),
     Expects = init_expects(Mod, Options),
-    meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
-    {ok, #state{mod = Mod, expects = Expects, original = Original, was_sticky = WasSticky}}.
+    try
+        meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
+        {ok, #state{mod = Mod, expects = Expects, original = Original,
+                    was_sticky = WasSticky}}
+    catch
+        exit:{error_loading_module, Mod, sticky_directory} ->
+            {stop, module_is_sticky}
+    end.
 
 %% @hidden
 handle_call({get_expect, Func, Arity}, _From, S) ->
