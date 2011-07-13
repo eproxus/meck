@@ -300,8 +300,8 @@ shortcut_re_add_(Mod) ->
     ?assertEqual(true, meck:validate(Mod)).
 
 shortcut_opaque_(Mod) ->
-    ok = meck:expect(Mod, test, 0, self()),
-    ?assertMatch(P when is_pid(P), Mod:test()).
+    ok = meck:expect(Mod, test, 0, {test, [a, self()]}),
+    ?assertMatch({test, [a, P]} when P == self(), Mod:test()).
 
 delete_(Mod) ->
     ok = meck:expect(Mod, test, 2, ok),
