@@ -434,12 +434,14 @@ call_original_test() ->
     ?assertEqual({module, meck_test_module}, code:load_file(meck_test_module)),
     ok = meck:new(meck_test_module),
     ?assertEqual({file, ""}, code:is_loaded(meck_test_module_meck_original)),
-    ok = meck:expect(meck_test_module, a, fun() -> c end),
+    ok = meck:expect(meck_test_module, a, fun() -> a end),
     ok = meck:expect(meck_test_module, b, fun() -> meck:passthrough([]) end),
-    ?assertEqual(c, meck_test_module:a()),
+    ok = meck:expect(meck_test_module, c, fun(A, B) -> meck:passthrough([B, A]) end),
+    ?assertEqual(a, meck_test_module:a()),
     ?assertEqual(b, meck_test_module:b()),
+    ?assertEqual({c2, c1}, meck_test_module:c(c1, c2)),
     ok = meck:unload(meck_test_module).
-
+    
 unload_renamed_original_test() ->
     ok = meck:new(meck_test_module),
     ok = meck:unload(meck_test_module),

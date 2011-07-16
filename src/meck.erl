@@ -539,10 +539,10 @@ handle_mock_exception(Mod, Func, Fun, Args) ->
             % exception created with the mock:exception function,
             % do not invalidate Mod
             raise(Mod, Func, Args, Class, Reason);
-        {passthrough, Args} ->
-            % call_original(Args) called from mock function
-            Result = apply(original_name(Mod), Func, Args),
-            cast(Mod, {add_history, {{Mod, Func, Args}, Result}}),
+        {passthrough, NewArgs} ->
+            % call_original(NewArgs) called from mock function
+            Result = apply(original_name(Mod), Func, NewArgs),
+            cast(Mod, {add_history, {{Mod, Func, NewArgs}, Result}}),
             Result
     end.
 
