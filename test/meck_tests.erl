@@ -479,6 +479,13 @@ passthrough_test() ->
     ?assertEqual({1, 2}, meck_test_module:c(1, 2)),
     ok = meck:unload(meck_test_module).
 
+passthrough_different_arg_test() ->
+    ok = meck:new(meck_test_module),
+    ok = meck:expect(meck_test_module, c,
+                     fun(_, _) -> meck:passthrough([x, y]) end),
+    ?assertEqual({x, y}, meck_test_module:c(1, 2)),
+    ok = meck:unload(meck_test_module).
+
 cover_test() ->
     {ok, _} = cover:compile("../test/meck_test_module.erl"),
     a = meck_test_module:a(),
