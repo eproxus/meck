@@ -486,6 +486,10 @@ passthrough_different_arg_test() ->
     ?assertEqual({x, y}, meck_test_module:c(1, 2)),
     ok = meck:unload(meck_test_module).
 
+passthrough_bif_test() ->
+    ?assertEqual(ok, meck:new(file, [unstick, passthrough])),
+    ?assertEqual(ok, meck:unload(file)).
+
 cover_test() ->
     {ok, _} = cover:compile("../test/meck_test_module.erl"),
     a = meck_test_module:a(),
