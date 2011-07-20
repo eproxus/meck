@@ -25,14 +25,14 @@ install rebar`).
 To build meck, got to the meck directory and simply type:
 
 ```console
-$ rebar compile
+rebar compile
 ```
 
 Make sure meck works on your platform (requires the `eunit`
 application, which is included by default in Erlang):
 
 ```console
-$ rebar eunit
+rebar eunit
 ```
 
 Two things might seem alarming when running the tests: 1. Warnings
@@ -47,7 +47,7 @@ Install
 To install meck permanently, use of [Agner][2] is recommended:
 
 ```console
-$ agner install meck
+agner install meck
 ```
 
 If you want to install your own built version of meck add the ebin
