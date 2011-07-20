@@ -62,7 +62,9 @@ compile_and_load_forms(AbsCode, Opts) ->
         {ok, ModName, Binary} ->
             load_binary(ModName, Binary);
         {ok, ModName, Binary, _Warnings} ->
-            load_binary(ModName, Binary)
+            load_binary(ModName, Binary);
+        Error ->
+            exit({compile_forms, Error})
     end.
 
 -spec compile_options(binary() | module()) -> compile_options().
