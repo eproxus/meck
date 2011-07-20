@@ -5,15 +5,21 @@ A mocking library for Erlang.
 Introduction
 ------------
 
-With meck you can easily mock modules in Erlang. Since meck is
-intended to be used in testing, you can also perform some basic
-validations on the mocked modules, such as making sure no function is
-called in a way it should not.
+With meck you can easily mock modules in Erlang. You can also perform
+some basic validations on the mocked modules, such as making sure no
+unexpected exceptions occured or looking at the call history.
 
-meck automatically renames existing modules in case they are loaded
-when you want to mock them, and restores them upon unloading of the
-mocked module. It is also possible to call the original functions from
-a mocked module using `meck:passthrough/1` from inside an expectation.
+Features
+--------
+
+  * Automatic renaming and restoration of original modules
+  * Automatic backup and restore of cover data
+  * Changing return values using sequences and loops of static values
+  * Passthrough: use functions from the original module
+  * Mock is linked to the creating process (disable with `nolink`)
+  * Complete call history showing calls, results and exceptions
+  * Mocking of sticky modules (using the option `unstick`)
+  * Throwing of expected exceptions that keeps the module valid
 
 Build
 -----
@@ -28,18 +34,20 @@ To build meck, got to the meck directory and simply type:
 rebar compile
 ```
 
-Make sure meck works on your platform (requires the `eunit`
-application, which is included by default in Erlang):
+To make sure meck works on your platform, run the tests:
 
 ```sh
 rebar eunit
 ```
 
-Two things might seem alarming when running the tests: 1. Warnings
-emitted by cover and 2. an exception printed by SASL. Both are
-expected due to the way Erlang currently prints errors. The important line you
-should look for is `All XX tests passed`, if that appears all is
-correct.
+Two things might seem alarming when running the tests:
+
+  1. Warnings emitted by cover
+  2. En exception printed by SASL
+
+Both are expected due to the way Erlang currently prints errors. The
+important line you should look for is `All XX tests passed`, if that
+appears all is correct.
 
 Install
 -------
@@ -60,7 +68,7 @@ Examples
 Here's an example of using meck in the Erlang shell:
 
 ```erl
-Eshell V5.7.5  (abort with ^G)
+Eshell V5.8.4  (abort with ^G)
 1> meck:new(dog).
 ok
 2> meck:expect(dog, bark, fun() -> "Woof!" end).
@@ -69,9 +77,13 @@ ok
 "Woof!"
 4> meck:validate(dog).
 true
+5> meck:unload(dog).
+ok
+6> dog:bark().
+** exception error: undefined function dog:bark/0
 ```
 
-Exceptions can be anticipated by meck (resulting in validation
+Exceptions can be anticipated by meck (resulting in validation still
 passing). This is intended to be used to test code that can and should
 handle certain exceptions indeed does take care of them:
 
@@ -121,10 +133,11 @@ Here's an example of using meck inside an EUnit test case:
 
 ```erlang
 my_test() ->
-    meck:new(library_module),
-    meck:expect(library_module, fib, fun(8) -> 21 end),
-    ?assertEqual(21, code_under_test:run(fib, 8)),
-    ?assert(meck:validate(library_module)).
+    meck:new(my_library_module),
+    meck:expect(my_library_module, fib, fun(8) -> 21 end),
+    ?assertEqual(21, code_under_test:run(fib, 8)), % Uses my_library_module
+    ?assert(meck:validate(my_library_module)),
+    meck:unload(my_library_module).
 ```
 
 Pass-through is used when the original functionality of a module
@@ -134,12 +147,10 @@ mock. These can later be overridden by calling `expect/3` or
 `expect/4`.
 
 ```erl
-Eshell V5.7.5  (abort with ^G)
-1> code:unstick_mod(string).
-true
-2> meck:new(string, [passthrough]).
+Eshell V5.8.4  (abort with ^G)
+1> meck:new(string, [unstick, passthrough]).
 ok
-3> string:strip("  test  ").
+2> string:strip("  test  ").
 "test"
 ```
 
@@ -150,18 +161,16 @@ call the original function with the same name as the expect is is
 defined in):
 
 ```erl
-Eshell V5.7.5  (abort with ^G)
-1> code:unstick_mod(string).
-true
-2> meck:new(string).
+Eshell V5.8.4  (abort with ^G)
+1> meck:new(string, [unstick]).
 ok
-3> meck:expect(string, strip, fun(String) -> meck:passthrough([String]) end).
+2> meck:expect(string, strip, fun(String) -> meck:passthrough([String]) end).
 ok
-4> string:strip("  test  ").
+3> string:strip("  test  ").
 "test"
-5> meck:unload(string).
+4> meck:unload(string).
 ok
-6> string:strip("  test  ").
+5> string:strip("  test  ").
 "test"
 ```
 
@@ -171,7 +180,7 @@ Contribute
 Patches are greatly appreciated!
 
 Should you find yourself using meck and have issues, comments or
-feedback please [create an issue.] [3]
+feedback please [create an issue here on GitHub.] [3]
 
   [1]: https://github.com/basho/rebar "Rebar - A build tool for Erlang"
   [2]: http://erlagner.org/ "Agner - Erlang Package Index & Package Manager"
