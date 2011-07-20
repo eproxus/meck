@@ -1,4 +1,4 @@
-  * [Introductions](#introduction)
+  * [Introduction](#introduction)
   * [Features](#features)
   * [Examples](#examples)
   * [Build](#build)
@@ -17,7 +17,7 @@ Introduction
 
 With meck you can easily mock modules in Erlang. You can also perform
 some basic validations on the mocked modules, such as making sure no
-unexpected exceptions occured or looking at the call history.
+unexpected exceptions occurred or looking at the call history.
 
 
 <a name='features'>
@@ -28,7 +28,7 @@ Features
   * Automatic renaming and restoration of original modules
   * Automatic backup and restore of cover data
   * Changing return values using sequences and loops of static values
-  * Passthrough: use functions from the original module
+  * Pass through: use functions from the original module
   * Mock is linked to the creating process (disable with `nolink`)
   * Complete call history showing calls, results and exceptions
   * Mocking of sticky modules (using the option `unstick`)
