@@ -1,6 +1,16 @@
+  * [Introductions](#introduction)
+  * [Features](#features)
+  * [Examples](#examples)
+  * [Build](#build)
+  * [Install](#install)
+  * [Contribute](#contribute)
+
 meck
 ====
 A mocking library for Erlang.
+
+
+<a name='introduction'>
 
 Introduction
 ------------
@@ -8,6 +18,9 @@ Introduction
 With meck you can easily mock modules in Erlang. You can also perform
 some basic validations on the mocked modules, such as making sure no
 unexpected exceptions occured or looking at the call history.
+
+
+<a name='features'>
 
 Features
 --------
@@ -21,47 +34,8 @@ Features
   * Mocking of sticky modules (using the option `unstick`)
   * Throwing of expected exceptions that keeps the module valid
 
-Build
------
 
-meck requires [rebar][1] to build. Either install rebar by building it
-manually and putting it in your path or by using [Agner][2] (`agner
-install rebar`).
-
-To build meck, got to the meck directory and simply type:
-
-```sh
-rebar compile
-```
-
-To make sure meck works on your platform, run the tests:
-
-```sh
-rebar eunit
-```
-
-Two things might seem alarming when running the tests:
-
-  1. Warnings emitted by cover
-  2. En exception printed by SASL
-
-Both are expected due to the way Erlang currently prints errors. The
-important line you should look for is `All XX tests passed`, if that
-appears all is correct.
-
-Install
--------
-
-To install meck permanently, use of [Agner][2] is recommended:
-
-```sh
-agner install meck
-```
-
-If you want to install your own built version of meck add the ebin
-directory to your Erlang code path or move the meck folder into your
-release folder and make sure that folder is in your `ERL_LIBS`
-environment variable.
+<a name='examples'>
 
 Examples
 --------
@@ -173,6 +147,53 @@ ok
 5> string:strip("  test  ").
 "test"
 ```
+
+<a name='build'>
+
+Build
+-----
+
+meck requires [rebar][1] to build. To build meck, got to the meck
+directory and simply type:
+
+```sh
+rebar compile
+```
+
+To make sure meck works on your platform, run the tests:
+
+```sh
+rebar eunit
+```
+
+Two things might seem alarming when running the tests:
+
+  1. Warnings emitted by cover
+  2. En exception printed by SASL
+
+Both are expected due to the way Erlang currently prints errors. The
+important line you should look for is `All XX tests passed`, if that
+appears all is correct.
+
+
+<a name='install'>
+
+Install
+-------
+
+To install meck permanently, use of [Agner][2] is recommended:
+
+```sh
+agner install meck
+```
+
+If you want to install your own built version of meck add the ebin
+directory to your Erlang code path or move the meck folder into your
+release folder and make sure that folder is in your `ERL_LIBS`
+environment variable.
+
+
+<a name='contribute'>
 
 Contribute
 ----------
