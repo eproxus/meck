@@ -24,12 +24,16 @@ install rebar`).
 
 To build meck, got to the meck directory and simply type:
 
-    $ rebar compile
+```console
+$ rebar compile
+```
 
 Make sure meck works on your platform (requires the `eunit`
 application, which is included by default in Erlang):
 
-    $ rebar eunit
+```console
+$ rebar eunit
+```
 
 Two things might seem alarming when running the tests: 1. Warnings
 emitted by cover and 2. an exception printed by SASL. Both are
@@ -42,7 +46,9 @@ Install
 
 To install meck permanently, use of [Agner][2] is recommended:
 
-    $ agner install meck
+```console
+$ agner install meck
+```
 
 If you want to install your own built version of meck add the ebin
 directory to your Erlang code path or move the meck folder into your
@@ -53,65 +59,73 @@ Examples
 --------
 Here's an example of using meck in the Erlang shell:
 
-    Eshell V5.7.5  (abort with ^G)
-    1> meck:new(dog).
-    ok
-    2> meck:expect(dog, bark, fun() -> "Woof!" end).
-    ok
-    3> dog:bark().
-    "Woof!"
-    4> meck:validate(dog).
-    true
+```erl
+Eshell V5.7.5  (abort with ^G)
+1> meck:new(dog).
+ok
+2> meck:expect(dog, bark, fun() -> "Woof!" end).
+ok
+3> dog:bark().
+"Woof!"
+4> meck:validate(dog).
+true
+```
 
 Exceptions can be anticipated by meck (resulting in validation
 passing). This is intended to be used to test code that can and should
 handle certain exceptions indeed does take care of them:
 
-    5> meck:expect(dog, meow, fun() -> meck:exception(error, not_a_cat) end).
-    ok
-    6> catch dog:meow().
-    {'EXIT',{not_a_cat,[{meck,exception,2},
-                        {meck,exec,4},
-                        {dog,meow,[]},
-                        {erl_eval,do_apply,5},
-                        {erl_eval,expr,5},
-                        {shell,exprs,6},
-                        {shell,eval_exprs,6},
-                        {shell,eval_loop,3}]}}
-    7> meck:validate(dog).
-    true
+```erl
+5> meck:expect(dog, meow, fun() -> meck:exception(error, not_a_cat) end).
+ok
+6> catch dog:meow().
+{'EXIT',{not_a_cat,[{meck,exception,2},
+                    {meck,exec,4},
+                    {dog,meow,[]},
+                    {erl_eval,do_apply,5},
+                    {erl_eval,expr,5},
+                    {shell,exprs,6},
+                    {shell,eval_exprs,6},
+                    {shell,eval_loop,3}]}}
+7> meck:validate(dog).
+true
+```
 
 Normal Erlang exceptions result in a failed validation. The following
 example is just to demonstrate the behavior, in real test code the
 exception would normally come from the code under test (which should,
 if not expected, invalidate the mocked module):
 
-    8> meck:expect(dog, jump, fun(Height) when Height > 3 ->
-                                      erlang:error(too_high);
-                                 (Height) ->
-                                      ok
-                              end).
-    ok
-    9> dog:jump(2).
-    ok
-    10> catch dog:jump(5).
-    {'EXIT',{too_high,[{meck,exec,4},
-                       {dog,jump,[5]},
-                       {erl_eval,do_apply,5},
-                       {erl_eval,expr,5},
-                       {shell,exprs,6},
-                       {shell,eval_exprs,6},
-                       {shell,eval_loop,3}]}}
-    11> meck:validate(dog).
-    false
+```erl
+8> meck:expect(dog, jump, fun(Height) when Height > 3 ->
+                                  erlang:error(too_high);
+                             (Height) ->
+                                  ok
+                          end).
+ok
+9> dog:jump(2).
+ok
+10> catch dog:jump(5).
+{'EXIT',{too_high,[{meck,exec,4},
+                   {dog,jump,[5]},
+                   {erl_eval,do_apply,5},
+                   {erl_eval,expr,5},
+                   {shell,exprs,6},
+                   {shell,eval_exprs,6},
+                   {shell,eval_loop,3}]}}
+11> meck:validate(dog).
+false
+```
 
 Here's an example of using meck inside an EUnit test case:
 
-    my_test() ->
-        meck:new(library_module),
-        meck:expect(library_module, fib, fun(8) -> 21 end),
-        ?assertEqual(21, code_under_test:run(fib, 8)),
-        ?assert(meck:validate(library_module)).
+```erlang
+my_test() ->
+    meck:new(library_module),
+    meck:expect(library_module, fib, fun(8) -> 21 end),
+    ?assertEqual(21, code_under_test:run(fib, 8)),
+    ?assert(meck:validate(library_module)).
+```
 
 Pass-through is used when the original functionality of a module
 should be kept. When the option `passthrough` is used when calling
@@ -119,13 +133,15 @@ should be kept. When the option `passthrough` is used when calling
 mock. These can later be overridden by calling `expect/3` or
 `expect/4`.
 
-    Eshell V5.7.5  (abort with ^G)
-    1> code:unstick_mod(string).
-    true
-    2> meck:new(string, [passthrough]).
-    ok
-    3> string:strip("  test  ").
-    "test"
+```erl
+Eshell V5.7.5  (abort with ^G)
+1> code:unstick_mod(string).
+true
+2> meck:new(string, [passthrough]).
+ok
+3> string:strip("  test  ").
+"test"
+```
 
 It's also possible to pass calls to the original function allowing us
 to override only a certain behavior of a function (this usage is
@@ -133,19 +149,21 @@ compatible with the `passthrough` option). `passthrough/1` will always
 call the original function with the same name as the expect is is
 defined in):
 
-    Eshell V5.7.5  (abort with ^G)
-    1> code:unstick_mod(string).
-    true
-    2> meck:new(string).
-    ok
-    3> meck:expect(string, strip, fun(String) -> meck:passthrough([String]) end).
-    ok
-    4> string:strip("  test  ").
-    "test"
-    5> meck:unload(string).
-    ok
-    6> string:strip("  test  ").
-    "test"
+```erl
+Eshell V5.7.5  (abort with ^G)
+1> code:unstick_mod(string).
+true
+2> meck:new(string).
+ok
+3> meck:expect(string, strip, fun(String) -> meck:passthrough([String]) end).
+ok
+4> string:strip("  test  ").
+"test"
+5> meck:unload(string).
+ok
+6> string:strip("  test  ").
+"test"
+```
 
 Contribute
 ----------
