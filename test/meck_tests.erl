@@ -662,9 +662,14 @@ sticky_directory_test_() ->
 
 sticky_setup() ->
     % Find out where the beam file is (purge because it is cover compiled)
-    false = code:purge(meck_test_module),
-    {module, meck_test_module} = code:load_file(meck_test_module),
-    Beam = code:which(meck_test_module),
+    Module = meck_test_module,
+    false = code:purge(Module),
+    {module, Module} = code:load_file(Module),
+    Beam = code:which(Module),
+
+    % Unload module so it's not loaded when running meck
+    false = code:purge(Module),
+    true = code:delete(Module),
 
     % Create new sticky dir and copy beam file
     Dir = "sticky_test",
@@ -674,15 +679,12 @@ sticky_setup() ->
     true = code:add_patha(Dir),
     ok = code:stick_dir(Dir),
 
-    % Unload module so it's not loaded when running meck
-    false = code:purge(meck_test_module),
-    true = code:delete(meck_test_module),
-    {meck_test_module, {Dir, Dest}}.
+    {Module, {Dir, Dest}}.
 
-sticky_teardown({Mod, {Dir, Dest}}) ->
+sticky_teardown({Module, {Dir, Dest}}) ->
     % Clean up
     ok = code:unstick_dir(Dir),
-    false = code:purge(Mod),
+    false = code:purge(Module),
     true = code:del_path(Dir),
     ok = file:delete(Dest),
     ok = file:del_dir(Dir).
