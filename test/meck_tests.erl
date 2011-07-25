@@ -312,81 +312,56 @@ delete_(Mod) ->
 called_false_no_args_(Mod) ->
     Args = [],
     ok = meck:expect(Mod, test, length(Args), ok),
-    ?assertEqual(false, meck:called(Mod, test, Args)),
-    ?assert(meck:validate(Mod)).
+    assert_called(Mod, test, Args, false).
 
 called_true_no_args_(Mod) ->
     Args = [],
     ok = meck:expect(Mod, test, length(Args), ok),
-    ok = Mod:test(),
-    ?assertEqual(true, meck:called(Mod, test, Args)),
-    ?assert(meck:validate(Mod)).
+    ok = apply(Mod, test, Args),
+    assert_called(Mod, test, Args, true).
 
 called_true_two_functions_(Mod) ->
     Args = [],
     ok = meck:expect(Mod, test1, length(Args), ok),
     ok = meck:expect(Mod, test2, length(Args), ok),
-    ok = Mod:test1(),
-    ok = Mod:test2(),
-    ?assertEqual(true, meck:called(Mod, test2, Args)),
-    ?assert(meck:validate(Mod)).
+    ok = apply(Mod, test1, Args),
+    ok = apply(Mod, test2, Args),
+    assert_called(Mod, test2, Args, true).
 
 called_false_one_arg_(Mod) ->
-    Arg = "hello",
-    Args = [Arg],
+    Args = ["hello"],
     ok = meck:expect(Mod, test, length(Args), ok),
-    ?assertEqual(false, meck:called(Mod, test, [Arg])),
-    ?assert(meck:validate(Mod)).
+    assert_called(Mod, test, Args, false).
 
 called_true_one_arg_(Mod) ->
-    Arg = "hello",
-    Args = [Arg],
+    Args = ["hello"],
     ok = meck:expect(Mod, test, length(Args), ok),
-    ok = Mod:test(Arg),
-    ?assertEqual(true, meck:called(Mod, test, [Arg])),
-    ?assert(meck:validate(Mod)).
+    ok = apply(Mod, test, Args),
+    assert_called(Mod, test, Args, true).
 
 called_false_few_args_(Mod) ->
-    Arg1 = one,
-    Arg2 = 2,
-    Arg3 = {three, 3},
-    Arg4 = "four",
-    Args = [Arg1, Arg2, Arg3, Arg4],
+    Args = [one, 2, {three, 3}, "four"],
     ok = meck:expect(Mod, test, length(Args), ok),
-    ?assertEqual(false, meck:called(Mod, test, Args)),
-    ?assert(meck:validate(Mod)).
+    assert_called(Mod, test, Args, false).
 
 called_true_few_args_(Mod) ->
-    Arg1 = one,
-    Arg2 = 2,
-    Arg3 = {three, 3},
-    Arg4 = "four",
-    Args = [Arg1, Arg2, Arg3, Arg4],
+    Args = [one, 2, {three, 3}, "four"],
     ok = meck:expect(Mod, test, length(Args), ok),
-    ok = Mod:test(Arg1, Arg2, Arg3, Arg4),
-    ?assertEqual(true, meck:called(Mod, test, Args)),
-    ?assert(meck:validate(Mod)).
+    ok = apply(Mod, test, Args),
+    assert_called(Mod, test, Args, true).
 
 called_false_error_(Mod) ->
-    Arg1 = one,
-    Arg2 = "two",
-    Arg3 = {3, 3},
-    Args = [Arg1, Arg2, Arg3],
+    Args = [one, "two", {3, 3}],
     TestFun = fun (_, _, _) -> meck:exception(error, my_error) end,
     ok = meck:expect(Mod, test, TestFun),
-    ?assertEqual(false, meck:called(Mod, test, Args)),
-    ?assert(meck:validate(Mod)).
+    assert_called(Mod, test, Args, false).
 
 called_true_error_(Mod) ->
-    Arg1 = one,
-    Arg2 = "two",
-    Arg3 = {3, 3},
-    Args = [Arg1, Arg2, Arg3],
+    Args = [one, "two", {3, 3}],
     TestFun = fun (_, _, _) -> meck:exception(error, my_error) end,
     ok = meck:expect(Mod, test, TestFun),
-    catch Mod:test(Arg1, Arg2, Arg3),
-    ?assertEqual(true, meck:called(Mod, test, Args)),
-    ?assert(meck:validate(Mod)).
+    catch apply(Mod, test, Args),
+    assert_called(Mod, test, Args, true).
 
 sequence_(Mod) ->
     Sequence = [a, b, c, d, e],
@@ -496,15 +471,7 @@ cover_test() ->
     b = meck_test_module:b(),
     {1, 2} = meck_test_module:c(1, 2),
     {ok, {meck_test_module, {3,0}}} = cover:analyze(meck_test_module, module),
-
-    ok = meck:new(meck_test_module),
-    ok = meck:expect(meck_test_module, a, fun() -> c end),
-    ?assertEqual(c, meck_test_module:a()),
-
-    ok = meck:unload(meck_test_module),
-
-    ?assert(not filelib:is_file("meck_test_module.coverdata")),
-
+    run_mock_no_cover_file(meck_test_module),
     {ok, {meck_test_module, {3,0}}} = cover:analyze(meck_test_module, module).
 
 cover_options_test_() ->
@@ -542,31 +509,23 @@ cover_options_test_() ->
             % doesn't count include files?
             ?assertEqual({ok, {cover_test_module, {2,0}}},
                          cover:analyze(cover_test_module, module)),
-
-            ok = meck:new(cover_test_module),
-            ok = meck:expect(cover_test_module, a, fun() -> c end),
-            ?assertEqual(c, cover_test_module:a()),
-
-            ok = meck:unload(cover_test_module),
-
-            ?assert(not filelib:is_file("cover_test_module.coverdata")),
-
+            run_mock_no_cover_file(cover_test_module),
             % 2 instead of 3, as above
             ?assertEqual({ok, {cover_test_module, {2,0}}},
                          cover:analyze(cover_test_module, module))
         end)}.
 
+run_mock_no_cover_file(Module) ->
+    ok = meck:new(Module),
+    ok = meck:expect(Module, a, fun () -> c end),
+    ?assertEqual(c, Module:a()),
+    ok = meck:unload(Module),
+    ?assert(not filelib:is_file(atom_to_list(Module) ++ ".coverdata")).
+
 cover_passthrough_test() ->
     {ok, _} = cover:compile("../test/meck_test_module.erl"),
     {ok, {meck_test_module, {0,3}}} = cover:analyze(meck_test_module, module),
-
-    ok = meck:new(meck_test_module, [passthrough]),
-    ok = meck:expect(meck_test_module, a, fun() -> c end),
-    ?assertEqual(c, meck_test_module:a()),
-    ?assertEqual(b, meck_test_module:b()),
-    ?assertEqual({1, 2}, meck_test_module:c(1, 2)),
-
-    ok = meck:unload(meck_test_module),
+    passthrough_test(),
     {ok, {meck_test_module, {0,3}}} = cover:analyze(meck_test_module, module).
 
 % @doc The mocked module is unloaded if the meck process crashes.
@@ -751,3 +710,11 @@ cannot_expect_bif_or_autogenerated_test() ->
     ?assertError({cannot_mock_autogenerated, {unicode, module_info, 0}},
                  meck:expect(unicode, module_info, 0, doh)),
     ?assertEqual(ok, meck:unload(unicode)).
+
+%%==============================================================================
+%% Internal Functions
+%%==============================================================================
+
+assert_called(Mod, Function, Args, WasCalled) ->
+    ?assertEqual(WasCalled, meck:called(Mod, Function, Args)),
+    ?assert(meck:validate(Mod)).
