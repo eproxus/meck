@@ -283,10 +283,10 @@ called(Mod, Fun, Args) ->
 %% @hidden
 init([Mod, Options]) ->
     WasSticky = case proplists:is_defined(unstick, Options) of
-        true -> {module, Mod} = code:ensure_loaded(Mod),
-                unstick_original(Mod);
-        _    -> false
-    end,
+                    true -> {module, Mod} = code:ensure_loaded(Mod),
+                            unstick_original(Mod);
+                    _    -> false
+                end,
     Original = backup_original(Mod),
     process_flag(trap_exit, true),
     Expects = init_expects(Mod, Options),
