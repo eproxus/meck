@@ -71,12 +71,12 @@ compile_and_load_forms(AbsCode, Opts) ->
 compile_options(BeamFile) when is_binary(BeamFile) ->
     case beam_lib:chunks(BeamFile, [compile_info]) of
         {ok, {_, [{compile_info, Info}]}} ->
-            proplists:get_value(options, Info);
+          filter_options(proplists:get_value(options, Info));
         _ ->
             []
     end;
 compile_options(Module) ->
-    proplists:get_value(options, Module:module_info(compile)).
+  filter_options(proplists:get_value(options, Module:module_info(compile))).
 
 -spec rename_module(erlang_form(), module()) -> erlang_form().
 rename_module([{attribute, Line, module, _OldName}|T], NewName) ->
@@ -93,3 +93,10 @@ load_binary(Name, Binary) ->
         {module, Name}  -> ok;
         {error, Reason} -> exit({error_loading_module, Name, Reason})
     end.
+
+% parse transforms have already been applied to the abstract code in the
+% module, and often are not always available when compiling the forms, so
+% filter them out of the options
+filter_options (Options) ->
+    lists:filter(fun({parse_transform,_}) -> false; (_) -> true end, Options).
+
