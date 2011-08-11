@@ -513,18 +513,18 @@ handle_call({get_expect, FuncAri, Args}, _From, S) ->
     {Expect, NewExpects} = get_expect(S#state.expects, S#state.mod, FuncAri,
                                       Args),
     {reply, Expect, S#state{expects = NewExpects}};
-handle_call({expect, FuncAri = {Func, Ari}, Clauses}, _From,
+handle_call({expect, FuncAri = {Func, Ari}, Clauses}, From,
             S = #state{mod = Mod, expects = Expects}) ->
     case validate_expect(Mod, Func, Ari, S#state.can_expect) of
         ok ->
-            NewExpects = store_expect(Mod, FuncAri, Clauses, Expects),
-            {reply, ok, S#state{expects = NewExpects}};
+            NewExpects = store_expect(Mod, FuncAri, Clauses, Expects, From),
+            {noreply, S#state{expects = NewExpects}};
         {error, Reason} ->
             {reply, {error, Reason}, S}
     end;
-handle_call({delete, Func, Arity}, _From, S) ->
-    NewExpects = delete_expect(S#state.mod, {Func, Arity}, S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
+handle_call({delete, Func, Ari}, From, S) ->
+    NewExpects = delete_expect(S#state.mod, {Func, Ari}, S#state.expects, From),
+    {noreply, S#state{expects = NewExpects}};
 handle_call(history, _From, S = #state{history = undefined}) ->
     {reply, [], S};
 handle_call(history, _From, S) ->
@@ -754,16 +754,26 @@ unwind_stack(NewInnerRs, [{meck_loop, [_InnerRs | Rest], Loop} | Stack],
     unwind_stack({meck_loop, [NewInnerRs | Rest], Loop}, Stack, true).
 
 
-store_expect(Mod, FuncAri, Clauses, Expects) ->
+store_expect(Mod, FuncAri, Clauses, Expects, From) ->
     NewExpects = dict:store(FuncAri, Clauses, Expects),
-    _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
-    NewExpects.
+    compile_expects(Mod, NewExpects, From).
 
 
-delete_expect(Mod, FuncAri, Expects) ->
+delete_expect(Mod, FuncAri, Expects, From) ->
     NewExpects = dict:erase(FuncAri, Expects),
-    _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
-    NewExpects.
+    compile_expects(Mod, NewExpects, From).
+
+
+compile_expects(Mod, Expects, From) ->
+    %% If the recompilation is made by the server that executes a module
+    %% no module that is called from meck_mod:compile_and_load_forms/2
+    %% can be mocked by meck.
+    spawn_link(fun() ->
+                   Forms = to_forms(Mod, Expects),
+                   _Bin = meck_mod:compile_and_load_forms(Forms),
+                   gen_server:reply(From, ok)
+               end),
+    Expects.
 
 
 update_clause(Expects, FuncAri, ArgsMatcher, RetSpec) ->
