@@ -857,6 +857,23 @@ stub_all_overridden_by_passthrough_test() ->
     ?assertEqual(a, meck_test_module:a()),
     ok = meck:unload(meck_test_module).
 
+passthrough_file_bif_test_() ->
+    NeverExists = "/proc/0", %% 0 is invalid
+    AlwaysExists = "/proc/1", %% 1 is init
+    ?assertEqual({error, enoent}, file:read_file_info(NeverExists)),
+    ?assertMatch({ok, _}, file:read_file_info(AlwaysExists)),
+    {ok, ExistsInfo} = file:read_file_info(AlwaysExists),
+    {setup,local,
+        fun() -> ok = meck:new(file, [unstick, passthrough]) end,
+        fun(_) -> ok = meck:unload(file) end,
+        ?_test(begin
+            ?assertEqual(ok, meck:expect(file, read_file_info, fun
+                (Path) when Path =:= NeverExists -> {ok, no_info};
+                (Path) when Path =:= AlwaysExists -> meck:passthrough([Path]) end)),
+            ?assertEqual({ok, no_info}, file:read_file_info(NeverExists)),
+            ?assertEqual({ok, ExistsInfo}, file:read_file_info(AlwaysExists))
+        end)}.
+
 cover_test() ->
     {ok, _} = cover:compile("../test/meck_test_module.erl"),
     a = meck_test_module:a(),
