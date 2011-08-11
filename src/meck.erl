@@ -542,7 +542,11 @@ handle_call(stop, _From, S) ->
 handle_cast({add_history, _Item}, S = #state{history = undefined}) ->
     {noreply, S};
 handle_cast({add_history, Item}, S) ->
-    {noreply, S#state{history = [Item| S#state.history]}};
+    NewHistory = case get(meck_reloading) of
+        undefined -> [Item|S#state.history];
+        _Pid when is_pid(_Pid) -> S#state.history
+    end,
+    {noreply, S#state{history=NewHistory}};
 handle_cast(_Msg, S)  ->
     {noreply, S}.
 
