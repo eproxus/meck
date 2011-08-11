@@ -503,6 +503,7 @@ passthrough_file_bif_test_() ->
             ?assertEqual(ok, meck:expect(file, read_file_info, fun
                 (Path) when Path =:= NeverExists -> {ok, no_info};
                 (Path) when Path =:= AlwaysExists -> meck:passthrough([Path]) end)),
+            ?assertEqual([], meck:history(file)),
             ?assertEqual({ok, no_info}, file:read_file_info(NeverExists)),
             ?assertEqual({ok, ExistsInfo}, file:read_file_info(AlwaysExists))
         end)}.
