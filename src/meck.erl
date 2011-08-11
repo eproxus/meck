@@ -337,7 +337,13 @@ handle_cast(_Msg, S)  ->
     {noreply, S}.
 
 %% @hidden
-handle_info(_Info, S) -> {noreply, S}.
+handle_info({'EXIT', Pid, _Reason}, S) ->
+    %% XXX: don't do this
+    Running = get(meck_reloading),
+    Pid =:= Running andalso put(meck_reloading, undefined),
+    {noreply, S};
+handle_info(_Info, S) ->
+    {noreply, S}.
 
 %% @hidden
 terminate(_Reason, #state{mod = Mod, original = OriginalState, was_sticky = WasSticky}) ->
@@ -453,9 +459,11 @@ change_expects(Op, Mod, Func, Value, Expects, From) ->
     %% If the recompilation is made by the server that executes a module
     %% no module that is called from meck_mod:compile_and_load_forms/2
     %% can be mocked by meck.
-    spawn_link(fun() ->
+    Pid = spawn_link(fun() ->
         meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
         gen_server:reply(From, ok) end),
+    Running = put(meck_reloading, Pid), %% XXX: don't do this.
+    Running =:= undefined orelse erlang:error(concurrent_reload),
     NewExpects.
 
 e_store(Expects, Func, Expect) ->
