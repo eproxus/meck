@@ -1,4 +1,5 @@
 language: erlang
+script: "./rebar compile eunit"
 notifications:
   email: you@example.org
 otp_release:
