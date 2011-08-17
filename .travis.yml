@@ -1,7 +1,6 @@
 language: erlang
-script: "./rebar compile eunit"
 notifications:
-  email: you@example.org
+  disabled: true
 otp_release:
   - R14B03
   - R14B02
