@@ -475,45 +475,43 @@ cover_test() ->
     {ok, {meck_test_module, {3,0}}} = cover:analyze(meck_test_module, module).
 
 cover_options_test_() ->
+    {foreach, fun compile_options_setup/0, fun compile_options_teardown/1,
+     [{with, [T]} || T <- [fun ?MODULE:cover_options_/1]]}.
+
+compile_options_setup() ->
+    Module = cover_test_module,
+    % Our test module won't compile without compiler options that
+    % rebar won't give it, thus the rename dance.
+    Src = join("../test/", Module, ".erl"),
+    ok = file:rename(join("../test/", Module, ".dontcompile"), Src),
+    OldPath = code:get_path(),
+    code:add_path("../test"),
+    {OldPath, Src, Module}.
+
+compile_options_teardown({OldPath, Src, Module}) ->
+    file:rename(Src, join("../test/", Module, ".dontcompile")),
+    code:set_path(OldPath).
+
+cover_options_({_OldPath, Src, Module}) ->
     % Test that compilation options (include paths and preprocessor
     % definitions) are used when un-mecking previously cover compiled
-    % modules.  Our test module won't compile without compiler options
-    % that rebar won't give it, thus the rename dance.
-    {setup,
-     fun() ->
-             ok = file:rename("../test/cover_test_module.dontcompile",
-                              "../test/cover_test_module.erl"),
-             OldPath = code:get_path(),
-             code:add_path("../test"),
-             OldPath
-     end,
-     fun(OldPath) ->
-             file:rename("../test/cover_test_module.erl",
-                         "../test/cover_test_module.dontcompile"),
-             code:set_path(OldPath)
-     end,
-     ?_test(
-        begin
-            CompilerOptions = [{i, "../test/include"},
-                               {d, 'TEST', true}],
-            % The option recover feature depends on having the BEAM
-            % file available.
-            {ok, _} = compile:file("../test/cover_test_module.erl",
-                                   [{outdir, "../test"}|CompilerOptions]),
-            {ok, _} = cover:compile("../test/cover_test_module.erl",
-                                    CompilerOptions),
-            a = cover_test_module:a(),
-            b = cover_test_module:b(),
-            {1, 2} = cover_test_module:c(1, 2),
-            % We get 2 instead of 3 as expected.  Maybe because cover
-            % doesn't count include files?
-            ?assertEqual({ok, {cover_test_module, {2,0}}},
-                         cover:analyze(cover_test_module, module)),
-            run_mock_no_cover_file(cover_test_module),
-            % 2 instead of 3, as above
-            ?assertEqual({ok, {cover_test_module, {2,0}}},
-                         cover:analyze(cover_test_module, module))
-        end)}.
+    % modules.
+    CompilerOptions = [{i, "../test/include"}, {d, 'TEST', true}],
+    % The option recover feature depends on having the BEAM file
+    % available.
+    {ok, _} = compile:file(Src, [{outdir, "../test"}|CompilerOptions]),
+    {ok, _} = cover:compile(Src, CompilerOptions),
+    a      = Module:a(),
+    b      = Module:b(),
+    {1, 2} = Module:c(1, 2),
+    % We get 2 instead of 3 as expected.  Maybe because cover doesn't
+    % count include files?
+    ?assertEqual({ok, {Module, {2,0}}}, cover:analyze(Module, module)),
+    run_mock_no_cover_file(Module),
+    % 2 instead of 3, as above
+    ?assertEqual({ok, {Module, {2,0}}}, cover:analyze(Module, module)).
+
+join(Path, Module, Ext) -> filename:join(Path, atom_to_list(Module) ++ Ext).
 
 run_mock_no_cover_file(Module) ->
     ok = meck:new(Module),
