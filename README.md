@@ -1,3 +1,5 @@
+[![Build Status](https://secure.travis-ci.org/eproxus/meck.png)](http://travis-ci.org/eproxus/meck)
+
   * [Introduction](#introduction)
   * [Features](#features)
   * [Examples](#examples)
