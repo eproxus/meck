@@ -106,7 +106,7 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
     case start(Mod, Options) of
         {ok, _Pid} -> ok;
-        {error, Reason} -> erlang:error(Reason)
+        {error, Reason} -> erlang:error(Reason, [Mod, Options])
     end;
 new(Mod, Options) when is_list(Mod) ->
     lists:foreach(fun(M) -> new(M, Options) end, Mod),
