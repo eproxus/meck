@@ -72,6 +72,17 @@ meck_test_() ->
                            fun called_true_few_args_/1,
                            fun called_false_error_/1,
                            fun called_true_error_/1,
+                           fun count_calls_/1,
+                           fun count_calls_error_/1,
+                           fun wildcard_count_calls_with_wildcard_on_args_/1,
+                           fun wildcard_count_calls_with_wildcard_on_args_error_/1,
+                           fun wildcard_count_calls_simple_/1,
+                           fun wildcard_count_calls_in_list_/1,
+                           fun wildcard_count_calls_in_longer_list_/1,
+                           fun wildcard_count_calls_in_deep_lists_/1,
+                           fun wildcard_count_calls_in_tuples_/1,
+                           fun wildcard_count_calls_simple_error_/1,
+                           fun wildcard_count_calls_error_/1,
                            fun sequence_/1,
                            fun sequence_multi_/1,
                            fun loop_/1,
@@ -410,10 +421,110 @@ called_false_error_(Mod) ->
 
 called_true_error_(Mod) ->
     Args = [one, "two", {3, 3}],
-    TestFun = fun (_, _, _) -> meck:exception(error, my_error) end,
-    ok = meck:expect(Mod, test, TestFun),
-    catch apply(Mod, test, Args),
+    expect_catch_apply(Mod, test, Args),
     assert_called(Mod, test, Args, true).
+
+count_calls_(Mod) ->
+    Args = [],
+    IncorrectArgs = [foo],
+    ok = meck:expect(Mod, test1, length(Args), ok),
+    ?assertEqual(0, meck:count_calls(Mod, test1, Args)),
+    ok = apply(Mod, test1, Args),
+    ?assertEqual(1, meck:count_calls(Mod, test1, Args)),
+    ?assertEqual(0, meck:count_calls(Mod, test1, IncorrectArgs)).
+
+count_calls_error_(Mod) ->
+    Args = [one, "two", {3, 3}],
+    expect_catch_apply(Mod, test, Args),
+    ?assertEqual(1, meck:count_calls(Mod, test, Args)).
+
+wildcard_count_calls_with_wildcard_on_args_(Mod) ->
+    Args = [a],
+    expect_apply(Mod, test1, Args),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test1, '_')).
+
+wildcard_count_calls_with_wildcard_on_args_error_(Mod) ->
+    Args = [one, "two", {3, 3}],
+    expect_catch_apply(Mod, test, Args),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test, '_')).
+
+wildcard_count_calls_simple_(Mod) ->
+    Args = [a, [b]],
+    IncorrectArgs1 = [a],
+    IncorrectArgs2 = [a, [b], c],
+    ok = meck:expect(Mod, test1, length(Args), ok),
+    ?assertEqual(0, meck:wildcard_count_calls(Mod, test1, Args)),
+    ok = apply(Mod, test1, Args),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test1, Args)),
+    ?assertEqual(0, meck:wildcard_count_calls(Mod, test1, IncorrectArgs1)),
+    ?assertEqual(0, meck:wildcard_count_calls(Mod, test1, IncorrectArgs2)).
+
+wildcard_count_calls_in_list_(Mod) ->
+    Args = [a],
+    MatchingArgs = ['_'],
+    ok = meck:expect(Mod, test1, length(Args), ok),
+    ?assertEqual(0, meck:wildcard_count_calls(Mod, test1, Args)),
+    ?assertEqual(0, meck:wildcard_count_calls(Mod, test1, MatchingArgs)),
+    ok = apply(Mod, test1, Args),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test1, MatchingArgs)).
+
+wildcard_count_calls_in_longer_list_(Mod) ->
+    Args = [a, b],
+    MatchingArgs1 = ['_', b],
+    MatchingArgs2 = [a | '_'],
+    expect_apply(Mod, test1, Args),
+    expect_apply(Mod, test2, Args),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test1, Args)),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test1, MatchingArgs1)),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test1, MatchingArgs2)).
+
+wildcard_count_calls_in_deep_lists_(Mod) ->
+    Args = [a, [b, [c]]],
+    MatchingArgs1 = [a, ['_',[c]]],
+    MatchingArgs2 = [a, [b,'_']],
+    MatchingArgs3 = [a, [b, ['_']]],
+    expect_apply(Mod, test1, Args),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test1, MatchingArgs1)),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test1, MatchingArgs2)),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test1, MatchingArgs3)).
+
+wildcard_count_calls_in_tuples_(Mod) ->
+    Args = [{a,b,{c}}],
+    MatchingArgs1 = [{'_',b,{c}}],
+    MatchingArgs2 = [{a,b,'_'}],
+    MatchingArgs3 = [{a,b,{'_'}}],
+    expect_apply(Mod, test1, Args),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test1, MatchingArgs1)),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test1, MatchingArgs2)),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test1, MatchingArgs3)).
+
+wildcard_count_calls_simple_error_(Mod) ->
+    Args = [one, "two", {3, 3}],
+    IncorrectArgs1 = [one, "two", 4],
+    expect_catch_apply(Mod, test, Args),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test, Args)),
+    ?assertEqual(0, meck:wildcard_count_calls(Mod, test, IncorrectArgs1)).
+
+
+wildcard_count_calls_error_(Mod) ->
+    Args = [one, "two", {3, 3}],
+    MatchingArgs1 = ['_', "two", {3, 3}],
+    MatchingArgs2 = [one |'_'],
+    MatchingArgs3 = [one, "two", {3, '_'}],
+    expect_catch_apply(Mod, test, Args),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test, MatchingArgs1)),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test, MatchingArgs2)),
+    ?assertEqual(1, meck:wildcard_count_calls(Mod, test, MatchingArgs3)).
+
+expect_apply(Mod, Func, Args) ->
+    ok = meck:expect(Mod, Func, length(Args), ok),
+    ok = apply(Mod, Func, Args).
+
+expect_catch_apply(Mod, Func, Args) ->
+    TestFun = fun (_, _, _) -> meck:exception(error, my_error) end,
+    ok = meck:expect(Mod, Func, TestFun),
+    catch apply(Mod, Func, Args).
+
 
 sequence_(Mod) ->
     Sequence = [a, b, c, d, e],

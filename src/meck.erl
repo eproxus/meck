@@ -38,6 +38,8 @@
 -export([unload/0]).
 -export([unload/1]).
 -export([called/3]).
+-export([count_calls/3]).
+-export([wildcard_count_calls/3]).
 
 %% Callback exports
 -export([init/1]).
@@ -305,6 +307,32 @@ unload(Mods) when is_list(Mods) -> lists:foreach(fun unload/1, Mods), ok.
 -spec called(Mod::atom(), Fun::atom(), Args::list()) -> boolean().
 called(Mod, Fun, Args) ->
     has_call({Mod, Fun, Args}, meck:history(Mod)).
+
+%% @spec count_calls(Mod:: atom(), Fun:: atom(), Args:: list(term()))
+%% -> non_neg_integer()
+%% @doc Returns the number of times `Mod:Func' has been called with `Args'.
+%%
+%% This will check the history for the module, `Mod', to determine
+%% how many times the function, `Fun', was called with arguments, `Args' and
+%% returns the result.
+-spec count_calls(Mod::atom(), Fun::atom(), Args::list()) -> non_neg_integer().
+count_calls(Mod, Fun, Args) ->
+    i_count_calls({Mod, Fun, Args}, meck:history(Mod), 0).
+
+%% @spec wildcard_count_calls(Mod:: atom(), Fun:: atom(),
+%%                            Args::list(term()) | '_') -> non_neg_integer()
+%% @doc Returns the number of times `Mod:Func' has been called with
+%% wildcards matching of `Args'.
+%%
+%% This will check the history for the module, `Mod', to determine
+%% whether the function, `Fun', was called with arguments, `Args'.  It
+%% uses the wildcard '_' to match one element in a list or tuple. By
+%% setting `Args' to '_' any arguments is matched.  It returns the
+%% number of matching calls.
+-spec wildcard_count_calls(Mod::atom(), Fun::atom(), Args::list() | '_' ) ->
+ non_neg_integer().
+wildcard_count_calls(Mod, Fun, Args) ->
+    i_wildcard_count_calls({Mod, Fun, Args}, meck:history(Mod), 0).
 
 %%==============================================================================
 %% Callback functions
@@ -728,10 +756,57 @@ get_history_without_pid(History) ->
 remove_first_element(Tuple) when is_tuple(Tuple) ->
     list_to_tuple(tl(tuple_to_list(Tuple))).
 
-has_call({_M, _F, _A}, []) -> false;
-has_call({M, F, A}, [{{M, F, A}, _Result} | _Rest]) ->
+has_call(_MFA, []) -> false;
+has_call(MFA, [{MFA, _Result} | _Rest]) ->
     true;
-has_call({M, F, A}, [{{M, F, A}, _ExType, _Exception, _Stack} | _Rest]) ->
+has_call(MFA, [{MFA, _ExType, _Exception, _Stack} | _Rest]) ->
     true;
-has_call({M, F, A}, [_Call | Rest]) ->
-    has_call({M, F, A}, Rest).
+has_call(MFA, [_Call | Rest]) ->
+    has_call(MFA, Rest).
+
+i_count_calls(_MFA, [], Count) ->
+    Count;
+i_count_calls(MFA, [{MFA, _Result} | Rest], Count) ->
+    i_count_calls(MFA, Rest, Count + 1);
+i_count_calls(MFA, [{MFA, _ExType, _Exception, _Stack} | Rest], Count) ->
+    i_count_calls(MFA, Rest, Count + 1);
+i_count_calls(MFA, [_Call | Rest], Count) ->
+    i_count_calls(MFA, Rest, Count).
+
+i_wildcard_count_calls(_MFA, [], Count) ->
+    Count;
+i_wildcard_count_calls(MFA = {M, F, A1} , [{{M, F, A2}, _Result} | Rest], Count) ->
+    match_args_update_count(A1, A2, MFA, Rest, Count);
+i_wildcard_count_calls(MFA = {M, F, A1},
+                       [{{M, F, A2}, _ExType, _Exception, _Stack} | Rest], Count) ->
+    match_args_update_count(A1, A2, MFA, Rest, Count);
+i_wildcard_count_calls(MFA, [_Call | Rest], Count) ->
+    i_wildcard_count_calls(MFA, Rest, Count).
+
+match_args_update_count(Args1, Args2, MFA, Rest, Count) ->
+    case i_wildcard_match_args(Args1, Args2) of
+        true ->
+            i_wildcard_count_calls(MFA, Rest, Count + 1);
+        false ->
+            i_wildcard_count_calls(MFA, Rest, Count)
+    end.
+
+i_wildcard_match_args(Args, Args) ->
+    true;
+i_wildcard_match_args([], _) ->
+    false;
+i_wildcard_match_args(_, []) ->
+    false;
+i_wildcard_match_args('_', _) ->
+    true;
+i_wildcard_match_args([H|T1], [H|T2]) ->
+    i_wildcard_match_args(T1, T2);
+i_wildcard_match_args(['_'|T1], [_|T2]) ->
+    i_wildcard_match_args(T1, T2);
+i_wildcard_match_args([H1|T1], [H2|T2]) when is_list(H1) and is_list(H2) ->
+    i_wildcard_match_args(H1, H2) and i_wildcard_match_args(T1,T2);
+i_wildcard_match_args([H1|T1], [H2|T2]) when is_tuple(H1) and is_tuple(H2) ->
+    i_wildcard_match_args(tuple_to_list(H1), tuple_to_list(H2))
+       and i_wildcard_match_args(T1,T2);
+i_wildcard_match_args([_H1|_T1], [_H2|_T2]) ->
+    false.
