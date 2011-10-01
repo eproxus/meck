@@ -38,8 +38,11 @@
 -export([unload/0]).
 -export([unload/1]).
 -export([called/3]).
+-export([called/4]).
 -export([count_calls/3]).
+-export([count_calls/4]).
 -export([wildcard_count_calls/3]).
+-export([wildcard_count_calls/4]).
 
 %% Callback exports
 -export([init/1]).
@@ -308,6 +311,17 @@ unload(Mods) when is_list(Mods) -> lists:foreach(fun unload/1, Mods), ok.
 called(Mod, Fun, Args) ->
     has_call({Mod, Fun, Args}, meck:history(Mod)).
 
+%% @spec called(Pid:: pid(), Mod:: atom(), Fun:: atom(),
+%%              Args:: list(term())) -> boolean()
+%% @doc Returns whether `Pid' has called `Mod:Func' with `Args'.
+%%
+%% This will check the history for the module, `Mod', to determine
+%% whether process `Pid' call the function, `Fun', with arguments, `Args'. If
+%% so, this function returns true, otherwise false.
+-spec called(Pid::pid(), Mod::atom(), Fun::atom(), Args::list()) -> boolean().
+called(Pid, Mod, Fun, Args) ->
+    has_call({Mod, Fun, Args}, meck:history(Pid, Mod)).
+
 %% @spec count_calls(Mod:: atom(), Fun:: atom(), Args:: list(term()))
 %% -> non_neg_integer()
 %% @doc Returns the number of times `Mod:Func' has been called with `Args'.
@@ -319,10 +333,23 @@ called(Mod, Fun, Args) ->
 count_calls(Mod, Fun, Args) ->
     i_count_calls({Mod, Fun, Args}, meck:history(Mod), 0).
 
+%% @spec count_calls(Pid:: pid(), Mod:: atom(), Fun:: atom(),
+%%                   Args:: list(term())) -> non_neg_integer()
+%% @doc Returns the number of times process `Pid' has called `Mod:Func'
+%%      with `Args'.
+%%
+%% This will check the history for the module, `Mod', to determine how
+%% many times process `Pid' has called the function, `Fun', with
+%% arguments, `Args' and returns the result.
+-spec count_calls(Pid::pid(), Mod::atom(), Fun::atom(), Args::list())
+ -> non_neg_integer().
+count_calls(Pid, Mod, Fun, Args) ->
+    i_count_calls({Mod, Fun, Args}, meck:history(Pid, Mod), 0).
+
 %% @spec wildcard_count_calls(Mod:: atom(), Fun:: atom(),
 %%                            Args::list(term()) | '_') -> non_neg_integer()
-%% @doc Returns the number of times `Mod:Func' has been called with
-%% wildcards matching of `Args'.
+%% @doc Returns the number of times `Mod:Func' has been called
+%%      with wildcards matching of `Args'.
 %%
 %% This will check the history for the module, `Mod', to determine
 %% whether the function, `Fun', was called with arguments, `Args'.  It
@@ -333,6 +360,21 @@ count_calls(Mod, Fun, Args) ->
  non_neg_integer().
 wildcard_count_calls(Mod, Fun, Args) ->
     i_wildcard_count_calls({Mod, Fun, Args}, meck:history(Mod), 0).
+
+%% @spec wildcard_count_calls(Pid:: pid(), Mod:: atom(), Fun:: atom(),
+%%                            Args::list(term()) | '_') -> non_neg_integer()
+%% @doc Returns the number of times process `Pid' has called `Mod:Func'
+%%      with wildcards matching of `Args'.
+%%
+%% This will check the history for the module, `Mod', to determine how
+%% many times process `Pid' has called the function, `Fun', with
+%% arguments, `Args'.  It uses the wildcard '_' to match one element
+%% in a list or tuple. By setting `Args' to '_' any arguments is
+%% matched.  It returns the number of matching calls.
+-spec wildcard_count_calls(Pid::pid(), Mod::atom(), Fun::atom(), Args::list() | '_' ) ->
+ non_neg_integer().
+wildcard_count_calls(Pid, Mod, Fun, Args) ->
+    i_wildcard_count_calls({Mod, Fun, Args}, meck:history(Pid, Mod), 0).
 
 %%==============================================================================
 %% Callback functions
