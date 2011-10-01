@@ -676,7 +676,7 @@ cleanup(Mod) ->
 
 %% --- History utilities -------------------------------------------------------
 
-has_call(MFA, []) -> false;
+has_call(_MFA, []) -> false;
 has_call(MFA, [{MFA, _Result} | _Rest]) ->
     true;
 has_call(MFA, [{MFA, _ExType, _Exception, _Stack} | _Rest]) ->
