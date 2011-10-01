@@ -776,14 +776,14 @@ i_count_calls(MFA, [_Call | Rest], Count) ->
 i_wildcard_count_calls(_MFA, [], Count) ->
     Count;
 i_wildcard_count_calls(MFA = {M, F, A1} , [{{M, F, A2}, _Result} | Rest], Count) ->
-    match_args_update_count(A1, A2, MFA, Rest, Count);
+    i_match_args_update_count(A1, A2, MFA, Rest, Count);
 i_wildcard_count_calls(MFA = {M, F, A1},
                        [{{M, F, A2}, _ExType, _Exception, _Stack} | Rest], Count) ->
-    match_args_update_count(A1, A2, MFA, Rest, Count);
+    i_match_args_update_count(A1, A2, MFA, Rest, Count);
 i_wildcard_count_calls(MFA, [_Call | Rest], Count) ->
     i_wildcard_count_calls(MFA, Rest, Count).
 
-match_args_update_count(Args1, Args2, MFA, Rest, Count) ->
+i_match_args_update_count(Args1, Args2, MFA, Rest, Count) ->
     case i_wildcard_match_args(Args1, Args2) of
         true ->
             i_wildcard_count_calls(MFA, Rest, Count + 1);
