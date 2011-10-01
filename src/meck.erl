@@ -36,6 +36,7 @@
 -export([unload/0]).
 -export([unload/1]).
 -export([called/3]).
+-export([count_calls/3]).
 
 %% Callback exports
 -export([init/1]).
@@ -275,6 +276,17 @@ unload(Mods) when is_list(Mods) -> lists:foreach(fun unload/1, Mods), ok.
 -spec called(Mod::atom(), Fun::atom(), Args::list()) -> boolean().
 called(Mod, Fun, Args) ->
     has_call({Mod, Fun, Args}, meck:history(Mod)).
+
+%% @spec count_calls(Mod:: atom(), Fun:: atom(), Args:: list(term())) -> integer()
+%% @doc Returns the number of times `Mod:Func' has been called with `Args'.
+%%
+%% This will check the history for the module, `Mod', to determine
+%% how many times the function, `Fun', was called with arguments, `Args' and
+%% returns the result.
+-spec count_calls(Mod::atom(), Fun::atom(), Args::list()) -> integer().
+count_calls(Mod, Fun, Args) ->
+    i_count_calls({Mod, Fun, Args}, meck:history(Mod), 0).
+
 
 %%==============================================================================
 %% Callback functions
@@ -671,3 +683,12 @@ has_call({M, F, A}, [{{M, F, A}, _ExType, _Exception, _Stack} | _Rest]) ->
     true;
 has_call({M, F, A}, [_Call | Rest]) ->
     has_call({M, F, A}, Rest).
+
+i_count_calls(_MFA, [], Count) ->
+    Count;
+i_count_calls(MFA, [{MFA, _Result} | Rest], Count) ->
+    i_count_calls(MFA, Rest, Count + 1);
+i_count_calls(MFA, [{MFA, _ExType, _Exception, _Stack} | Rest], Count) ->
+    i_count_calls(MFA, Rest, Count + 1);
+i_count_calls(MFA, [_Call | Rest], Count) ->
+    i_count_calls(MFA, Rest, Count).

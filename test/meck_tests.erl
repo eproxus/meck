@@ -67,6 +67,8 @@ meck_test_() ->
                            fun called_true_few_args_/1,
                            fun called_false_error_/1,
                            fun called_true_error_/1,
+                           fun call_count_/1,
+                           fun call_count_error_/1,
                            fun sequence_/1,
                            fun sequence_multi_/1,
                            fun loop_/1,
@@ -362,6 +364,22 @@ called_true_error_(Mod) ->
     ok = meck:expect(Mod, test, TestFun),
     catch apply(Mod, test, Args),
     assert_called(Mod, test, Args, true).
+
+call_count_(Mod) ->
+    Args = [],
+    IncorrectArgs = [foo],
+    ok = meck:expect(Mod, test1, length(Args), ok),
+    ?assertEqual(0, meck:count_calls(Mod, test1, Args)),
+    ok = apply(Mod, test1, Args),
+    ?assertEqual(1, meck:count_calls(Mod, test1, Args)),
+    ?assertEqual(0, meck:count_calls(Mod, test1, IncorrectArgs)).
+
+call_count_error_(Mod) ->
+    Args = [one, "two", {3, 3}],
+    TestFun = fun (_, _, _) -> meck:exception(error, my_error) end,
+    ok = meck:expect(Mod, test, TestFun),
+    catch apply(Mod, test, Args),
+    ?assertEqual(1, meck:count_calls(Mod, test, Args)).
 
 sequence_(Mod) ->
     Sequence = [a, b, c, d, e],
