@@ -51,6 +51,11 @@ meck_test_() ->
                            fun history_meck_throw_fun_/1,
                            fun history_meck_exit_/1,
                            fun history_meck_error_/1,
+                           fun history_by_pid_/1,
+                           fun history_with_pid_empty_/1,
+                           fun history_with_pid_call_/1,
+                           fun history_with_pid_throw_/1,
+                           fun history_with_pid_spawn_/1,
                            fun shortcut_expect_/1,
                            fun shortcut_expect_negative_arity_/1,
                            fun shortcut_call_return_value_/1,
@@ -274,6 +279,53 @@ history_meck_error_(Mod) ->
     catch Mod:test(),
     ?assertMatch([{{Mod, test, []}, error, test_error, _Stacktrace}],
                  meck:history(Mod)).
+
+history_by_pid_(Mod) ->
+    ok = meck:expect(Mod, test, fun() -> ok end),
+    TestPid = self(),
+    Fun = fun() ->
+                  Mod:test(),
+                  TestPid ! {self(), done}
+          end,
+    Pid = spawn(Fun),
+    Mod:test(),
+    Mod:test(),
+    ?assertEqual([{{Mod, test, []}, ok}], meck:history(Pid, Mod)),
+    ?assertEqual([{{Mod, test, []}, ok},
+                  {{Mod, test, []}, ok}], meck:history(TestPid, Mod)).
+
+history_with_pid_empty_(Mod) ->
+    ?assertEqual([], meck:history_with_pid(Mod)).
+
+history_with_pid_call_(Mod) ->
+    ok = meck:expect(Mod, test, fun() -> ok end),
+    ok = meck:expect(Mod, test2, fun(_, _) -> result end),
+    ok = meck:expect(Mod, test3, 0, 3),
+    Mod:test(),
+    Mod:test2(a, b),
+    Mod:test3(),
+    Pid = self(),
+    ?assertEqual([{Pid, {Mod, test,  []},     ok},
+                  {Pid, {Mod, test2, [a, b]}, result},
+                  {Pid, {Mod, test3, []}, 3}], meck:history_with_pid(Mod)).
+
+history_with_pid_throw_(Mod) ->
+    ok = meck:expect(Mod, test, fun() -> throw(test_exception) end),
+    catch Mod:test(),
+    Pid = self(),
+    ?assertMatch([{Pid, {Mod, test, []}, throw, test_exception, _Stacktrace}],
+                 meck:history_with_pid(Mod)).
+
+history_with_pid_spawn_(Mod) ->
+    ok = meck:expect(Mod, test, fun() -> ok end),
+    TestPid = self(),
+    Fun = fun() ->
+                  Mod:test(),
+                  TestPid ! {self(), done}
+          end,
+    Pid = spawn(Fun),
+    receive {Pid, done} -> ok end, % sync with the spawned process
+    ?assertEqual([{Pid, {Mod, test, []}, ok}], meck:history_with_pid(Mod)).
 
 shortcut_expect_(Mod) ->
     ok = meck:expect(Mod, test, 0, ok),

@@ -32,6 +32,8 @@
 -export([exception/2]).
 -export([passthrough/1]).
 -export([history/1]).
+-export([history/2]).
+-export([history_with_pid/1]).
 -export([validate/1]).
 -export([unload/0]).
 -export([unload/1]).
@@ -44,7 +46,7 @@
 -export([handle_info/2]).
 -export([terminate/2]).
 -export([code_change/3]).
--export([exec/4]).
+-export([exec/5]).
 
 %% Types
 %% @type meck_mfa() = {Mod::atom(), Func::atom(), Args::list(term())}.
@@ -61,11 +63,21 @@
                     | {meck_mfa(), Class:: exit | error | throw,
                        Reason::term(), Stacktrace::[mfa()]}].
 
+%% @type history_with_pid() = [{Pid::pid(), meck_mfa(), Result::term()}
+%%                     | {Pid::pid(), meck_mfa(), Class:: exit | error | throw,
+%%                        Reason::term(), Stacktrace::list(mfa())}].
+%% history_with_pid is a list of either successful function calls with a
+%% returned result or function calls that resulted in an exception
+%% with a type, reason and a stack trace and with the pid that made the call.
+-type history_with_pid() :: [{Pid::pid(), meck_mfa(), Result::term()}
+                    | {Pid::pid(), meck_mfa(), Class:: exit | error | throw,
+                       Reason::term(), Stacktrace::[mfa()]}].
+
 %% Records
 -record(state, {mod :: atom(),
                 expects :: dict(),
                 valid = true :: boolean(),
-                history = [] :: history(),
+                history = [] :: history_with_pid(),
                 original :: term(),
                 was_sticky :: boolean()}).
 
@@ -247,6 +259,24 @@ validate(Mod) when is_list(Mod) ->
 -spec history(Mod::atom()) -> history().
 history(Mod) when is_atom(Mod) -> call(Mod, history).
 
+%% @spec history(Pid::pid(), Mod::atom()) -> history()
+%% @doc Return the call history of specified process and the mocked module.
+%%
+%% Returns a list of calls to the mocked module and their results for
+%% the specified Pid.  Results can be either normal Erlang terms or
+%% exceptions that occurred.
+-spec history(Pid::pid(), Mod::atom()) -> history().
+history(Pid, Mod) when is_pid(Pid) and is_atom(Mod) -> call(Mod, {history, Pid}).
+
+%% @spec history_with_pid(Mod::atom()) -> history_with_pid()
+%% @doc Return the call history, including the pids, of the mocked module.
+%%
+%% Returns a list of calls to the mocked module and their results for
+%% including the pid of the calling procees.  Results can be either
+%% normal Erlang terms or exceptions that occurred.
+-spec history_with_pid(Mod::atom()) -> history_with_pid().
+history_with_pid(Mod) when is_atom(Mod) -> call(Mod, history_with_pid).
+
 %% @spec unload() -> list(atom())
 %% @doc Unloads all mocked modules from memory.
 %%
@@ -322,6 +352,10 @@ handle_call({delete, Func, Arity}, _From, S) ->
     NewExpects = delete_expect(S#state.mod, Func, Arity, S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
 handle_call(history, _From, S) ->
+    {reply, get_history_without_pid(S#state.history), S};
+handle_call({history, Pid}, _From, S) ->
+    {reply, get_history_by_pid(Pid, S#state.history), S};
+handle_call(history_with_pid, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
 handle_call(invalidate, _From, S) ->
     {reply, ok, S#state{valid = false}};
@@ -349,19 +383,19 @@ terminate(_Reason, #state{mod = Mod, original = OriginalState, was_sticky = WasS
 code_change(_OldVsn, S, _Extra) -> {ok, S}.
 
 %% @hidden
-exec(Mod, Func, Arity, Args) ->
+exec(Pid, Mod, Func, Arity, Args) ->
     Expect = call(Mod, {get_expect, Func, Arity}),
     try Result = call_expect(Mod, Func, Expect, Args),
-        cast(Mod, {add_history, {{Mod, Func, Args}, Result}}),
+        add_history(Pid, Mod, Func, Args, Result),
         Result
     catch
         throw:Fun when is_function(Fun) ->
             case is_mock_exception(Fun) of
-                true  -> handle_mock_exception(Mod, Func, Fun, Args);
-                false -> invalidate_and_raise(Mod, Func, Args, throw, Fun)
+                true  -> handle_mock_exception(Pid, Mod, Func, Fun, Args);
+                false -> invalidate_and_raise(Pid, Mod, Func, Args, throw, Fun)
             end;
         Class:Reason ->
-            invalidate_and_raise(Mod, Func, Args, Class, Reason)
+            invalidate_and_raise(Pid, Mod, Func, Args, Class, Reason)
     end.
 
 %%==============================================================================
@@ -479,7 +513,10 @@ func_exec(Mod, Func, Arity) ->
     ?function(Func, Arity,
               [?clause(Args,
                        [?call(?MODULE, exec,
-                              [?atom(Mod), ?atom(Func), ?integer(Arity),
+                              [?call(erlang, self, []),
+                               ?atom(Mod),
+                               ?atom(Func),
+                               ?integer(Arity),
                                list(Args)])])]).
 
 func_native(Mod, Func, Arity, Result) ->
@@ -492,7 +529,8 @@ func_native(Mod, Func, Arity, Result) ->
            [?call(gen_server, cast,
                   [?atom(proc_name(Mod)),
                    ?tuple([?atom(add_history),
-                           ?tuple([?tuple([?atom(Mod), ?atom(Func),
+                           ?tuple([?call(erlang, self, []),
+                                   ?tuple([?atom(Mod), ?atom(Func),
                                            list(Args)]),
                                    AbsResult])])]),
             AbsResult])]).
@@ -541,27 +579,27 @@ is_local_function(Fun) ->
     {module, Module} = erlang:fun_info(Fun, module),
     ?MODULE == Module.
 
-handle_mock_exception(Mod, Func, Fun, Args) ->
+handle_mock_exception(Pid, Mod, Func, Fun, Args) ->
     case Fun() of
         {exception, Class, Reason} ->
             % exception created with the mock:exception function,
             % do not invalidate Mod
-            raise(Mod, Func, Args, Class, Reason);
+            raise(Pid, Mod, Func, Args, Class, Reason);
         {passthrough, PassthroughArgs} ->
             % call_original(Args) called from mock function
             Result = apply(original_name(Mod), Func, PassthroughArgs),
-            cast(Mod, {add_history, {{Mod, Func, PassthroughArgs}, Result}}),
+            add_history(Pid, Mod, Func, PassthroughArgs, Result),
             Result
     end.
 
--spec invalidate_and_raise(_, _, _, _, _) -> no_return().
-invalidate_and_raise(Mod, Func, Args, Class, Reason) ->
+-spec invalidate_and_raise(_, _, _, _, _, _) -> no_return().
+invalidate_and_raise(Pid, Mod, Func, Args, Class, Reason) ->
     call(Mod, invalidate),
-    raise(Mod, Func, Args, Class, Reason).
+    raise(Pid, Mod, Func, Args, Class, Reason).
 
-raise(Mod, Func, Args, Class, Reason) ->
+raise(Pid, Mod, Func, Args, Class, Reason) ->
     Stacktrace = inject(Mod, Func, Args, erlang:get_stacktrace()),
-    cast(Mod, {add_history, {{Mod, Func, Args}, Class, Reason, Stacktrace}}),
+    add_history(Pid, Mod, Func, Args, Class, Reason, Stacktrace),
     erlang:raise(Class, Reason, Stacktrace).
 
 mock_exception_fun(Class, Reason) -> fun() -> {exception, Class, Reason} end.
@@ -663,6 +701,32 @@ cleanup(Mod) ->
     code:delete(original_name(Mod)).
 
 %% --- History utilities -------------------------------------------------------
+
+add_history(Pid, Mod, Func, Args, Result) ->
+    add_history(Mod, {Pid, {Mod, Func, Args}, Result}).
+add_history(Pid, Mod, Func, Args, Class, Reason, Stacktrace) ->
+    add_history(Mod, {Pid, {Mod, Func, Args}, Class, Reason, Stacktrace}).
+
+add_history(Mod, Item) ->
+    cast(Mod, {add_history, Item}).
+
+get_history_by_pid(Pid, History) ->
+    lists:foldl(
+      fun(Tuple, Acc) ->
+              case element(1, Tuple) of
+                  Pid ->
+                      [remove_first_element(Tuple) | Acc];
+                  _ ->
+                      Acc
+              end
+      end, [], History).
+
+get_history_without_pid(History) ->
+    lists:map(fun(Item) -> remove_first_element(Item) end,
+              lists:reverse(History)).
+
+remove_first_element(Tuple) when is_tuple(Tuple) ->
+    list_to_tuple(tl(tuple_to_list(Tuple))).
 
 has_call({_M, _F, _A}, []) -> false;
 has_call({M, F, A}, [{{M, F, A}, _Result} | _Rest]) ->
