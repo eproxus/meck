@@ -676,13 +676,13 @@ cleanup(Mod) ->
 
 %% --- History utilities -------------------------------------------------------
 
-has_call({_M, _F, _A}, []) -> false;
-has_call({M, F, A}, [{{M, F, A}, _Result} | _Rest]) ->
+has_call(MFA, []) -> false;
+has_call(MFA, [{MFA, _Result} | _Rest]) ->
     true;
-has_call({M, F, A}, [{{M, F, A}, _ExType, _Exception, _Stack} | _Rest]) ->
+has_call(MFA, [{MFA, _ExType, _Exception, _Stack} | _Rest]) ->
     true;
-has_call({M, F, A}, [_Call | Rest]) ->
-    has_call({M, F, A}, Rest).
+has_call(MFA, [_Call | Rest]) ->
+    has_call(MFA, Rest).
 
 i_count_calls(_MFA, [], Count) ->
     Count;
