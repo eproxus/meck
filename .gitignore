@@ -10,3 +10,4 @@ ebin
 .eunit
 .DS_Store
 tags
+.*.swp
