@@ -236,7 +236,7 @@ passthrough(Args) -> throw(passthrough_fun(Args)).
 %% arguments or non-existing function (undef), wrong arguments
 %% (function clause) or unexpected exceptions.
 %%
-%% Use the {@link history/1} function to analyze errors.
+%% Use the {@link history/1} or {@link history/2} function to analyze errors.
 -spec validate(Mod:: atom() | [atom()]) -> boolean().
 validate(Mod) when is_atom(Mod) ->
     call(Mod, validate);
@@ -244,20 +244,24 @@ validate(Mod) when is_list(Mod) ->
     not lists:member(false, [validate(M) || M <- Mod]).
 
 %% @spec history(Mod::atom()) -> history()
-%% @doc Return the call history of the mocked module.
+%% @doc Return the call history of the mocked module for all processes.
 %%
-%% Returns a list of calls to the mocked module, which process called them and
-%% their results. Results can be either normal Erlang terms or exceptions
-%% that occurred.
+%% @equiv history(Mod, '_')
 -spec history(Mod::atom()) -> history().
 history(Mod) when is_atom(Mod) -> call(Mod, history).
 
 %% @spec history(Mod::atom(), Pid::pid()) -> history()
-%% @doc Return the call history of specified process and the mocked module.
+%% @doc Return the call history of the mocked module for the specified process.
 %%
 %% Returns a list of calls to the mocked module and their results for
 %% the specified `Pid'.  Results can be either normal Erlang terms or
 %% exceptions that occurred.
+%%
+%% @see history/1
+%% @see called/3
+%% @see called/4
+%% @see num_calls/3
+%% @see num_calls/4
 -spec history(Mod::atom(), Pid::pid()) -> history().
 history(Mod, Pid) when is_atom(Mod), is_pid(Pid) -> 
     match_history(match_mfa('_', Pid), call(Mod, history)).
@@ -284,13 +288,7 @@ unload(Mods) when is_list(Mods) -> lists:foreach(fun unload/1, Mods), ok.
 %% @spec called(Mod:: atom(), Fun:: atom(), Args:: list(term())) -> boolean()
 %% @doc Returns whether `Mod:Func' has been called with `Args'.
 %%
-%% This will check the history for the module, `Mod', to determine
-%% whether the function, `Fun', was called with arguments, `Args'. If
-%% so, this function returns true, otherwise false.
-%%
-%% Wildcards can be used, at any level in any term, by using the underscore
-%% atom: ``'_' ''
--spec called(Mod::atom(), Fun::atom(), Args::list()) -> boolean().
+%% @equiv called(Mod, Fun, Args, '_')
 called(Mod, Fun, Args) ->
     has_call({Mod, Fun, Args}, meck:history(Mod)).
 
@@ -301,6 +299,11 @@ called(Mod, Fun, Args) ->
 %% This will check the history for the module, `Mod', to determine
 %% whether process `Pid' call the function, `Fun', with arguments, `Args'. If
 %% so, this function returns true, otherwise false.
+%%
+%% Wildcards can be used, at any level in any term, by using the underscore
+%% atom: ``'_' ''
+%%
+%% @see called/3
 -spec called(Mod::atom(), Fun::atom(), Args::list(), Pid::pid()) -> boolean().
 called(Mod, Fun, Args, Pid) ->
     has_call({Mod, Fun, Args}, meck:history(Mod, Pid)).
@@ -309,10 +312,7 @@ called(Mod, Fun, Args, Pid) ->
 %% -> non_neg_integer()
 %% @doc Returns the number of times `Mod:Func' has been called with `Args'.
 %%
-%% This will check the history for the module, `Mod', to determine
-%% how many times the function, `Fun', was called with arguments, `Args' and
-%% returns the result.
--spec num_calls(Mod::atom(), Fun::atom(), Args::list()) -> non_neg_integer().
+%% @equiv num_calls(Mod, Fun, Args, '_')
 num_calls(Mod, Fun, Args) ->
     num_calls({Mod, Fun, Args}, meck:history(Mod)).
 
@@ -324,6 +324,8 @@ num_calls(Mod, Fun, Args) ->
 %% This will check the history for the module, `Mod', to determine how
 %% many times process `Pid' has called the function, `Fun', with
 %% arguments, `Args' and returns the result.
+%%
+%% @see num_calls/3
 -spec num_calls(Mod::atom(), Fun::atom(), Args::list(), Pid::pid()) ->
     non_neg_integer().
 num_calls(Mod, Fun, Args, Pid) ->

@@ -14,6 +14,7 @@
 %% limitations under the License.
 %%==============================================================================
 
+%% @hidden
 %% @author Adam Lindberg <eproxus@gmail.com>
 %% @copyright 2011, Adam Lindberg & Erlang Solutions Ltd
 %% @doc Module wrangling helper functions.
