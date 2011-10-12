@@ -293,6 +293,7 @@ history_by_pid_(Mod) ->
     Pid = spawn(Fun),
     Mod:test1(),
     Mod:test2(),
+    receive {Pid, done} -> ok end,
     ?assertEqual([{Pid, {Mod, test1, []}, ok}], meck:history(Mod, Pid)),
     ?assertEqual([{TestPid, {Mod, test1, []}, ok},
                   {TestPid, {Mod, test2, []}, ok}], meck:history(Mod, TestPid)),
