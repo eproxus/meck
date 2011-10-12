@@ -39,8 +39,8 @@
 -export([unload/1]).
 -export([called/3]).
 -export([called/4]).
--export([count_calls/3]).
--export([count_calls/4]).
+-export([num_calls/3]).
+-export([num_calls/4]).
 
 %% Callback exports
 -export([init/1]).
@@ -323,18 +323,18 @@ called(Mod, Fun, Args) ->
 called(Pid, Mod, Fun, Args) ->
     has_call({Mod, Fun, Args}, meck:history(Pid, Mod)).
 
-%% @spec count_calls(Mod:: atom(), Fun:: atom(), Args:: list(term()))
+%% @spec num_calls(Mod:: atom(), Fun:: atom(), Args:: list(term()))
 %% -> non_neg_integer()
 %% @doc Returns the number of times `Mod:Func' has been called with `Args'.
 %%
 %% This will check the history for the module, `Mod', to determine
 %% how many times the function, `Fun', was called with arguments, `Args' and
 %% returns the result.
--spec count_calls(Mod::atom(), Fun::atom(), Args::list()) -> non_neg_integer().
-count_calls(Mod, Fun, Args) ->
-    i_count_calls({Mod, Fun, Args}, meck:history(Mod), 0).
+-spec num_calls(Mod::atom(), Fun::atom(), Args::list()) -> non_neg_integer().
+num_calls(Mod, Fun, Args) ->
+    i_num_calls({Mod, Fun, Args}, meck:history(Mod), 0).
 
-%% @spec count_calls(Pid:: pid(), Mod:: atom(), Fun:: atom(),
+%% @spec num_calls(Pid:: pid(), Mod:: atom(), Fun:: atom(),
 %%                   Args:: list(term())) -> non_neg_integer()
 %% @doc Returns the number of times process `Pid' has called `Mod:Func'
 %%      with `Args'.
@@ -342,10 +342,10 @@ count_calls(Mod, Fun, Args) ->
 %% This will check the history for the module, `Mod', to determine how
 %% many times process `Pid' has called the function, `Fun', with
 %% arguments, `Args' and returns the result.
--spec count_calls(Pid::pid(), Mod::atom(), Fun::atom(), Args::list())
+-spec num_calls(Pid::pid(), Mod::atom(), Fun::atom(), Args::list())
  -> non_neg_integer().
-count_calls(Pid, Mod, Fun, Args) ->
-    i_count_calls({Mod, Fun, Args}, meck:history(Pid, Mod), 0).
+num_calls(Pid, Mod, Fun, Args) ->
+    i_num_calls({Mod, Fun, Args}, meck:history(Pid, Mod), 0).
 
 %%==============================================================================
 %% Callback functions
@@ -769,14 +769,14 @@ get_history_without_pid(History) ->
 remove_first_element(Tuple) when is_tuple(Tuple) ->
     list_to_tuple(tl(tuple_to_list(Tuple))).
 
-i_count_calls(_MFA, [], Count) ->
+i_num_calls(_MFA, [], Count) ->
     Count;
-i_count_calls(MFA, [{MFA, _Result} | Rest], Count) ->
-    i_count_calls(MFA, Rest, Count + 1);
-i_count_calls(MFA, [{MFA, _ExType, _Exception, _Stack} | Rest], Count) ->
-    i_count_calls(MFA, Rest, Count + 1);
-i_count_calls(MFA, [_Call | Rest], Count) ->
-    i_count_calls(MFA, Rest, Count).
+i_num_calls(MFA, [{MFA, _Result} | Rest], Count) ->
+    i_num_calls(MFA, Rest, Count + 1);
+i_num_calls(MFA, [{MFA, _ExType, _Exception, _Stack} | Rest], Count) ->
+    i_num_calls(MFA, Rest, Count + 1);
+i_num_calls(MFA, [_Call | Rest], Count) ->
+    i_num_calls(MFA, Rest, Count).
 
 has_call(FuncMatch, History) ->
     [] =/= match_history([{{FuncMatch, '_'}, [], ['$_']},

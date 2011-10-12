@@ -73,9 +73,9 @@ meck_test_() ->
                            fun called_false_error_/1,
                            fun called_true_error_/1,
                            fun called_with_pid_no_args_/1,
-                           fun count_calls_/1,
-                           fun count_calls_error_/1,
-                           fun count_calls_with_pid_no_args_/1,
+                           fun num_calls_/1,
+                           fun num_calls_error_/1,
+                           fun num_calls_with_pid_no_args_/1,
                            fun called_wildcard_/1,
                            fun sequence_/1,
                            fun sequence_multi_/1,
@@ -437,28 +437,28 @@ spawn_caller_and_sync(Mod, Func, Args) ->
     receive {Pid, done} -> ok end, % sync with the spawned process
     Pid.
 
-count_calls_(Mod) ->
+num_calls_(Mod) ->
     Args = [],
     IncorrectArgs = [foo],
     ok = meck:expect(Mod, test1, length(Args), ok),
-    ?assertEqual(0, meck:count_calls(Mod, test1, Args)),
+    ?assertEqual(0, meck:num_calls(Mod, test1, Args)),
     ok = apply(Mod, test1, Args),
-    ?assertEqual(1, meck:count_calls(Mod, test1, Args)),
-    ?assertEqual(0, meck:count_calls(Mod, test1, IncorrectArgs)).
+    ?assertEqual(1, meck:num_calls(Mod, test1, Args)),
+    ?assertEqual(0, meck:num_calls(Mod, test1, IncorrectArgs)).
 
-count_calls_error_(Mod) ->
+num_calls_error_(Mod) ->
     Args = [one, "two", {3, 3}],
     expect_catch_apply(Mod, test, Args),
-    ?assertEqual(1, meck:count_calls(Mod, test, Args)).
+    ?assertEqual(1, meck:num_calls(Mod, test, Args)).
 
-count_calls_with_pid_no_args_(Mod) ->
+num_calls_with_pid_no_args_(Mod) ->
     Args = [],
     ok = meck:expect(Mod, test, length(Args), ok),
     Pid = spawn_caller_and_sync(Mod, test, Args),
-    ?assertEqual(0, meck:count_calls(self(), Mod, test, Args)),
-    ?assertEqual(1, meck:count_calls(Pid, Mod, test, Args)),
+    ?assertEqual(0, meck:num_calls(self(), Mod, test, Args)),
+    ?assertEqual(1, meck:num_calls(Pid, Mod, test, Args)),
     ok = apply(Mod, test, Args),
-    ?assertEqual(1, meck:count_calls(self(), Mod, test, Args)).
+    ?assertEqual(1, meck:num_calls(self(), Mod, test, Args)).
 
 expect_apply(Mod, Func, Args) ->
     ok = meck:expect(Mod, Func, length(Args), ok),
