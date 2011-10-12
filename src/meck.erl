@@ -262,8 +262,8 @@ history(Mod) when is_atom(Mod) -> call(Mod, history).
 %% @see called/4
 %% @see num_calls/3
 %% @see num_calls/4
--spec history(Mod::atom(), Pid::pid()) -> history().
-history(Mod, Pid) when is_atom(Mod), is_pid(Pid) -> 
+-spec history(Mod::atom(), Pid:: pid() | '_') -> history().
+history(Mod, Pid) when is_atom(Mod), is_pid(Pid) orelse Pid == '_' -> 
     match_history(match_mfa('_', Pid), call(Mod, history)).
 
 %% @spec unload() -> list(atom())

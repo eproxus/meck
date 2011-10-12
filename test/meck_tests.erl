@@ -293,7 +293,8 @@ history_by_pid_(Mod) ->
     Mod:test(),
     ?assertEqual([{Pid, {Mod, test, []}, ok}], meck:history(Mod, Pid)),
     ?assertEqual([{TestPid, {Mod, test, []}, ok},
-                  {TestPid, {Mod, test, []}, ok}], meck:history(Mod, TestPid)).
+                  {TestPid, {Mod, test, []}, ok}], meck:history(Mod, TestPid)),
+    ?assertEqual(meck:history(Mod), meck:history(Mod, '_')).
 
 shortcut_expect_(Mod) ->
     ok = meck:expect(Mod, test, 0, ok),
@@ -388,7 +389,9 @@ called_with_pid_no_args_(Mod) ->
     assert_called(Mod, test, Args, self(), false),
     assert_called(Mod, test, Args, Pid, true),
     ok = apply(Mod, test, Args),
-    assert_called(Mod, test, Args, self(), true).
+    assert_called(Mod, test, Args, self(), true),
+    ?assertEqual(meck:called(Mod, test, Args, '_'),
+                 meck:called(Mod, test, Args)).
 
 spawn_caller_and_sync(Mod, Func, Args) ->
     TestPid = self(),
@@ -421,7 +424,9 @@ num_calls_with_pid_no_args_(Mod) ->
     ?assertEqual(0, meck:num_calls(Mod, test, Args, self())),
     ?assertEqual(1, meck:num_calls(Mod, test, Args, Pid)),
     ok = apply(Mod, test, Args),
-    ?assertEqual(1, meck:num_calls(Mod, test, Args, self())).
+    ?assertEqual(1, meck:num_calls(Mod, test, Args, self())),
+    ?assertEqual(meck:num_calls(Mod, test, Args, '_'),
+                 meck:num_calls(Mod, test, Args)).
 
 expect_apply(Mod, Func, Args) ->
     ok = meck:expect(Mod, Func, length(Args), ok),
