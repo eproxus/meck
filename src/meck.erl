@@ -274,7 +274,7 @@ unload(Mods) when is_list(Mods) -> lists:foreach(fun unload/1, Mods), ok.
 %% so, this function returns true, otherwise false.
 -spec called(Mod::atom(), Fun::atom(), Args::list()) -> boolean().
 called(Mod, Fun, Args) ->
-    has_call({Mod, Fun, Args}, meck:history(Mod)).
+    has_call({Mod, Fun, Args}, mfargs_from_history(meck:history(Mod))).
 
 %%==============================================================================
 %% Callback functions
@@ -664,16 +664,19 @@ cleanup(Mod) ->
 
 %% --- History utilities -------------------------------------------------------
 
-has_call({_M, _F, _A}, []) -> false;
-has_call({M, F, ExpectedArgs}, [{{M, F, ActualArgs}, _Result} | _Rest]) ->
-    do_args_match(ExpectedArgs, ActualArgs);
-has_call({M, F, ExpectedArgs}, [{{M, F, ActualArgs}, _ExType, _Exception, _Stack} | _Rest]) ->
-    do_args_match(ExpectedArgs, ActualArgs);
-has_call({M, F, A}, [_Call | Rest]) ->
-    has_call({M, F, A}, Rest).
+mfargs_from_history(History) ->
+    [ element(1, X) || X <- History ].
 
-do_args_match(Expected, Actual) when length(Expected) =/= length(Actual) ->
-    false;
-do_args_match(Expected, Actual) when Expected =/= Actual ->
-    {wrong_args, Actual};
-do_args_match(_, _) -> true.
+has_call({Mod, Func, Args}, MFArgs) ->
+    AllArgs = [ A || {M, F, A} <- MFArgs,
+        M =:= Mod, F =:= Func,
+        length(A) =:= length(Args) ],
+    case lists:any(fun(A) -> A =:= Args end, AllArgs) of
+        true -> true;
+        false ->
+            case length(AllArgs) of
+                0 -> false;
+                _ -> {wrong_args, AllArgs}
+            end
+    end.
+
