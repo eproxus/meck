@@ -59,7 +59,7 @@
 %%                     | {pid(), meck_mfa(), Class:: exit | error | throw,
 %%                        Reason::term(), Stacktrace::list(mfa())}].
 %% History is a list of either successful function calls with a returned
-%% result or function calls that resulted in an exception % with a type,
+%% result or function calls that resulted in an exception with a type,
 %% reason and a stack trace. Each tuple begins with the pid of the process
 %% that made the call to the function.
 -type history() :: [{pid(), meck_mfa(), Result::term()}
