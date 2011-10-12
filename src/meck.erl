@@ -252,14 +252,14 @@ validate(Mod) when is_list(Mod) ->
 -spec history(Mod::atom()) -> history().
 history(Mod) when is_atom(Mod) -> call(Mod, history).
 
-%% @spec history(Pid::pid(), Mod::atom()) -> history()
+%% @spec history(Mod::atom(), Pid::pid()) -> history()
 %% @doc Return the call history of specified process and the mocked module.
 %%
 %% Returns a list of calls to the mocked module and their results for
-%% the specified Pid.  Results can be either normal Erlang terms or
+%% the specified `Pid'.  Results can be either normal Erlang terms or
 %% exceptions that occurred.
--spec history(Pid::pid(), Mod::atom()) -> history().
-history(Pid, Mod) when is_pid(Pid) and is_atom(Mod) -> 
+-spec history(Mod::atom(), Pid::pid()) -> history().
+history(Mod, Pid) when is_atom(Mod), is_pid(Pid) -> 
     match_history(match_mfa('_', Pid), call(Mod, history)).
 
 %% @spec unload() -> list(atom())
@@ -294,16 +294,16 @@ unload(Mods) when is_list(Mods) -> lists:foreach(fun unload/1, Mods), ok.
 called(Mod, Fun, Args) ->
     has_call({Mod, Fun, Args}, meck:history(Mod)).
 
-%% @spec called(Pid:: pid(), Mod:: atom(), Fun:: atom(),
-%%              Args:: list(term())) -> boolean()
+%% @spec called(Mod:: atom(), Fun:: atom(), Args:: list(term()),
+%%              Pid::pid()) -> boolean()
 %% @doc Returns whether `Pid' has called `Mod:Func' with `Args'.
 %%
 %% This will check the history for the module, `Mod', to determine
 %% whether process `Pid' call the function, `Fun', with arguments, `Args'. If
 %% so, this function returns true, otherwise false.
--spec called(Pid::pid(), Mod::atom(), Fun::atom(), Args::list()) -> boolean().
-called(Pid, Mod, Fun, Args) ->
-    has_call({Mod, Fun, Args}, meck:history(Pid, Mod)).
+-spec called(Mod::atom(), Fun::atom(), Args::list(), Pid::pid()) -> boolean().
+called(Mod, Fun, Args, Pid) ->
+    has_call({Mod, Fun, Args}, meck:history(Mod, Pid)).
 
 %% @spec num_calls(Mod:: atom(), Fun:: atom(), Args:: list(term()))
 %% -> non_neg_integer()
@@ -316,18 +316,18 @@ called(Pid, Mod, Fun, Args) ->
 num_calls(Mod, Fun, Args) ->
     num_calls({Mod, Fun, Args}, meck:history(Mod)).
 
-%% @spec num_calls(Pid:: pid(), Mod:: atom(), Fun:: atom(),
-%%                   Args:: list(term())) -> non_neg_integer()
+%% @spec num_calls(Mod:: atom(), Fun:: atom(), Args:: list(term()),
+%%                 Pid::pid()) -> non_neg_integer()
 %% @doc Returns the number of times process `Pid' has called `Mod:Func'
 %%      with `Args'.
 %%
 %% This will check the history for the module, `Mod', to determine how
 %% many times process `Pid' has called the function, `Fun', with
 %% arguments, `Args' and returns the result.
--spec num_calls(Pid::pid(), Mod::atom(), Fun::atom(), Args::list())
- -> non_neg_integer().
-num_calls(Pid, Mod, Fun, Args) ->
-    num_calls({Mod, Fun, Args}, meck:history(Pid, Mod)).
+-spec num_calls(Mod::atom(), Fun::atom(), Args::list(), Pid::pid()) ->
+    non_neg_integer().
+num_calls(Mod, Fun, Args, Pid) ->
+    num_calls({Mod, Fun, Args}, meck:history(Mod, Pid)).
 
 %%==============================================================================
 %% Callback functions

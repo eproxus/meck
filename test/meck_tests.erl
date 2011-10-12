@@ -291,9 +291,9 @@ history_by_pid_(Mod) ->
     Pid = spawn(Fun),
     Mod:test(),
     Mod:test(),
-    ?assertEqual([{Pid, {Mod, test, []}, ok}], meck:history(Pid, Mod)),
+    ?assertEqual([{Pid, {Mod, test, []}, ok}], meck:history(Mod, Pid)),
     ?assertEqual([{TestPid, {Mod, test, []}, ok},
-                  {TestPid, {Mod, test, []}, ok}], meck:history(TestPid, Mod)).
+                  {TestPid, {Mod, test, []}, ok}], meck:history(Mod, TestPid)).
 
 shortcut_expect_(Mod) ->
     ok = meck:expect(Mod, test, 0, ok),
@@ -385,10 +385,10 @@ called_with_pid_no_args_(Mod) ->
     Args = [],
     ok = meck:expect(Mod, test, length(Args), ok),
     Pid = spawn_caller_and_sync(Mod, test, Args),
-    assert_called(self(), Mod, test, Args, false),
-    assert_called(Pid, Mod, test, Args, true),
+    assert_called(Mod, test, Args, self(), false),
+    assert_called(Mod, test, Args, Pid, true),
     ok = apply(Mod, test, Args),
-    assert_called(self(), Mod, test, Args, true).
+    assert_called(Mod, test, Args, self(), true).
 
 spawn_caller_and_sync(Mod, Func, Args) ->
     TestPid = self(),
@@ -418,10 +418,10 @@ num_calls_with_pid_no_args_(Mod) ->
     Args = [],
     ok = meck:expect(Mod, test, length(Args), ok),
     Pid = spawn_caller_and_sync(Mod, test, Args),
-    ?assertEqual(0, meck:num_calls(self(), Mod, test, Args)),
-    ?assertEqual(1, meck:num_calls(Pid, Mod, test, Args)),
+    ?assertEqual(0, meck:num_calls(Mod, test, Args, self())),
+    ?assertEqual(1, meck:num_calls(Mod, test, Args, Pid)),
     ok = apply(Mod, test, Args),
-    ?assertEqual(1, meck:num_calls(self(), Mod, test, Args)).
+    ?assertEqual(1, meck:num_calls(Mod, test, Args, self())).
 
 expect_apply(Mod, Func, Args) ->
     ok = meck:expect(Mod, Func, length(Args), ok),
@@ -794,6 +794,6 @@ assert_called(Mod, Function, Args, WasCalled) ->
     ?assertEqual(WasCalled, meck:called(Mod, Function, Args)),
     ?assert(meck:validate(Mod)).
 
-assert_called(Pid, Mod, Function, Args, WasCalled) ->
-    ?assertEqual(WasCalled, meck:called(Pid, Mod, Function, Args)),
+assert_called(Mod, Function, Args, Pid, WasCalled) ->
+    ?assertEqual(WasCalled, meck:called(Mod, Function, Args, Pid)),
     ?assert(meck:validate(Mod)).
