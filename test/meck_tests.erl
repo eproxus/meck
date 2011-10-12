@@ -67,6 +67,7 @@ meck_test_() ->
                            fun called_true_few_args_/1,
                            fun called_false_error_/1,
                            fun called_true_error_/1,
+                           fun called_wildcard_/1,
                            fun sequence_/1,
                            fun sequence_multi_/1,
                            fun loop_/1,
@@ -362,6 +363,12 @@ called_true_error_(Mod) ->
     ok = meck:expect(Mod, test, TestFun),
     catch apply(Mod, test, Args),
     assert_called(Mod, test, Args, true).
+
+called_wildcard_(Mod) ->
+    Args = [one, 2, {three, 3}, "four"],
+    ok = meck:expect(Mod, test, length(Args), ok),
+    ok = apply(Mod, test, Args),
+    assert_called(Mod, test, [one, '_', {three, '_'}, "four"], true).
 
 sequence_(Mod) ->
     Sequence = [a, b, c, d, e],
