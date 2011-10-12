@@ -307,6 +307,9 @@ unload(Mods) when is_list(Mods) -> lists:foreach(fun unload/1, Mods), ok.
 %% This will check the history for the module, `Mod', to determine
 %% whether the function, `Fun', was called with arguments, `Args'. If
 %% so, this function returns true, otherwise false.
+%%
+%% Wildcards can be used, at any level in any term, by using the underscore
+%% atom: ``'_' ''
 -spec called(Mod::atom(), Fun::atom(), Args::list()) -> boolean().
 called(Mod, Fun, Args) ->
     has_call({Mod, Fun, Args}, meck:history(Mod)).
@@ -798,14 +801,6 @@ get_history_without_pid(History) ->
 remove_first_element(Tuple) when is_tuple(Tuple) ->
     list_to_tuple(tl(tuple_to_list(Tuple))).
 
-has_call(_MFA, []) -> false;
-has_call(MFA, [{MFA, _Result} | _Rest]) ->
-    true;
-has_call(MFA, [{MFA, _ExType, _Exception, _Stack} | _Rest]) ->
-    true;
-has_call(MFA, [_Call | Rest]) ->
-    has_call(MFA, Rest).
-
 i_count_calls(_MFA, [], Count) ->
     Count;
 i_count_calls(MFA, [{MFA, _Result} | Rest], Count) ->
@@ -852,3 +847,11 @@ i_wildcard_match_args([H1|T1], [H2|T2]) when is_tuple(H1) and is_tuple(H2) ->
        and i_wildcard_match_args(T1,T2);
 i_wildcard_match_args([_H1|_T1], [_H2|_T2]) ->
     false.
+
+has_call(FuncMatch, History) ->
+    [] =/= match_history([{{FuncMatch, '_'}, [], ['$_']},
+                          {{FuncMatch, '_', '_', '_'}, [], ['$_']}], History).
+
+match_history(MatchSpec, History) ->
+    MS = ets:match_spec_compile(MatchSpec),
+    ets:match_spec_run(History, MS).

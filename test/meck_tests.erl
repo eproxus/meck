@@ -86,6 +86,7 @@ meck_test_() ->
                            fun wildcard_count_calls_simple_error_/1,
                            fun wildcard_count_calls_error_/1,
                            fun wildcard_count_calls_with_pid_no_args_/1,
+                           fun called_wildcard_/1,
                            fun sequence_/1,
                            fun sequence_multi_/1,
                            fun loop_/1,
@@ -564,6 +565,12 @@ expect_catch_apply(Mod, Func, Args) ->
     TestFun = fun (_, _, _) -> meck:exception(error, my_error) end,
     ok = meck:expect(Mod, Func, TestFun),
     catch apply(Mod, Func, Args).
+
+called_wildcard_(Mod) ->
+    Args = [one, 2, {three, 3}, "four"],
+    ok = meck:expect(Mod, test, length(Args), ok),
+    ok = apply(Mod, test, Args),
+    assert_called(Mod, test, [one, '_', {three, '_'}, "four"], true).
 
 sequence_(Mod) ->
     Sequence = [a, b, c, d, e],

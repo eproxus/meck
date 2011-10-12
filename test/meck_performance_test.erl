@@ -35,6 +35,14 @@ run(N) ->
     io:format("shortcut_opaque\t~p\t~p\t~p\t~p~n",
               test_avg(test, shortcut_opaque, [], N)),
     meck:unload(test),
+
+    meck:new(test),
+    meck:expect(test, func, 1, ok),
+    [test:func(I) || I <- lists:seq(1, 100)],
+    io:format("~n\t\tMin\tMax\tMed\tAvg~n"),
+    io:format("called\t\t~p\t~p\t~p\t~p~n",
+              test_avg(meck, called, [test, func, 50], N)),
+    meck:unload(test),
     ok.
 
 %%==============================================================================
