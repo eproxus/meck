@@ -332,7 +332,7 @@ called(Pid, Mod, Fun, Args) ->
 %% returns the result.
 -spec num_calls(Mod::atom(), Fun::atom(), Args::list()) -> non_neg_integer().
 num_calls(Mod, Fun, Args) ->
-    i_num_calls({Mod, Fun, Args}, meck:history(Mod), 0).
+    num_calls({Mod, Fun, Args}, meck:history(Mod)).
 
 %% @spec num_calls(Pid:: pid(), Mod:: atom(), Fun:: atom(),
 %%                   Args:: list(term())) -> non_neg_integer()
@@ -345,7 +345,7 @@ num_calls(Mod, Fun, Args) ->
 -spec num_calls(Pid::pid(), Mod::atom(), Fun::atom(), Args::list())
  -> non_neg_integer().
 num_calls(Pid, Mod, Fun, Args) ->
-    i_num_calls({Mod, Fun, Args}, meck:history(Pid, Mod), 0).
+    num_calls({Mod, Fun, Args}, meck:history(Pid, Mod)).
 
 %%==============================================================================
 %% Callback functions
@@ -769,19 +769,16 @@ get_history_without_pid(History) ->
 remove_first_element(Tuple) when is_tuple(Tuple) ->
     list_to_tuple(tl(tuple_to_list(Tuple))).
 
-i_num_calls(_MFA, [], Count) ->
-    Count;
-i_num_calls(MFA, [{MFA, _Result} | Rest], Count) ->
-    i_num_calls(MFA, Rest, Count + 1);
-i_num_calls(MFA, [{MFA, _ExType, _Exception, _Stack} | Rest], Count) ->
-    i_num_calls(MFA, Rest, Count + 1);
-i_num_calls(MFA, [_Call | Rest], Count) ->
-    i_num_calls(MFA, Rest, Count).
+has_call(MFA, History) ->
+    [] =/= match_history(match_mfa(MFA), History).
 
-has_call(FuncMatch, History) ->
-    [] =/= match_history([{{FuncMatch, '_'}, [], ['$_']},
-                          {{FuncMatch, '_', '_', '_'}, [], ['$_']}], History).
+num_calls(MFA, History) ->
+    length(match_history(match_mfa(MFA), History)).
 
 match_history(MatchSpec, History) ->
     MS = ets:match_spec_compile(MatchSpec),
     ets:match_spec_run(History, MS).
+
+match_mfa(MFA) ->
+    [{{MFA, '_'}, [], ['$_']},
+     {{MFA, '_', '_', '_'}, [], ['$_']}].
