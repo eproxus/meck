@@ -52,10 +52,6 @@ meck_test_() ->
                            fun history_meck_exit_/1,
                            fun history_meck_error_/1,
                            fun history_by_pid_/1,
-                           fun history_with_pid_empty_/1,
-                           fun history_with_pid_call_/1,
-                           fun history_with_pid_throw_/1,
-                           fun history_with_pid_spawn_/1,
                            fun shortcut_expect_/1,
                            fun shortcut_expect_negative_arity_/1,
                            fun shortcut_call_return_value_/1,
@@ -221,68 +217,68 @@ history_call_(Mod) ->
     Mod:test(),
     Mod:test2(a, b),
     Mod:test3(),
-    ?assertEqual([{{Mod, test,  []},     ok},
-                  {{Mod, test2, [a, b]}, result},
-                  {{Mod, test3, []},     3}], meck:history(Mod)).
+    ?assertEqual([{self(), {Mod, test,  []},     ok},
+                  {self(), {Mod, test2, [a, b]}, result},
+                  {self(), {Mod, test3, []},     3}], meck:history(Mod)).
 
 history_throw_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> throw(test_exception) end),
     catch Mod:test(),
-    ?assertMatch([{{Mod, test, []}, throw, test_exception, _Stacktrace}],
+    ?assertMatch([{_Pid, {Mod, test, []}, throw, test_exception, _Stacktrace}],
                  meck:history(Mod)).
 
 history_throw_fun_(Mod) ->
     Fun = fun() -> exception_fun end,
     ok = meck:expect(Mod, test, fun() -> throw(Fun) end),
     catch Mod:test(),
-    ?assertMatch([{{Mod, test, []}, throw, Fun, _Stacktrace}],
+    ?assertMatch([{_Pid, {Mod, test, []}, throw, Fun, _Stacktrace}],
                  meck:history(Mod)).
 
 history_exit_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> exit(test_exit) end),
     catch Mod:test(),
-    ?assertMatch([{{Mod, test, []}, exit, test_exit, _Stacktrace}],
+    ?assertMatch([{_Pid, {Mod, test, []}, exit, test_exit, _Stacktrace}],
                  meck:history(Mod)).
 
 history_error_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> erlang:error(test_error) end),
     catch Mod:test(),
-    ?assertMatch([{{Mod, test, []}, error, test_error, _Stacktrace}],
+    ?assertMatch([{_Pid, {Mod, test, []}, error, test_error, _Stacktrace}],
                  meck:history(Mod)).
 
 history_error_args_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> erlang:error(test_error, [fake_args]) end),
     catch Mod:test(),
     History = meck:history(Mod),
-    ?assertMatch([{{Mod, test, []}, error, test_error, _Stacktrace}],
+    ?assertMatch([{_Pid, {Mod, test, []}, error, test_error, _Stacktrace}],
                  meck:history(Mod)),
-    [{_MFA, error, test_error, Stacktrace}] = History,
+    [{_Pid, _MFA, error, test_error, Stacktrace}] = History,
     ?assert(lists:any(fun({_M, _F, [fake_args]}) -> true;
                          (_) -> false end, Stacktrace)).
 
 history_meck_throw_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> meck:exception(throw, test_exception) end),
     catch Mod:test(),
-    ?assertMatch([{{Mod, test, []}, throw, test_exception, _Stacktrace}],
+    ?assertMatch([{_Pid, {Mod, test, []}, throw, test_exception, _Stacktrace}],
                  meck:history(Mod)).
 
 history_meck_throw_fun_(Mod) ->
     Fun = fun() -> exception_fun end,
     ok = meck:expect(Mod, test, fun() -> meck:exception(throw, Fun) end),
     catch Mod:test(),
-    ?assertMatch([{{Mod, test, []}, throw, Fun, _Stacktrace}],
+    ?assertMatch([{_Pid, {Mod, test, []}, throw, Fun, _Stacktrace}],
                  meck:history(Mod)).
 
 history_meck_exit_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> meck:exception(exit, test_exit) end),
     catch Mod:test(),
-    ?assertMatch([{{Mod, test, []}, exit, test_exit, _Stacktrace}],
+    ?assertMatch([{_Pid, {Mod, test, []}, exit, test_exit, _Stacktrace}],
                  meck:history(Mod)).
 
 history_meck_error_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> meck:exception(error, test_error) end),
     catch Mod:test(),
-    ?assertMatch([{{Mod, test, []}, error, test_error, _Stacktrace}],
+    ?assertMatch([{_Pid, {Mod, test, []}, error, test_error, _Stacktrace}],
                  meck:history(Mod)).
 
 history_by_pid_(Mod) ->
@@ -295,42 +291,9 @@ history_by_pid_(Mod) ->
     Pid = spawn(Fun),
     Mod:test(),
     Mod:test(),
-    ?assertEqual([{{Mod, test, []}, ok}], meck:history(Pid, Mod)),
-    ?assertEqual([{{Mod, test, []}, ok},
-                  {{Mod, test, []}, ok}], meck:history(TestPid, Mod)).
-
-history_with_pid_empty_(Mod) ->
-    ?assertEqual([], meck:history_with_pid(Mod)).
-
-history_with_pid_call_(Mod) ->
-    ok = meck:expect(Mod, test, fun() -> ok end),
-    ok = meck:expect(Mod, test2, fun(_, _) -> result end),
-    ok = meck:expect(Mod, test3, 0, 3),
-    Mod:test(),
-    Mod:test2(a, b),
-    Mod:test3(),
-    Pid = self(),
-    ?assertEqual([{Pid, {Mod, test,  []},     ok},
-                  {Pid, {Mod, test2, [a, b]}, result},
-                  {Pid, {Mod, test3, []}, 3}], meck:history_with_pid(Mod)).
-
-history_with_pid_throw_(Mod) ->
-    ok = meck:expect(Mod, test, fun() -> throw(test_exception) end),
-    catch Mod:test(),
-    Pid = self(),
-    ?assertMatch([{Pid, {Mod, test, []}, throw, test_exception, _Stacktrace}],
-                 meck:history_with_pid(Mod)).
-
-history_with_pid_spawn_(Mod) ->
-    ok = meck:expect(Mod, test, fun() -> ok end),
-    TestPid = self(),
-    Fun = fun() ->
-                  Mod:test(),
-                  TestPid ! {self(), done}
-          end,
-    Pid = spawn(Fun),
-    receive {Pid, done} -> ok end, % sync with the spawned process
-    ?assertEqual([{Pid, {Mod, test, []}, ok}], meck:history_with_pid(Mod)).
+    ?assertEqual([{Pid, {Mod, test, []}, ok}], meck:history(Pid, Mod)),
+    ?assertEqual([{TestPid, {Mod, test, []}, ok},
+                  {TestPid, {Mod, test, []}, ok}], meck:history(TestPid, Mod)).
 
 shortcut_expect_(Mod) ->
     ok = meck:expect(Mod, test, 0, ok),
@@ -669,8 +632,8 @@ history_passthrough_test() ->
     ok = meck:expect(meck_test_module, a, fun() -> c end),
     c = meck_test_module:a(),
     b = meck_test_module:b(),
-    ?assertEqual([{{meck_test_module, a, []}, c},
-                  {{meck_test_module, b, []}, b}],
+    ?assertEqual([{self(), {meck_test_module, a, []}, c},
+                  {self(), {meck_test_module, b, []}, b}],
                  meck:history(meck_test_module)),
     ok = meck:unload(meck_test_module).
 

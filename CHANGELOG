@@ -1,3 +1,6 @@
 - Allow wildcards in history functions
-  (Caution: Might break backwards compatibility, if you have relied on the '_'
-   atom as a normal atom)
+  (Might break backwards compatibility in rare cases where code relies on 
+   the '_' atom as a normal atom, it is now the wildcard pattern)
+- Add caller Pid to history
+  *CAUTION* This will break backwards compatibility for functions that rely
+  on the return value of history/1!
