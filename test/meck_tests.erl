@@ -333,13 +333,15 @@ delete_(Mod) ->
 called_false_no_args_(Mod) ->
     Args = [],
     ok = meck:expect(Mod, test, length(Args), ok),
-    assert_called(Mod, test, Args, false).
+    assert_called(Mod, test, Args, false),
+    ok.
 
 called_true_no_args_(Mod) ->
     Args = [],
     ok = meck:expect(Mod, test, length(Args), ok),
     ok = apply(Mod, test, Args),
-    assert_called(Mod, test, Args, true).
+    assert_called(Mod, test, Args, true),
+    ok.
 
 called_true_two_functions_(Mod) ->
     Args = [],
@@ -347,40 +349,47 @@ called_true_two_functions_(Mod) ->
     ok = meck:expect(Mod, test2, length(Args), ok),
     ok = apply(Mod, test1, Args),
     ok = apply(Mod, test2, Args),
-    assert_called(Mod, test2, Args, true).
+    assert_called(Mod, test2, Args, true),
+    ok.
 
 called_false_one_arg_(Mod) ->
     Args = ["hello"],
     ok = meck:expect(Mod, test, length(Args), ok),
-    assert_called(Mod, test, Args, false).
+    assert_called(Mod, test, Args, false),
+    ok.
 
 called_true_one_arg_(Mod) ->
     Args = ["hello"],
     ok = meck:expect(Mod, test, length(Args), ok),
     ok = apply(Mod, test, Args),
-    assert_called(Mod, test, Args, true).
+    assert_called(Mod, test, Args, true),
+    ok.
 
 called_false_few_args_(Mod) ->
     Args = [one, 2, {three, 3}, "four"],
     ok = meck:expect(Mod, test, length(Args), ok),
-    assert_called(Mod, test, Args, false).
+    assert_called(Mod, test, Args, false),
+    ok.
 
 called_true_few_args_(Mod) ->
     Args = [one, 2, {three, 3}, "four"],
     ok = meck:expect(Mod, test, length(Args), ok),
     ok = apply(Mod, test, Args),
-    assert_called(Mod, test, Args, true).
+    assert_called(Mod, test, Args, true),
+    ok.
 
 called_false_error_(Mod) ->
     Args = [one, "two", {3, 3}],
     TestFun = fun (_, _, _) -> meck:exception(error, my_error) end,
     ok = meck:expect(Mod, test, TestFun),
-    assert_called(Mod, test, Args, false).
+    assert_called(Mod, test, Args, false),
+    ok.
 
 called_true_error_(Mod) ->
     Args = [one, "two", {3, 3}],
     expect_catch_apply(Mod, test, Args),
-    assert_called(Mod, test, Args, true).
+    assert_called(Mod, test, Args, true),
+    ok.
 
 called_with_pid_no_args_(Mod) ->
     Args = [],
@@ -441,7 +450,8 @@ called_wildcard_(Mod) ->
     Args = [one, 2, {three, 3}, "four"],
     ok = meck:expect(Mod, test, length(Args), ok),
     ok = apply(Mod, test, Args),
-    assert_called(Mod, test, [one, '_', {three, '_'}, "four"], true).
+    assert_called(Mod, test, [one, '_', {three, '_'}, "four"], true),
+    ok.
 
 sequence_(Mod) ->
     Sequence = [a, b, c, d, e],
