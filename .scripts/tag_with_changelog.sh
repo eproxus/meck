@@ -29,7 +29,9 @@ git add CHANGELOG
 
 # Update version in .app file
 sed -i "" -e "s/{vsn, .*}/{vsn, \"$1\"}/g" src/meck.app.src
+sed -i "" -e "s/@version .*/@version \"$1\"/g" doc/overview.edoc
 git add src/meck.app.src
+git add doc/overview.edoc
 
 # Commit, tag and push
 git commit -m "Version $1"
