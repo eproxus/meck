@@ -282,18 +282,21 @@ history_meck_error_(Mod) ->
                  meck:history(Mod)).
 
 history_by_pid_(Mod) ->
-    ok = meck:expect(Mod, test, fun() -> ok end),
+    ok = meck:expect(Mod, test1, fun() -> ok end),
+    ok = meck:expect(Mod, test2, fun() -> ok end),
+
     TestPid = self(),
     Fun = fun() ->
-                  Mod:test(),
+                  Mod:test1(),
                   TestPid ! {self(), done}
           end,
     Pid = spawn(Fun),
-    Mod:test(),
-    Mod:test(),
-    ?assertEqual([{Pid, {Mod, test, []}, ok}], meck:history(Mod, Pid)),
-    ?assertEqual([{TestPid, {Mod, test, []}, ok},
-                  {TestPid, {Mod, test, []}, ok}], meck:history(Mod, TestPid)),
+    Mod:test1(),
+    Mod:test2(),
+    receive {Pid, done} -> ok end,
+    ?assertEqual([{Pid, {Mod, test1, []}, ok}], meck:history(Mod, Pid)),
+    ?assertEqual([{TestPid, {Mod, test1, []}, ok},
+                  {TestPid, {Mod, test2, []}, ok}], meck:history(Mod, TestPid)),
     ?assertEqual(meck:history(Mod), meck:history(Mod, '_')).
 
 shortcut_expect_(Mod) ->
