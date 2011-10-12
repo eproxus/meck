@@ -9,3 +9,4 @@ doc/edoc-info
 ebin
 .eunit
 .DS_Store
+tags
