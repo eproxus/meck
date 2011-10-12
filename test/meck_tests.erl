@@ -67,6 +67,8 @@ meck_test_() ->
                            fun called_true_few_args_/1,
                            fun called_false_error_/1,
                            fun called_true_error_/1,
+                           fun called_wrong_args_returned_when_same_arity_/1,
+                           fun called_wrong_args_not_returned_when_different_arity_/1,
                            fun sequence_/1,
                            fun sequence_multi_/1,
                            fun loop_/1,
@@ -327,6 +329,19 @@ called_true_two_functions_(Mod) ->
     ok = apply(Mod, test1, Args),
     ok = apply(Mod, test2, Args),
     assert_called(Mod, test2, Args, true).
+
+called_wrong_args_returned_when_same_arity_(Mod) ->
+    ExpectedArgs = [one, "two", {3, 3}],
+    ok = meck:expect(Mod, test, length(ExpectedArgs), ok),
+    ok = apply(Mod, test, [one, "two", 3]),
+    assert_called(Mod, test, ExpectedArgs, {wrong_args, [one, "two", 3]}).
+
+called_wrong_args_not_returned_when_different_arity_(Mod) ->
+    ExpectedArgs = [one, "two", {3, 3}],
+    ok = meck:expect(Mod, test, 3, ok),
+    ok = meck:expect(Mod, test, 2, ok),
+    ok = apply(Mod, test, [one, "two"]),
+    assert_called(Mod, test, ExpectedArgs, false).
 
 called_false_one_arg_(Mod) ->
     Args = ["hello"],

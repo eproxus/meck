@@ -665,9 +665,15 @@ cleanup(Mod) ->
 %% --- History utilities -------------------------------------------------------
 
 has_call({_M, _F, _A}, []) -> false;
-has_call({M, F, A}, [{{M, F, A}, _Result} | _Rest]) ->
-    true;
-has_call({M, F, A}, [{{M, F, A}, _ExType, _Exception, _Stack} | _Rest]) ->
-    true;
+has_call({M, F, ExpectedArgs}, [{{M, F, ActualArgs}, _Result} | _Rest]) ->
+    do_args_match(ExpectedArgs, ActualArgs);
+has_call({M, F, ExpectedArgs}, [{{M, F, ActualArgs}, _ExType, _Exception, _Stack} | _Rest]) ->
+    do_args_match(ExpectedArgs, ActualArgs);
 has_call({M, F, A}, [_Call | Rest]) ->
     has_call({M, F, A}, Rest).
+
+do_args_match(Expected, Actual) when length(Expected) =/= length(Actual) ->
+    false;
+do_args_match(Expected, Actual) when Expected =/= Actual ->
+    {wrong_args, Actual};
+do_args_match(_, _) -> true.
