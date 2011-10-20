@@ -11,3 +11,5 @@ ebin
 .DS_Store
 tags
 .*.swp
+.settings
+.project
