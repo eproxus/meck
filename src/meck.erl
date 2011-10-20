@@ -266,7 +266,7 @@ history(Mod) when is_atom(Mod) -> call(Mod, history).
 %% @see num_calls/4
 -spec history(Mod::atom(), Pid:: pid() | '_') -> history().
 history(Mod, Pid) when is_atom(Mod), is_pid(Pid) orelse Pid == '_' -> 
-    match_history(match_mfa('_', Pid), call(Mod, history)).
+    match_history(match_mf_args('_', Pid), call(Mod, history)).
 
 %% @spec unload() -> list(atom())
 %% @doc Unloads all mocked modules from memory.
@@ -754,18 +754,18 @@ add_history(Mod, Item) ->
     cast(Mod, {add_history, Item}).
 
 has_call(MFA, History) ->
-    [] =/= match_history(match_mfa(MFA), History).
+    [] =/= match_history(match_mf_args(MFA), History).
 
 num_calls(MFA, History) ->
-    length(match_history(match_mfa(MFA), History)).
+    length(match_history(match_mf_args(MFA), History)).
 
 match_history(MatchSpec, History) ->
     MS = ets:match_spec_compile(MatchSpec),
     ets:match_spec_run(History, MS).
 
-match_mfa(MFA) -> match_mfa(MFA, '_').
+match_mf_args(MFA) -> match_mf_args(MFA, '_').
 
-match_mfa(MFA, Pid) ->
+match_mf_args(MFA, Pid) ->
     [{{Pid, MFA, '_'}, [], ['$_']},
      {{Pid, MFA, '_', '_', '_'}, [], ['$_']}].
 
