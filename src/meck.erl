@@ -38,6 +38,8 @@
 -export([unload/1]).
 -export([called/3]).
 -export([called/4]).
+-export([arguments/3]).
+-export([arguments/4]).
 -export([num_calls/3]).
 -export([num_calls/4]).
 
@@ -330,6 +332,26 @@ num_calls(Mod, Fun, Args) ->
     non_neg_integer().
 num_calls(Mod, Fun, Args, Pid) ->
     num_calls({Mod, Fun, Args}, meck:history(Mod, Pid)).
+
+%% @spec arguments(Mod:: atom(), Fun:: atom(), Arity:: non_neg_integer()) -> list(list(term()))
+%% @doc Returns all arguments with which `Mod:Func' has been called
+%%
+%% @equiv arguments(Mod, Fun, Arity, '_')
+arguments(Mod, Fun, Arity) ->
+    arguments_for_all_calls({Mod, Fun, Arity}, meck:history(Mod)).
+
+%% @spec arguments(Mod:: atom(), Fun:: atom(), Arity:: non_neg_integer(),
+%%              Pid::pid()) -> list(list(term()))
+%% @doc Returns all arguments with which `Mod:Func' has been called by `Pid'
+%%
+%% This will check the history for the module, `Mod', to find all arguments
+%% passed by the process `Pid' to the function, `Fun', with arity, `Arity'.
+%%
+%% @see arguments/3
+-spec arguments(Mod::atom(), Fun::atom(), Arity::non_neg_integer(), Pid::pid()) -> list().
+arguments(Mod, Fun, Arity, Pid) ->
+    arguments_for_all_calls({Mod, Fun, Arity}, meck:history(Mod, Pid)).
+
 
 %%==============================================================================
 %% Callback functions
@@ -746,3 +768,13 @@ match_mfa(MFA) -> match_mfa(MFA, '_').
 match_mfa(MFA, Pid) ->
     [{{Pid, MFA, '_'}, [], ['$_']},
      {{Pid, MFA, '_', '_', '_'}, [], ['$_']}].
+
+match_mf_arity(MFA) -> match_mf_arity(MFA, '_').
+
+match_mf_arity({M, F, Arity}, Pid) ->
+    Guard = {'=:=', Arity, {length, '$1'}},
+    [{{Pid, {M, F, '$1'}, '_'}, [Guard], ['$1']},
+     {{Pid, {M, F, '$1'}, '_', '_', '_'}, [Guard], ['$1']}].
+
+arguments_for_all_calls(MFA, History) ->
+    match_history(match_mf_arity(MFA), History).

@@ -72,6 +72,10 @@ meck_test_() ->
                            fun ?MODULE:num_calls_/1,
                            fun ?MODULE:num_calls_error_/1,
                            fun ?MODULE:num_calls_with_pid_no_args_/1,
+                           fun ?MODULE:arguments_when_never_called_/1,
+                           fun ?MODULE:arguments_when_called_with_different_arity_/1,
+                           fun ?MODULE:arguments_when_called_once_with_same_arity_/1,
+                           fun ?MODULE:arguments_when_called_multiple_times_with_same_arity_/1,
                            fun ?MODULE:called_wildcard_/1,
                            fun ?MODULE:sequence_/1,
                            fun ?MODULE:sequence_multi_/1,
@@ -439,6 +443,31 @@ num_calls_with_pid_no_args_(Mod) ->
     ?assertEqual(1, meck:num_calls(Mod, test, Args, self())),
     ?assertEqual(meck:num_calls(Mod, test, Args, '_'),
                  meck:num_calls(Mod, test, Args)).
+
+arguments_when_never_called_(Mod) ->
+    ok = meck:expect(Mod, test, 3, ok),
+    ?assertEqual([], meck:arguments(Mod, test, 3)).
+
+arguments_when_called_with_different_arity_(Mod) ->
+    ok = meck:expect(Mod, test, 3, ok),
+    ok = meck:expect(Mod, test, 1, ok),
+    ok = Mod:test(foo),
+    ?assertEqual([], meck:arguments(Mod, test, 3)).
+
+arguments_when_called_once_with_same_arity_(Mod) ->
+    ok = meck:expect(Mod, test, 3, ok),
+    ok = meck:expect(Mod, test, 1, ok),
+    ok = Mod:test(foo),
+    ok = Mod:test(foo, bar, baz),
+    ?assertEqual([[foo, bar, baz]], meck:arguments(Mod, test, 3)).
+
+arguments_when_called_multiple_times_with_same_arity_(Mod) ->
+    ok = meck:expect(Mod, test, 3, ok),
+    ok = meck:expect(Mod, test, 1, ok),
+    ok = Mod:test(foo),
+    ok = Mod:test(foo, bar, baz),
+    ok = Mod:test(7, 8, 9),
+    ?assertEqual([[foo, bar, baz], [7, 8, 9]], meck:arguments(Mod, test, 3)).
 
 expect_apply(Mod, Func, Args) ->
     ok = meck:expect(Mod, Func, length(Args), ok),
