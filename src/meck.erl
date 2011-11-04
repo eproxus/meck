@@ -456,7 +456,11 @@ unload_if_mocked(P, L) when length(P) > 5 ->
     case lists:split(length(P) - 5, P) of
         {Name, "_meck"} ->
             Mocked = list_to_existing_atom(Name),
-            unload(Mocked),
+            try
+                unload(Mocked)
+            catch error:{not_mocked, Mocked} ->
+                    ok
+            end,
             [Mocked|L];
         _Else ->
             L
