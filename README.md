@@ -31,7 +31,7 @@ Features
   * Automatic backup and restore of cover data
   * Changing return values using sequences and loops of static values
   * Pass through: use functions from the original module
-  * Mock is linked to the creating process (disable with `nolink`)
+  * Mock is linked to the creating process (disable with `no_link`)
   * Complete call history showing calls, results and exceptions
   * Mocking of sticky modules (using the option `unstick`)
   * Throwing of expected exceptions that keeps the module valid
