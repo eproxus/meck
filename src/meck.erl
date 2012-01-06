@@ -643,6 +643,8 @@ inject(_Mod, _Func, _Args, []) ->
     [];
 inject(Mod, Func, Args, [{meck, exec, _Arity} = Meck|Stack]) ->
     [Meck, {Mod, Func, Args}|Stack];
+inject(Mod, Func, Args, [{meck, exec, _Arity, _Location} = Meck|Stack]) ->
+    [Meck, {Mod, Func, Args}|Stack];
 inject(Mod, Func, Args, [H|Stack]) ->
     [H|inject(Mod, Func, Args, Stack)].
 
