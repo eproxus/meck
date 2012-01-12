@@ -166,10 +166,10 @@ stacktrace_(Mod) ->
         throw(failed)
     catch
         error:test_error ->
-            ?assert(lists:any(fun({M, test, []}) when M == Mod -> true;
-				 ({M, test, [],[]}) when M == Mod -> true;
-                                 (_)                 -> false end,
-                              erlang:get_stacktrace()))
+            ?assert(lists:any(fun({M, test, []}) when M == Mod    -> true;
+                                 ({M, test, [],[]}) when M == Mod -> true;
+                                 (_)                              -> false
+                              end, erlang:get_stacktrace()))
     end.
 
 stacktrace_function_clause_(Mod) ->
@@ -180,10 +180,10 @@ stacktrace_function_clause_(Mod) ->
     catch
         error:function_clause ->
             Stacktrace = erlang:get_stacktrace(),
-            ?assert(lists:any(fun({M, test, [error]}) when M == Mod -> true;
-				 ({M, test, [error], []}) when M == Mod -> true;
-                                 (_)                      -> false end,
-                              Stacktrace))
+            ?assert(lists:any(fun({M, test, [error]}) when M == Mod     -> true;
+                                 ({M, test, [error], []}) when M == Mod -> true;
+                                 (_)                                    -> false
+                              end, Stacktrace))
     end.
 
 
@@ -256,7 +256,7 @@ history_error_args_(Mod) ->
                  meck:history(Mod)),
     [{_Pid, _MFA, error, test_error, Stacktrace}] = History,
     ?assert(lists:any(fun({_M, _F, [fake_args]}) -> true;
-			 ({_M, _F, [fake_args], [{file,_},{line,_}]}) -> true;
+                         ({_M, _F, [fake_args], [{file,_},{line,_}]}) -> true;
                          (_) -> false end, Stacktrace)).
 
 history_meck_throw_(Mod) ->
