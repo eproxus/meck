@@ -80,8 +80,13 @@ compile_options(Module) ->
   filter_options(proplists:get_value(options, Module:module_info(compile))).
 
 -spec rename_module(erlang_form(), module()) -> erlang_form().
-rename_module([{attribute, Line, module, _OldName}|T], NewName) ->
-    [{attribute, Line, module, NewName}|T];
+rename_module([{attribute, Line, module, OldAttribute}|T], NewName) ->
+    case OldAttribute of
+        {_OldName, Variables} ->
+            [{attribute, Line, module, {NewName, Variables}}|T];
+        _OldName ->
+            [{attribute, Line, module, NewName}|T]
+    end;
 rename_module([H|T], NewName) ->
     [H|rename_module(T, NewName)].
 
