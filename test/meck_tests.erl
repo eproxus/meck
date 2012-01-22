@@ -503,7 +503,7 @@ loop_multi_(Mod) ->
 call_original_test() ->
     false = code:purge(meck_test_module),
     ?assertEqual({module, meck_test_module}, code:load_file(meck_test_module)),
-    ok = meck:new(meck_test_module),
+    ok = meck:new(meck_test_module, [no_passthrough_cover]),
     ?assertEqual({file, ""}, code:is_loaded(meck_test_module_meck_original)),
     ok = meck:expect(meck_test_module, a, fun() -> c end),
     ok = meck:expect(meck_test_module, b, fun() -> meck:passthrough([]) end),
@@ -543,7 +543,10 @@ passthrough_nonexisting_module_test() ->
     ok = meck:unload(mymod).
 
 passthrough_test() ->
-    ok = meck:new(meck_test_module, [passthrough]),
+    passthrough_test([]).
+
+passthrough_test(Opts) ->
+    ok = meck:new(meck_test_module, [passthrough|Opts]),
     ok = meck:expect(meck_test_module, a, fun() -> c end),
     ?assertEqual(c, meck_test_module:a()),
     ?assertEqual(b, meck_test_module:b()),
@@ -572,7 +575,9 @@ cover_test() ->
 
 cover_options_test_() ->
     {foreach, fun compile_options_setup/0, fun compile_options_teardown/1,
-     [{with, [T]} || T <- [fun ?MODULE:cover_options_/1]]}.
+     [{with, [T]} || T <- [fun ?MODULE:cover_options_/1,
+                           fun ?MODULE:cover_options_fail_/1
+                          ]]}.
 
 compile_options_setup() ->
     Module = cover_test_module,
@@ -586,6 +591,8 @@ compile_options_setup() ->
 
 compile_options_teardown({OldPath, Src, Module}) ->
     file:rename(Src, join("../test/", Module, ".dontcompile")),
+    code:purge(Module),
+    code:delete(Module),
     code:set_path(OldPath).
 
 cover_options_({_OldPath, Src, Module}) ->
@@ -607,6 +614,31 @@ cover_options_({_OldPath, Src, Module}) ->
     % 2 instead of 3, as above
     ?assertEqual({ok, {Module, {2,0}}}, cover:analyze(Module, module)).
 
+cover_options_fail_({_OldPath, Src, Module}) ->
+    %% This may look like the test above but there is a subtle
+    %% difference.  When `cover:compile_beam' is called it squashes
+    %% compile options.  This test verifies that function `b/0', which
+    %% relies on the `TEST' directive being set can still be called
+    %% after the module is meck'ed.
+    CompilerOptions = [{i, "../test/include"}, {d, 'TEST', true},
+                       {outdir, "../test"}, debug_info],
+    {ok, _} = compile:file(Src, CompilerOptions),
+    ?assertEqual(CompilerOptions, meck_mod:compile_options(Module)),
+    {ok, _} = cover:compile_beam(Module),
+    ?assertEqual([], meck_mod:compile_options(Module)),
+    a      = Module:a(),
+    b      = Module:b(),
+    {1, 2} = Module:c(1, 2),
+    ?assertEqual({ok, {Module, {2,0}}}, cover:analyze(Module, module)),
+    ok = meck:new(Module, [passthrough]),
+    ok = meck:expect(Module, a, fun () -> c end),
+    ?assertEqual(c, Module:a()),
+    ?assertEqual(b, Module:b()),
+    ?assertEqual({1, 2}, Module:c(1, 2)),
+    ok = meck:unload(Module),
+    %% Verify passthru calls went to cover
+    ?assertEqual({ok, {Module, 4}}, cover:analyze(Module, calls, module)).
+
 join(Path, Module, Ext) -> filename:join(Path, atom_to_list(Module) ++ Ext).
 
 run_mock_no_cover_file(Module) ->
@@ -616,11 +648,22 @@ run_mock_no_cover_file(Module) ->
     ok = meck:unload(Module),
     ?assert(not filelib:is_file(atom_to_list(Module) ++ ".coverdata")).
 
-cover_passthrough_test() ->
+%% @doc Verify that passthrough calls _don't_ appear in cover
+%% analysis.
+no_cover_passthrough_test() ->
     {ok, _} = cover:compile("../test/meck_test_module.erl"),
     {ok, {meck_test_module, {0,3}}} = cover:analyze(meck_test_module, module),
-    passthrough_test(),
+    passthrough_test([no_passthrough_cover]),
     {ok, {meck_test_module, {0,3}}} = cover:analyze(meck_test_module, module).
+
+%% @doc Verify that passthrough calls appear in cover analysis.
+cover_passthrough_test() ->
+    {ok, _} = cover:compile("../test/meck_test_module.erl"),
+    ?assertEqual({ok, {meck_test_module, {0,3}}},
+                 cover:analyze(meck_test_module, module)),
+    passthrough_test([]),
+    ?assertEqual({ok, {meck_test_module, {2,1}}},
+                 cover:analyze(meck_test_module, module)).
 
 % @doc The mocked module is unloaded if the meck process crashes.
 unload_when_crashed_test() ->
@@ -772,6 +815,7 @@ sticky_setup() ->
     {ok, _BytesCopied} = file:copy(Beam, Dest),
     true = code:add_patha(Dir),
     ok = code:stick_dir(Dir),
+    code:load_file(Module),
 
     {Module, {Dir, Dest}}.
 
