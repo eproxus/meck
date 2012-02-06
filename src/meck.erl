@@ -676,8 +676,10 @@ restore_original(Mod, {File, Data, Options}, WasSticky) ->
             cover:compile_beam(File)
     end,
     restick_original(Mod, WasSticky),
-    ok = cover:import(Data),
-    ok = file:delete(Data),
+	case cover:import(Data) of
+		ok ->
+			ok = file:delete(Data)
+	end,
     ok.
 
 unstick_original(Module) -> unstick_original(Module, code:is_sticky(Module)).
