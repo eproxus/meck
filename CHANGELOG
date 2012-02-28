@@ -7,3 +7,5 @@
 - New: function num_calls/3+4 that return number of calls made to a MFA spec.
 - New: function called/4 that takes a caller Pid as argument
 - New: function history/2 that takes a caller Pid as argument
+- Change: By default, passthrough now records coverage statistics on original
+  module (disable by using the 'no_passthrough_cover' option).
