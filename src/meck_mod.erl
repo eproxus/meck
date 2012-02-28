@@ -23,6 +23,7 @@
 
 %% Interface exports
 -export([abstract_code/1]).
+-export([add_exports/2]).
 -export([beam_file/1]).
 -export([compile_and_load_forms/1]).
 -export([compile_and_load_forms/2]).
@@ -32,6 +33,7 @@
 %% Types
 -type erlang_form() :: term().
 -type compile_options() :: [term()].
+-type export() :: {atom(), byte()}.
 
 %%==============================================================================
 %% Interface exports
@@ -46,6 +48,12 @@ abstract_code(BeamFile) ->
             throw(no_abstract_code)
     end.
 
+-spec add_exports([export()], erlang_form()) -> erlang_form().
+add_exports(Exports, AbsCode) ->
+    {attribute, Line, export, OrigExports} = lists:keyfind(export, 3, AbsCode),
+    Attr = {attribute, Line, export, OrigExports ++ Exports},
+    lists:keyreplace(export, 3, AbsCode, Attr).
+
 -spec beam_file(module()) -> binary().
 beam_file(Module) ->
     % code:which/1 cannot be used for cover_compiled modules
@@ -54,16 +62,18 @@ beam_file(Module) ->
         error                  -> throw({object_code_not_found, Module})
     end.
 
--spec compile_and_load_forms(erlang_form()) -> ok.
+-spec compile_and_load_forms(erlang_form()) -> binary().
 compile_and_load_forms(AbsCode) -> compile_and_load_forms(AbsCode, []).
 
--spec compile_and_load_forms(erlang_form(), compile_options()) -> ok.
+-spec compile_and_load_forms(erlang_form(), compile_options()) -> binary().
 compile_and_load_forms(AbsCode, Opts) ->
     case compile:forms(AbsCode, Opts) of
         {ok, ModName, Binary} ->
-            load_binary(ModName, Binary);
+            load_binary(ModName, Binary),
+            Binary;
         {ok, ModName, Binary, _Warnings} ->
-            load_binary(ModName, Binary);
+            load_binary(ModName, Binary),
+            Binary;
         Error ->
             exit({compile_forms, Error})
     end.

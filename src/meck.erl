@@ -106,6 +106,12 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%   <dt>`unstick'</dt>    <dd>Unstick the module to be mocked (e.g. needed
 %%                             for using meck with kernel and stdlib modules).
 %%                         </dd>
+%%   <dt>`no_passthrough_cover'</dt><dd>If cover is enabled on the module to be
+%%                                      mocked then meck will continue to
+%%                                      capture coverage on passthrough calls.
+%%                                      This option allows you to disable that
+%%                                      feature if it causes problems.
+%%                                  </dd>
 %% </dl>
 -spec new(Mod:: atom() | [atom()], Options::[term()]) -> ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
@@ -342,7 +348,8 @@ init([Mod, Options]) ->
                             unstick_original(Mod);
                     _    -> false
                 end,
-    Original = backup_original(Mod),
+    NoPassCover = proplists:get_bool(no_passthrough_cover, Options),
+    Original = backup_original(Mod, NoPassCover),
     process_flag(trap_exit, true),
     Expects = init_expects(Mod, Options),
     try
@@ -395,7 +402,9 @@ handle_cast(_Msg, S)  ->
 handle_info(_Info, S) -> {noreply, S}.
 
 %% @hidden
-terminate(_Reason, #state{mod = Mod, original = OriginalState, was_sticky = WasSticky}) ->
+terminate(_Reason, #state{mod = Mod, original = OriginalState,
+                          was_sticky = WasSticky}) ->
+    export_original_cover(Mod, OriginalState),
     cleanup(Mod),
     restore_original(Mod, OriginalState, WasSticky),
     ok.
@@ -652,23 +661,51 @@ is_mock_exception(Fun) -> is_local_function(Fun).
 
 %% --- Original module handling ------------------------------------------------
 
-backup_original(Module) ->
+backup_original(Module, NoPassCover) ->
     Cover = get_cover_state(Module),
     try
         Forms = meck_mod:abstract_code(meck_mod:beam_file(Module)),
         NewName = original_name(Module),
-        meck_mod:compile_and_load_forms(meck_mod:rename_module(Forms, NewName),
-                                        meck_mod:compile_options(Module))
-    catch
-        throw:{object_code_not_found, _Module} -> ok; % TODO: What to do here?
-        throw:no_abstract_code                 -> ok  % TODO: What to do here?
-    end,
-    Cover.
+        CompileOpts = meck_mod:compile_options(meck_mod:beam_file(Module)),
+        Binary = meck_mod:compile_and_load_forms(meck_mod:rename_module(Forms, NewName),
+                                                 CompileOpts),
 
-restore_original(Mod, false, WasSticky) ->
+        %% At this point we care about `Binary' if and only if we want
+        %% to recompile it to enable cover on the original module code
+        %% so that we can still collect cover stats on functions that
+        %% have not been mocked.  Below are the different values
+        %% passed back along with `Cover'.
+        %%
+        %% `no_passthrough_cover' - there is no coverage on the
+        %% original module OR passthrough coverage has been disabled
+        %% via the `no_passthrough_cover' option
+        %%
+        %% `no_binary' - something went wrong while trying to compile
+        %% the original module in `backup_original'
+        %%
+        %% Binary - a `binary()' of the compiled code for the original
+        %% module that is being mocked, this needs to be passed around
+        %% so that it can be passed to Cover later.  There is no way
+        %% to use the code server to access this binary without first
+        %% saving it to disk.  Instead, it's passed around as state.
+        if (Cover == false) orelse NoPassCover ->
+                Binary2 = no_passtrhough_cover;
+           true ->
+                Binary2 = Binary,
+                meck_cover:compile_beam(NewName, Binary2)
+        end,
+        {Cover, Binary2}
+    catch
+        throw:{object_code_not_found, _Module} ->
+            {Cover, no_binary}; % TODO: What to do here?
+        throw:no_abstract_code                 ->
+            {Cover, no_binary} % TODO: What to do here?
+    end.
+
+restore_original(Mod, {false, _}, WasSticky) ->
     restick_original(Mod, WasSticky),
     ok;
-restore_original(Mod, {File, Data, Options}, WasSticky) ->
+restore_original(Mod, OriginalState={{File, Data, Options},_}, WasSticky) ->
     case filename:extension(File) of
         ".erl" ->
             {ok, Mod} = cover:compile_module(File, Options);
@@ -676,9 +713,31 @@ restore_original(Mod, {File, Data, Options}, WasSticky) ->
             cover:compile_beam(File)
     end,
     restick_original(Mod, WasSticky),
+    import_original_cover(Mod, OriginalState),
     ok = cover:import(Data),
     ok = file:delete(Data),
     ok.
+
+%% @doc Import the cover data for `<name>_meck_original' but since it
+%% was modified by `export_original_cover' it will count towards
+%% `<name>'.
+import_original_cover(Mod, {_,Bin}) when is_binary(Bin) ->
+    OriginalData = atom_to_list(original_name(Mod)) ++ ".coverdata",
+    ok = cover:import(OriginalData),
+    ok = file:delete(OriginalData);
+import_original_cover(_, _) ->
+    ok.
+
+%% @doc Export the cover data for `<name>_meck_original' and modify
+%% the data so it can be imported under `<name>'.
+export_original_cover(Mod, {_, Bin}) when is_binary(Bin) ->
+    OriginalMod = original_name(Mod),
+    File = atom_to_list(OriginalMod) ++ ".coverdata",
+    ok = cover:export(File, OriginalMod),
+    ok = meck_cover:rename_module(File, Mod);
+export_original_cover(_, _) ->
+    ok.
+
 
 unstick_original(Module) -> unstick_original(Module, code:is_sticky(Module)).
 
