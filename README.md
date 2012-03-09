@@ -133,7 +133,7 @@ ok
 It's also possible to pass calls to the original function allowing us
 to override only a certain behavior of a function (this usage is
 compatible with the `passthrough` option). `passthrough/1` will always
-call the original function with the same name as the expect is is
+call the original function with the same name as the expect is 
 defined in):
 
 ```erl
@@ -155,7 +155,7 @@ ok
 Build
 -----
 
-meck requires [rebar][1] to build. To build meck, got to the meck
+meck requires [rebar][1] to build. To build meck, go to the meck
 directory and simply type:
 
 ```sh
