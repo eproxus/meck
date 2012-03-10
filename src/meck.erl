@@ -365,24 +365,24 @@ init([Mod, Options]) ->
 handle_call({get_expect, Func, Arity}, _From, S) ->
     {Expect, NewExpects} = get_expect(S#state.expects, Func, Arity),
     {reply, Expect, S#state{expects = NewExpects}};
-handle_call({expect, Func, Expect}, _From, S) ->
-    NewExpects = store_expect(S#state.mod, Func, Expect, S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
-handle_call({expect, Func, Arity, Result}, _From, S) ->
+handle_call({expect, Func, Expect}, From, S) ->
+    NewExpects = store_expect(S#state.mod, Func, Expect, S#state.expects, From),
+    {noreply, S#state{expects = NewExpects}};
+handle_call({expect, Func, Arity, Result}, From, S) ->
     NewExpects = store_expect(S#state.mod, Func, {anon, Arity, Result},
-                              S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
-handle_call({sequence, Func, Arity, Sequence}, _From, S) ->
+                              S#state.expects, From),
+    {noreply, S#state{expects = NewExpects}};
+handle_call({sequence, Func, Arity, Sequence}, From, S) ->
     NewExpects = store_expect(S#state.mod, Func, {sequence, Arity, Sequence},
-                              S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
-handle_call({loop, Func, Arity, Loop}, _From, S) ->
+                              S#state.expects, From),
+    {noreply, S#state{expects = NewExpects}};
+handle_call({loop, Func, Arity, Loop}, From, S) ->
     NewExpects = store_expect(S#state.mod, Func, {loop, Arity, Loop, Loop},
-                              S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
-handle_call({delete, Func, Arity}, _From, S) ->
-    NewExpects = delete_expect(S#state.mod, Func, Arity, S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
+                              S#state.expects, From),
+    {noreply, S#state{expects = NewExpects}};
+handle_call({delete, Func, Arity}, From, S) ->
+    NewExpects = delete_expect(S#state.mod, Func, Arity, S#state.expects, From),
+    {noreply, S#state{expects = NewExpects}};
 handle_call(history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
 handle_call(invalidate, _From, S) ->
@@ -394,12 +394,22 @@ handle_call(stop, _From, S) ->
 
 %% @hidden
 handle_cast({add_history, Item}, S) ->
-    {noreply, S#state{history = [Item| S#state.history]}};
+    NewHistory = case get(meck_reloading) of
+        undefined -> [Item|S#state.history];
+        _Pid when is_pid(_Pid) -> S#state.history
+    end,
+    {noreply, S#state{history=NewHistory}};
 handle_cast(_Msg, S)  ->
     {noreply, S}.
 
 %% @hidden
-handle_info(_Info, S) -> {noreply, S}.
+handle_info({'EXIT', Pid, _Reason}, S) ->
+    %% XXX: don't do this
+    Running = get(meck_reloading),
+    Pid =:= Running andalso put(meck_reloading, undefined),
+    {noreply, S};
+handle_info(_Info, S) ->
+    {noreply, S}.
 
 %% @hidden
 terminate(_Reason, #state{mod = Mod, original = OriginalState,
@@ -510,15 +520,22 @@ get_expect(Expects, Func, Arity) ->
             {Other, Expects}
     end.
 
-store_expect(Mod, Func, Expect, Expects) ->
-    change_expects(fun e_store/3, Mod, Func, Expect, Expects).
+store_expect(Mod, Func, Expect, Expects, From) ->
+    change_expects(fun e_store/3, Mod, Func, Expect, Expects, From).
 
-delete_expect(Mod, Func, Arity, Expects) ->
-    change_expects(fun e_delete/3, Mod, Func, Arity, Expects).
+delete_expect(Mod, Func, Arity, Expects, From) ->
+    change_expects(fun e_delete/3, Mod, Func, Arity, Expects, From).
 
-change_expects(Op, Mod, Func, Value, Expects) ->
+change_expects(Op, Mod, Func, Value, Expects, From) ->
     NewExpects = Op(Expects, Func, Value),
-    meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
+    %% If the recompilation is made by the server that executes a module
+    %% no module that is called from meck_mod:compile_and_load_forms/2
+    %% can be mocked by meck.
+    Pid = spawn_link(fun() ->
+        meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
+        gen_server:reply(From, ok) end),
+    Running = put(meck_reloading, Pid), %% XXX: don't do this.
+    Running =:= undefined orelse erlang:error(concurrent_reload),
     NewExpects.
 
 e_store(Expects, Func, Expect) ->
