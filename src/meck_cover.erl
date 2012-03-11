@@ -60,7 +60,8 @@ alter_cover() ->
             AbsCode = meck_mod:abstract_code(Beam),
             Exports = [{compile_beam, 2}, {get_term, 1}, {write, 2}],
             AbsCode2 = meck_mod:add_exports(Exports, AbsCode),
-            meck_mod:compile_and_load_forms(AbsCode2)
+            _Bin = meck_mod:compile_and_load_forms(AbsCode2),
+            ok
     end.
 
 change_cover_mod_name(CoverTerms, Name) ->
@@ -90,7 +91,7 @@ replace_string(File, Old, New) ->
 read_cover_file(File) ->
     {ok, Fd} = file:open(File, [read, binary, raw]),
     Terms = get_terms(Fd, []),
-    file:close(Fd),
+    ok = file:close(Fd),
     Terms.
 
 get_terms(Fd, Terms) ->
@@ -101,7 +102,7 @@ get_terms(Fd, Terms) ->
 
 write_terms(File, Terms) ->
     {ok, Fd} = file:open(File, [write, binary, raw]),
-    lists:map(write_term(Fd), Terms),
+    lists:foreach(write_term(Fd), Terms),
     ok.
 
 write_term(Fd) ->

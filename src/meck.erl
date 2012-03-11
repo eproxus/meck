@@ -353,7 +353,7 @@ init([Mod, Options]) ->
     process_flag(trap_exit, true),
     Expects = init_expects(Mod, Options),
     try
-        meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
+        _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
         {ok, #state{mod = Mod, expects = Expects, original = Original,
                     was_sticky = WasSticky}}
     catch
@@ -518,7 +518,7 @@ delete_expect(Mod, Func, Arity, Expects) ->
 
 change_expects(Op, Mod, Func, Value, Expects) ->
     NewExpects = Op(Expects, Func, Value),
-    meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
+    _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
     NewExpects.
 
 e_store(Expects, Func, Expect) ->
