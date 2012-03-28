@@ -689,7 +689,7 @@ backup_original(Module, NoPassCover) ->
         %% to use the code server to access this binary without first
         %% saving it to disk.  Instead, it's passed around as state.
         if (Cover == false) orelse NoPassCover ->
-                Binary2 = no_passtrhough_cover;
+                Binary2 = no_passthrough_cover;
            true ->
                 Binary2 = Binary,
                 meck_cover:compile_beam(NewName, Binary2)
