@@ -857,7 +857,7 @@ stub_all_overridden_by_passthrough_test() ->
     ?assertEqual(a, meck_test_module:a()),
     ok = meck:unload(meck_test_module).
 
-passthrough_file_bif_test_() ->
+passthrough_file_bif_test() ->
     NeverExists = "/proc/0", %% 0 is invalid
     AlwaysExists = "/proc/1", %% 1 is init
     ?assertEqual({error, enoent}, file:read_file_info(NeverExists)),
