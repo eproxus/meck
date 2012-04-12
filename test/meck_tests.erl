@@ -564,7 +564,7 @@ passthrough_bif_test() ->
     ?assertEqual(ok, meck:new(file, [unstick, passthrough])),
     ?assertEqual(ok, meck:unload(file)).
 
-passthrough_file_bif_test_() ->
+passthrough_file_bif_test() ->
     NeverExists = "/proc/0", %% 0 is invalid
     AlwaysExists = "/proc/1", %% 1 is init
     ?assertEqual({error, enoent}, file:read_file_info(NeverExists)),
