@@ -678,7 +678,9 @@ restore_original(Mod, {File, Data, Options}, WasSticky) ->
     restick_original(Mod, WasSticky),
 	case cover:import(Data) of
 		ok ->
-			ok = file:delete(Data)
+			ok = file:delete(Data);
+		{error, Reason} ->
+			io:format("Cover import failure : ~p~n", [Reason])
 	end,
     ok.
 
