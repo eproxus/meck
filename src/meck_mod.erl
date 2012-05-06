@@ -67,7 +67,7 @@ compile_and_load_forms(AbsCode) -> compile_and_load_forms(AbsCode, []).
 
 -spec compile_and_load_forms(erlang_form(), compile_options()) -> binary().
 compile_and_load_forms(AbsCode, Opts) ->
-    case compile:forms(AbsCode, Opts) of
+    case compile:forms(AbsCode, [return_errors|Opts]) of
         {ok, ModName, Binary} ->
             load_binary(ModName, Binary),
             Binary;
