@@ -15,7 +15,7 @@ if [ ! -f CHANGELOG ]; then
     echo "fatal: CHANGELOG missing" >&2
     exit 128
 fi
-if [ ! -z "$(git status)" ]; then
+if [ ! -z "$(git status --short)" ]; then
     # Sanity check
     echo "fatal: dirty repository" >&2
     exit 128
