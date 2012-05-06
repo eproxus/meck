@@ -1,11 +1,1 @@
-- Change: Allow wildcards in history functions
-  (Might break backwards compatibility in rare cases where code relies on 
-   the '_' atom as a normal atom, it is now the wildcard pattern)
-- Change: Add caller Pid to history
-  *CAUTION* This will break backwards compatibility for functions that rely
-  on the return value of history/1!
-- New: function num_calls/3+4 that return number of calls made to a MFA spec.
-- New: function called/4 that takes a caller Pid as argument
-- New: function history/2 that takes a caller Pid as argument
-- Change: By default, passthrough now records coverage statistics on original
-  module (disable by using the 'no_passthrough_cover' option).
+
