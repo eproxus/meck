@@ -667,8 +667,8 @@ backup_original(Module, NoPassCover) ->
         Forms = meck_mod:abstract_code(meck_mod:beam_file(Module)),
         NewName = original_name(Module),
         CompileOpts = meck_mod:compile_options(meck_mod:beam_file(Module)),
-        Binary = meck_mod:compile_and_load_forms(meck_mod:rename_module(Forms, NewName),
-                                                 CompileOpts),
+        Renamed = meck_mod:rename_module(Forms, NewName),
+        Binary = meck_mod:compile_and_load_forms(Renamed, CompileOpts),
 
         %% At this point we care about `Binary' if and only if we want
         %% to recompile it to enable cover on the original module code
