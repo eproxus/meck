@@ -38,6 +38,8 @@
 -export([unload/1]).
 -export([called/3]).
 -export([called/4]).
+-export([arguments/3]).
+-export([arguments/4]).
 -export([num_calls/3]).
 -export([num_calls/4]).
 
@@ -270,7 +272,7 @@ history(Mod) when is_atom(Mod) -> call(Mod, history).
 %% @see num_calls/4
 -spec history(Mod::atom(), Pid:: pid() | '_') -> history().
 history(Mod, Pid) when is_atom(Mod), is_pid(Pid) orelse Pid == '_' -> 
-    match_history(match_mfa('_', Pid), call(Mod, history)).
+    match_history(match_mf_args('_', Pid), call(Mod, history)).
 
 %% @spec unload() -> list(atom())
 %% @doc Unloads all mocked modules from memory.
@@ -336,6 +338,26 @@ num_calls(Mod, Fun, Args) ->
     non_neg_integer().
 num_calls(Mod, Fun, Args, Pid) ->
     num_calls({Mod, Fun, Args}, meck:history(Mod, Pid)).
+
+%% @spec arguments(Mod:: atom(), Fun:: atom(), Arity:: non_neg_integer()) -> list(list(term()))
+%% @doc Returns all arguments with which `Mod:Func' has been called
+%%
+%% @equiv arguments(Mod, Fun, Arity, '_')
+arguments(Mod, Fun, Arity) ->
+    arguments_for_all_calls({Mod, Fun, Arity}, meck:history(Mod)).
+
+%% @spec arguments(Mod:: atom(), Fun:: atom(), Arity:: non_neg_integer(),
+%%              Pid::pid()) -> list(list(term()))
+%% @doc Returns all arguments with which `Mod:Func' has been called by `Pid'
+%%
+%% This will check the history for the module, `Mod', to find all arguments
+%% passed by the process `Pid' to the function, `Fun', with arity, `Arity'.
+%%
+%% @see arguments/3
+-spec arguments(Mod::atom(), Fun::atom(), Arity::non_neg_integer(), Pid::pid()) -> list().
+arguments(Mod, Fun, Arity, Pid) ->
+    arguments_for_all_calls({Mod, Fun, Arity}, meck:history(Mod, Pid)).
+
 
 %%==============================================================================
 %% Callback functions
@@ -797,17 +819,27 @@ add_history(Mod, Item) ->
     cast(Mod, {add_history, Item}).
 
 has_call(MFA, History) ->
-    [] =/= match_history(match_mfa(MFA), History).
+    [] =/= match_history(match_mf_args(MFA), History).
 
 num_calls(MFA, History) ->
-    length(match_history(match_mfa(MFA), History)).
+    length(match_history(match_mf_args(MFA), History)).
 
 match_history(MatchSpec, History) ->
     MS = ets:match_spec_compile(MatchSpec),
     ets:match_spec_run(History, MS).
 
-match_mfa(MFA) -> match_mfa(MFA, '_').
+match_mf_args(MFA) -> match_mf_args(MFA, '_').
 
-match_mfa(MFA, Pid) ->
+match_mf_args(MFA, Pid) ->
     [{{Pid, MFA, '_'}, [], ['$_']},
      {{Pid, MFA, '_', '_', '_'}, [], ['$_']}].
+
+match_mf_arity(MFA) -> match_mf_arity(MFA, '_').
+
+match_mf_arity({M, F, Arity}, Pid) ->
+    Guard = {'=:=', Arity, {length, '$1'}},
+    [{{Pid, {M, F, '$1'}, '_'}, [Guard], ['$1']},
+     {{Pid, {M, F, '$1'}, '_', '_', '_'}, [Guard], ['$1']}].
+
+arguments_for_all_calls(MFA, History) ->
+    match_history(match_mf_arity(MFA), History).
