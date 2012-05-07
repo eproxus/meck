@@ -487,8 +487,11 @@ valid_expect(M, F, A) ->
     end.
 
 init_expects(Mod, Options) ->
-    case proplists:get_value(passthrough, Options, false) andalso exists(Mod) of
-        true -> dict:from_list([{FA, passthrough} || FA <- exports(Mod)]);
+    case {proplists:get_value(passthrough, Options, false), exists(Mod)} of
+        {true, true} -> dict:from_list([{FA, passthrough} || FA <- exports(Mod)]);
+        %% behaviour_info should be found when mocking up its callback module.
+        {_,    true} -> dict:from_list([{FA, passthrough} || FA <- exports(Mod),
+                                                             FA =:= {behaviour_info, 1}]);
         _    -> dict:new()
     end.
 

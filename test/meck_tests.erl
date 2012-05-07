@@ -877,6 +877,12 @@ meck_parametrized_module_passthrough_test() ->
     ?assertEqual({mecked, var2}, Object:var2()),
     ?assertEqual(ok, meck:unload(meck_test_parametrized_module)).
 
+meck_behaviour_info_module_test() ->
+    ?assertEqual(ok, meck:new(meck_test_behaviour_info_module)),
+    ?assertEqual(ok, meck:new(meck_test_behaviour_callback_module)),
+    ?assertEqual(ok, meck:unload(meck_test_behaviour_info_module)),
+    ?assertEqual(ok, meck:unload(meck_test_behaviour_callback_module)).
+
 %%==============================================================================
 %% Internal Functions
 %%==============================================================================
