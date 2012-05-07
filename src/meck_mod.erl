@@ -113,6 +113,13 @@ load_binary(Name, Binary) ->
 % parse transforms have already been applied to the abstract code in the
 % module, and often are not always available when compiling the forms, so
 % filter them out of the options
+% When mock up a module declaring behaviour, warnings are emitted in
+% compiling its callback module. With warnings_as_errors in compiler
+% options, meck:new fails by the error.
 filter_options (Options) ->
-    lists:filter(fun({parse_transform,_}) -> false; (_) -> true end, Options).
+    lists:filter(fun({parse_transform,_}) -> false;
+                    (warnings_as_errors)  -> false;
+                    (_)                   -> true
+                 end,
+                 Options).
 
