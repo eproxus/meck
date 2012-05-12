@@ -34,14 +34,6 @@ by Matt Graham
   font-style: normal;
 }
 
-@font-face {
-  font-family: 'Copse';
-  src: url("../fonts/copse-regular-webfont.eot");
-  src: url("../fonts/copse-regular-webfont.eot?#iefix") format("embedded-opentype"), url("../fonts/copse-regular-webfont.woff") format("woff"), url("../fonts/copse-regular-webfont.ttf") format("truetype"), url("../fonts/copse-regular-webfont.svg#CopseRegular") format("svg");
-  font-weight: normal;
-  font-style: normal;
-}
-
 /* normalize.css 2012-02-07T12:37 UTC - http://github.com/necolas/normalize.css */
 /* =============================================================================
    HTML5 display definitions
@@ -293,6 +285,10 @@ dd {
   margin: 0 0 0 40px;
 }
 
+li {
+  margin-bottom: 0.5em;
+}
+
 /*
  * Addresses paddings set differently in IE6/7
  */
@@ -503,12 +499,12 @@ table {
 }
 
 body {
-  font: 14px/22px "Quattrocento Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font: 16px/22px "Quattrocento Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
   color: #666;
   font-weight: 300;
   margin: 0px;
   padding: 0px 0 20px 0px;
-  background: url(../images/body-background.png) #eae6d1;
+  background: url(../images/irongrip.png) #eae6d1;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -584,11 +580,11 @@ blockquote {
 code {
   font-family: "Lucida Sans", Monaco, Bitstream Vera Sans Mono, Lucida Console, Terminal;
   font-size: 13px;
-  color: #efefef;
-  text-shadow: 0px 1px 0px #000;
+  color: #666;
+  text-shadow: 0px 1px 0px #EEE;
   margin: 0 4px;
   padding: 2px 6px;
-  background: #333;
+  background: #DDD;
   -moz-border-radius: 2px;
   -webkit-border-radius: 2px;
   -o-border-radius: 2px;
@@ -599,12 +595,16 @@ code {
 
 pre {
   padding: 8px 15px;
-  background: #333333;
+  background: #444;
   -moz-border-radius: 3px;
   -webkit-border-radius: 3px;
   -o-border-radius: 3px;
   -ms-border-radius: 3px;
   -khtml-border-radius: 3px;
+  -moz-box-shadow:    inset 0px 5px 8px rgba(0, 0, 0, 0.5);
+  -webkit-box-shadow: inset 0px 5px 8px rgba(0, 0, 0, 0.5);
+  -o-box-shadow:      inset 0px 5px 8px rgba(0, 0, 0, 0.5);
+  box-shadow:         inset 0px 5px 8px rgba(0, 0, 0, 0.5);
   border-radius: 3px;
   border: 1px solid #c7c7c7;
   overflow: auto;
@@ -659,19 +659,30 @@ header {
   right: 0;
   width: 100%;
   text-align: center;
-  background: url(../images/background.png) #4276b6;
-  -moz-box-shadow: 1px 0px 2px rgba(0, 0, 0, 0.75);
-  -webkit-box-shadow: 1px 0px 2px rgba(0, 0, 0, 0.75);
-  -o-box-shadow: 1px 0px 2px rgba(0, 0, 0, 0.75);
-  box-shadow: 1px 0px 2px rgba(0, 0, 0, 0.75);
+  background-image: -webkit-linear-gradient(top, rgba(0,0,0,0) 0%,
+                                            rgba(0,0,0,0.55) 100%),
+                    url(../images/dotnoise.png);
+  background-color: #c4c4c4;
+  -moz-box-shadow: 0px 5px 20px rgba(0, 0, 0, 0.75);
+  -webkit-box-shadow: 0px 5px 20px rgba(0, 0, 0, 0.75);
+  -o-box-shadow: 0px 5px 20px rgba(0, 0, 0, 0.75);
+  box-shadow: 0px 5px 20px rgba(0, 0, 0, 0.75);
   z-index: 99;
   -webkit-font-smoothing: antialiased;
-  min-height: 76px;
+  min-height: 96px;
 }
 header h1 {
-  font: 40px/48px "Copse", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  color: #f3f3f3;
-  text-shadow: 0px 2px 0px #235796;
+  font: 64px/72px "Days One", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  color: #ff5634;
+  text-shadow: 0px 1px 1px #be4027,
+               0px 2px 1px #9d3a27,
+               0px 3px 1px #973c2a,
+               0px 4px 1px #923d2c,
+               0px 5px 3px rgba(100, 100, 100, 0.4),
+               0px 6px 7px rgba(100, 100, 100, 0.15),
+               0px 7px 11px rgba(100, 100, 100, 0.25),
+               0px 8px 15px rgba(100, 100, 100, 0.3);
   margin: 0px;
   white-space: nowrap;
   overflow: hidden;
@@ -680,9 +691,9 @@ header h1 {
   -ms-text-overflow: ellipsis;
 }
 header p {
-  color: #d8d8d8;
-  text-shadow: rgba(0, 0, 0, 0.2) 0 1px 0;
-  font-size: 18px;
+  color: #333;
+  text-shadow: rgba(255, 255, 255, 0.5) 0 1px 0;
+  font-size: 24px;
   margin: 0px;
 }
 
@@ -690,16 +701,20 @@ header p {
   z-index: 100;
   left: 0;
   right: 50%;
-  height: 50px;
+  height: 55px;
   margin-right: -382px;
   position: fixed;
-  top: 115px;
+  top: 135px;
   background: #ffcc00;
-  border: 1px solid #f0b500;
-  -moz-box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.25);
-  -webkit-box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.25);
-  -o-box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.25);
-  box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.25);
+  border: 1px solid #a78600;
+  -moz-box-shadow:    inset 0px -5px 0px rgba(0, 0, 0, 0.25),
+                      -2px 12px 8px rgba(0, 0, 0, 0.25);
+  -webkit-box-shadow: inset 0px -5px 0px rgba(0, 0, 0, 0.25),
+                      -2px 12px 8px rgba(0, 0, 0, 0.25);
+  -o-box-shadow:      inset 0px -5px 0px rgba(0, 0, 0, 0.25),
+                      -2px 12px 8px rgba(0, 0, 0, 0.25);
+  box-shadow:         inset 0px -5px 0px rgba(0, 0, 0, 0.25),
+                      -2 px 12px 8px rgba(0, 0, 0, 0.25);
   -moz-border-radius: 0px 2px 2px 0px;
   -webkit-border-radius: 0px 2px 2px 0px;
   -o-border-radius: 0px 2px 2px 0px;
@@ -756,6 +771,12 @@ header p {
   font-size: 14px;
   background-color: #FFE788;
 }
+#banner .FlattrButton {
+  position: fixed;
+  left: 50%;
+  margin-left: -190px;
+  margin-top: 14px;
+}
 #banner .downloads {
   float: right;
   margin: 0 45px 0 0;
@@ -795,7 +816,7 @@ section {
   width: 590px;
   padding: 30px 30px 50px 30px;
   margin: 20px 0;
-  margin-top: 190px;
+  margin-top: 210px;
   position: relative;
   background: #fbfbfb;
   -moz-border-radius: 3px;
@@ -826,7 +847,7 @@ nav {
 nav ul {
   list-style: none;
   list-style-image: none;
-  font-size: 14px;
+  font-size: 18px;
   line-height: 24px;
 }
 nav ul li {
@@ -844,13 +865,14 @@ nav ul li.tag-h2 + .tag-h1 {
   margin-top: 10px;
 }
 nav ul a {
-  color: #666;
+  color: #AAA;
 }
 nav ul a:hover {
-  color: #999;
+  color: #CCC;
 }
 
 footer {
+  color: #999;
   width: 180px;
   position: fixed;
   left: 50%;
@@ -914,11 +936,11 @@ footer {
   }
 
   header {
-    padding: 20px 20px;
+    padding: 10px 20px;
     margin: 0;
   }
   header h1 {
-    font-size: 32px;
+    font-size: 44px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -932,12 +954,21 @@ footer {
   #banner {
     top: 80px;
   }
-  #banner .fork {
+  #banner .fork, #banner .FlattrButton {
     float: left;
     display: inline-block;
     margin-left: 0px;
     position: fixed;
-    left: 20px;
+    left: 10px;
+  }
+  #banner .FlattrButton {
+    left: 150px;
+  }
+  #banner #logo {
+    display: none;
+  }
+  #banner .downloads {
+      margin-right: 10px;
   }
 
   section {
@@ -957,7 +988,7 @@ footer {
     min-height: 0px;
   }
   header h1 {
-    font-size: 24px;
+    font-size: 36px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
