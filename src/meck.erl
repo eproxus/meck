@@ -581,7 +581,16 @@ contains_opaque(_Term) ->
 
 to_forms(Mod, Expects) ->
     {Exports, Functions} = functions(Mod, Expects),
-    [?attribute(module, Mod)] ++ Exports ++ Functions.
+    [?attribute(module, Mod)] ++ attributes(Mod) ++ Exports ++ Functions.
+
+attributes(Mod) ->
+    try
+        [?attribute(Key, Val) || {Key, Val} <-
+            proplists:get_value(attributes, Mod:module_info(), []),
+            Key =/= vsn]
+    catch
+        error:undef -> []
+    end.
 
 functions(Mod, Expects) ->
     dict:fold(fun(Export, Expect, {Exports, Functions}) ->
