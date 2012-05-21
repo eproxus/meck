@@ -569,7 +569,8 @@ func_native(Mod, Func, Arity, Result) ->
                                    AbsResult])])]),
             AbsResult])]).
 
-contains_opaque(Term) when is_pid(Term); is_port(Term); is_function(Term) ->
+contains_opaque(Term) when is_pid(Term); is_port(Term); is_function(Term);
+                           is_reference(Term) ->
     true;
 contains_opaque(Term) when is_list(Term) ->
     lists:any(fun contains_opaque/1, Term);
