@@ -5,7 +5,7 @@
   * [Examples](#examples)
   * [Build](#build)
   * [Install](#install)
-  * [Contribute](#contribute)
+  * [Contribute](#contribute) - Read if you're planning to submit patches
 
 meck
 ====
@@ -202,9 +202,24 @@ Contribute
 
 Patches are greatly appreciated!
 
-Should you find yourself using meck and have issues, comments or
-feedback please [create an issue here on GitHub.] [3]
+meck uses the [git flow][3] model (tip: install and use the
+[`git-flow`][4] command). Use the branch name `feature/...` for easier
+integration when developing new features or fixes for meck.
 
-  [1]: https://github.com/basho/rebar "Rebar - A build tool for Erlang"
-  [2]: http://erlagner.org/ "Agner - Erlang Package Index & Package Manager"
-  [3]: http://github.com/eproxus/meck/issues "meck issues"
+For a much nicer history, please [write good commit messages][5].
+
+Should you find yourself using meck and have issues, comments or
+feedback please [create an issue here on GitHub.] [6]
+
+  [1]: https://github.com/basho/rebar
+       "Rebar - A build tool for Erlang"
+  [2]: http://erlagner.org/
+       "Agner - Erlang Package Index & Package Manager"
+  [3]: http://jeffkreeftmeijer.com/2010/why-arent-you-using-git-flow/
+       "Why Aren't You Using git-flow?"
+  [4]: https://github.com/nvie/gitflow
+       "git-flow on GitHub"
+  [5]: https://github.com/erlang/otp/wiki/Writing-good-commit-messages
+       "Erlang/OTP commit messages"
+  [6]: http://github.com/eproxus/meck/issues
+       "meck issues"
