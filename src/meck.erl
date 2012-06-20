@@ -40,6 +40,7 @@
 -export([called/4]).
 -export([num_calls/3]).
 -export([num_calls/4]).
+-export([reset/1]).
 
 %% Callback exports
 -export([init/1]).
@@ -337,6 +338,20 @@ num_calls(Mod, Fun, Args) ->
 num_calls(Mod, Fun, Args, Pid) ->
     num_calls({Mod, Fun, Args}, meck:history(Mod, Pid)).
 
+
+%% @doc Erases the call history for a mocked module or a list of mocked modules.
+%%
+%% This function will erase all calls made heretofore from the history of the
+%% specified modules. It is intended to prevent cluttering of test results with
+%% calls to mocked modules made during the test setup phase.
+-spec reset(Mod::atom() | [atom()]) -> ok.
+reset(Mod) when is_atom(Mod) ->
+    call(Mod, reset);
+reset(Mods) when is_list(Mods) ->
+    lists:foreach(fun(Mod) -> reset(Mod) end, Mods).
+
+
+
 %%==============================================================================
 %% Callback functions
 %%==============================================================================
@@ -385,6 +400,8 @@ handle_call({delete, Func, Arity}, _From, S) ->
     {reply, ok, S#state{expects = NewExpects}};
 handle_call(history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
+handle_call(reset, _From, S) ->
+    {reply, ok, S#state{history = []}};
 handle_call(invalidate, _From, S) ->
     {reply, ok, S#state{valid = false}};
 handle_call(validate, _From, S) ->
@@ -569,7 +586,8 @@ func_native(Mod, Func, Arity, Result) ->
                                    AbsResult])])]),
             AbsResult])]).
 
-contains_opaque(Term) when is_pid(Term); is_port(Term); is_function(Term) ->
+contains_opaque(Term) when is_pid(Term); is_port(Term); is_function(Term);
+                           is_reference(Term) ->
     true;
 contains_opaque(Term) when is_list(Term) ->
     lists:any(fun contains_opaque/1, Term);
@@ -581,7 +599,16 @@ contains_opaque(_Term) ->
 
 to_forms(Mod, Expects) ->
     {Exports, Functions} = functions(Mod, Expects),
-    [?attribute(module, Mod)] ++ Exports ++ Functions.
+    [?attribute(module, Mod)] ++ attributes(Mod) ++ Exports ++ Functions.
+
+attributes(Mod) ->
+    try
+        [?attribute(Key, Val) || {Key, Val} <-
+            proplists:get_value(attributes, Mod:module_info(), []),
+            Key =/= vsn]
+    catch
+        error:undef -> []
+    end.
 
 functions(Mod, Expects) ->
     dict:fold(fun(Export, Expect, {Exports, Functions}) ->

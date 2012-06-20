@@ -52,6 +52,7 @@ meck_test_() ->
                            fun ?MODULE:history_meck_exit_/1,
                            fun ?MODULE:history_meck_error_/1,
                            fun ?MODULE:history_by_pid_/1,
+                           fun ?MODULE:reset_/1,
                            fun ?MODULE:shortcut_expect_/1,
                            fun ?MODULE:shortcut_expect_negative_arity_/1,
                            fun ?MODULE:shortcut_call_return_value_/1,
@@ -302,6 +303,18 @@ history_by_pid_(Mod) ->
                   {TestPid, {Mod, test2, []}, ok}], meck:history(Mod, TestPid)),
     ?assertEqual(meck:history(Mod), meck:history(Mod, '_')).
 
+reset_(Mod) ->
+    % Given
+    meck:expect(Mod, test1, fun() -> ok end),
+    meck:expect(Mod, test2, fun() -> ok end),
+    Mod:test1(),
+    Mod:test2(),
+    % When
+    meck:reset(Mod),
+    Mod:test1(),
+    % Then
+    ?assertMatch([{_Pid, {Mod, test1, []}, ok}], meck:history(Mod)).
+
 shortcut_expect_(Mod) ->
     ok = meck:expect(Mod, test, 0, ok),
     ?assertEqual(true, meck:validate(Mod)).
@@ -327,8 +340,9 @@ shortcut_re_add_(Mod) ->
     ?assertEqual(true, meck:validate(Mod)).
 
 shortcut_opaque_(Mod) ->
-    ok = meck:expect(Mod, test, 0, {test, [a, self()]}),
-    ?assertMatch({test, [a, P]} when P == self(), Mod:test()).
+    Ref = make_ref(),
+    ok = meck:expect(Mod, test, 0, {test, [a, self()], Ref}),
+    ?assertMatch({test, [a, P], Ref} when P == self(), Mod:test()).
 
 delete_(Mod) ->
     ok = meck:expect(Mod, test, 2, ok),
@@ -743,6 +757,26 @@ multi_delete_test() ->
     ?assert(meck:validate(Mods)),
     ok = meck:unload(Mods).
 
+multi_reset_test() ->
+    % Given
+    Mods = [mod1, mod2, mod3],
+    meck:new(Mods),
+    meck:expect(Mods, test1, 0, ok),
+    meck:expect(Mods, test2, 0, ok),
+    mod1:test1(),
+    mod1:test2(),
+    mod2:test1(),
+    mod3:test2(),
+    % When
+    meck:reset(Mods),
+    mod1:test1(),
+    mod1:test1(),
+    % Then
+    ?assertMatch([{_Pid, {mod1, test1, []}, ok},
+                  {_Pid, {mod1, test1, []}, ok}], meck:history(mod1)),
+    ?assertMatch([], meck:history(mod2)),
+    ?assertMatch([], meck:history(mod3)).
+
 handle_cast_unmodified_state_test() ->
     S = dummy_state,
     ?assertEqual({noreply, S}, meck:handle_cast(dummy_msg, S)).
@@ -876,6 +910,13 @@ meck_parametrized_module_passthrough_test() ->
     ?assertEqual({original, var1}, Object:var1()),
     ?assertEqual({mecked, var2}, Object:var2()),
     ?assertEqual(ok, meck:unload(meck_test_parametrized_module)).
+
+meck_module_attributes_test() ->
+    ?assertEqual(ok, meck:new(meck_test_module)),
+    ?assertEqual([foobar], proplists:get_value(tag,
+                                proplists:get_value(attributes,
+                                    meck_test_module:module_info()))),
+    ?assertEqual(ok, meck:unload(meck_test_module)).
 
 %%==============================================================================
 %% Internal Functions
