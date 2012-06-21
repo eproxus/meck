@@ -13,5 +13,9 @@ tags
 .*.swp
 .settings
 .project
+<<<<<<< HEAD
 *.sublime-workspace
 *.sublime-project
+=======
+*~
+>>>>>>> e5d147d... Introduce family of meck:verify functions

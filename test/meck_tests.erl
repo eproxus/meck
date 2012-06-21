@@ -89,7 +89,13 @@ meck_test_() ->
                            fun ?MODULE:expect_args_pattern_shadow_/1,
                            fun ?MODULE:expect_args_pattern_missing_/1,
                            fun ?MODULE:expect_args_pattern_invalid_/1,
-                           fun ?MODULE:expect_ret_specs_/1
+                           fun ?MODULE:expect_ret_specs_/1,
+                           fun ?MODULE:verify_once_/1,
+                           fun ?MODULE:verify_exact_/1,
+                           fun ?MODULE:verify_at_least_once_/1,
+                           fun ?MODULE:verify_never_/1,
+                           fun ?MODULE:verify_buildin_matcher_/1,
+                           fun ?MODULE:verify_external_matcher_/1
                           ]]}.
 
 setup() ->
@@ -645,6 +651,65 @@ expect_ret_specs_(Mod) ->
     ?assertEqual(e, Mod:f(1, 2)),
     ?assertEqual(c, Mod:f(1, 1)).
 
+verify_once_(Mod) ->
+    %% Given
+    meck:expect(Mod, test, fun(_, _, _) -> ok end),
+    Mod:test(1, 2, 3),
+    Mod:test(1, 2, 0),
+    %% When/Then
+    meck:verify(Mod, test, ['_', '_', 3]),
+    ?assertError(_, meck:verify(Mod, test, ['_', 2, '_'])).
+
+verify_exact_(Mod) ->
+    %% Given
+    meck:expect(Mod, test, fun(_, _, _) -> ok end),
+    Mod:test(1, 2, 3),
+    Mod:test(1, 2, 0),
+    Mod:test(1, 0, 0),
+    %% When/Then
+    meck:verify(2, Mod, test, ['_', 2, '_']),
+    ?assertError(_, meck:verify(3, Mod, test, ['_', 2, '_'])).
+
+verify_at_least_once_(Mod) ->
+    %% Given
+    meck:expect(Mod, test, fun(_, _, _) -> ok end),
+    Mod:test(1, 2, 3),
+    Mod:test(1, 2, 0),
+    %% When/Then
+    meck:verify(at_least_once, Mod, test, ['_', 2, '_']),
+    meck:verify(at_least_once, Mod, test, [1, '_', '_']),
+    ?assertError(_, meck:verify(at_least_once, Mod, test, ['_', 4, '_'])).
+
+verify_never_(Mod) ->
+    %% Given
+    meck:expect(Mod, test, fun(_, _, _) -> ok end),
+    Mod:test(1, 2, 3),
+    Mod:test(1, 2, 0),
+    %% When/Then
+    meck:verify(never, Mod, test, ['_', 4, '_']),
+    ?assertError(_, meck:verify(never, Mod, test, ['_', '_', 3])).
+
+verify_buildin_matcher_(Mod) ->
+    %% Given
+    meck:expect(Mod, test, fun(_, _, _) -> ok end),
+    Mod:test(1, 2, 3),
+    Mod:test(1, 2, 0),
+    Mod:test(1, 0, 0),
+    %% When/Then
+    meck:verify({at_least, 2}, Mod, test, ['_', 2, '_']),
+    ?assertError(_, meck:verify({at_least, 3}, Mod, test, ['_', 2, '_'])).
+
+verify_external_matcher_(Mod) ->
+    %% Given
+    meck:expect(Mod, test, fun(_, _, _) -> ok end),
+    Between = fun(Actual, [Least, Most]) -> (Actual > Least) and (Actual < Most) end,
+    Mod:test(1, 2, 3),
+    Mod:test(1, 2, 0),
+    Mod:test(1, 0, 0),
+    %% When/Then
+    meck:verify({Between, [2, 4]}, Mod, test, [1, '_', '_']),
+    ?assertError(_, meck:verify({Between, [2, 4]}, Mod, test, ['_', 2, '_'])),
+    ?assertError(_, meck:verify({Between, [2, 4]}, Mod, test, ['_', '_', 3])).
 
 %% --- Tests with own setup ----------------------------------------------------
 
