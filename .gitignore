@@ -13,3 +13,5 @@ tags
 .*.swp
 .settings
 .project
+*.sublime-workspace
+*.sublime-project
