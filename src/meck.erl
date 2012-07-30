@@ -42,6 +42,11 @@
 -export([num_calls/4]).
 -export([reset/1]).
 
+%% Syntactic sugar
+-export([loop/1,
+         seq/1,
+         val/1]).
+
 %% Callback exports
 -export([init/1]).
 -export([handle_call/3]).
@@ -67,6 +72,13 @@
                     | {pid(), meck_mfa(), Class:: exit | error | throw,
                        Reason::term(), Stacktrace::[mfa()]}].
 
+%% @type ret_spec().
+%% Opaque data structure that defines values to be returned by a stub
+%% function. Values of `ret_spec' are constructed by {@link sequence/1},
+%% {@link loop/1}, and {@link value/1} functions. They are used to specify
+%% return values in {@link expect/3} and {@link expect/4} functions.
+-type ret_spec() :: term().
+
 %% Records
 -record(state, {mod :: atom(),
                 expects :: dict(),
@@ -77,6 +89,9 @@
 
 %% Includes
 -include("meck_abstract.hrl").
+
+-define(MATCH_SPEC(L), {L, [], ['$_']}).
+
 
 %%==============================================================================
 %% Interface exports
@@ -124,40 +139,73 @@ new(Mod, Options) when is_list(Mod) ->
     lists:foreach(fun(M) -> new(M, Options) end, Mod),
     ok.
 
-%% @spec expect(Mod:: atom() | list(atom()), Func::atom(), Expect::fun()) -> ok
+
 %% @doc Add expectation for a function `Func' to the mocked modules `Mod'.
 %%
-%% An expectation is a fun that is executed whenever the function
-%% `Func' is called.
+%% An expectation is either of the following:
+%% <dl>
+%% <dt>`StubFun'</dt><dd>a stub function that is executed whenever the function
+%% `Func' is called;</dd>
+%% <dt>`ClauseSpecs'</dt><dd>a list of `ArgPatterns'/`RetSpec' pairs. Whenever
+%% the function `Func' is called the arguments are matched against the
+%% `ArgPatterns' in the list. As soon as the first match is found then a value
+%% defined by the corresponding `RetSpec' is returned.</dd>
+%% </dl>
 %%
 %% It affects the validation status of the mocked module(s). If an
 %% expectation is called with the wrong number of arguments or invalid
 %% arguments the mock module(s) is invalidated. It is also invalidated if
 %% an unexpected exception occurs.
--spec expect(Mod:: atom() | [atom()], Func::atom(), Expect::fun()) -> ok.
-expect(Mod, Func, Expect)
-  when is_atom(Mod), is_atom(Func), is_function(Expect) ->
-    call(Mod, {expect, Func, Expect});
+-spec expect(Mod, Func, Expect) -> ok when
+      Mod :: atom() | [atom()],
+      Func :: atom(),
+      Expect :: StubFun | [ClauseSpec],
+      StubFun :: fun(),
+      ClauseSpec :: {ArgPatterns, RetSpec},
+      ArgPatterns :: [term() | '_'],
+      RetSpec :: term() | ret_spec().
+expect(Mod, Func, StubFun) when is_atom(Mod),
+                                is_atom(Func),
+                                is_function(StubFun) ->
+    {arity, Arity} = erlang:fun_info(StubFun, arity),
+    Clause = {arity_2_matcher(Arity), {func, StubFun}},
+    call(Mod, {expect, {Func, Arity}, [Clause]});
+expect(Mod, Func, ClauseSpecs) when is_atom(Mod),
+                                    is_atom(Func),
+                                    is_list(ClauseSpecs) ->
+    {Arity, Clauses} = parse_clause_specs(Mod, Func, ClauseSpecs),
+    call(Mod, {expect, {Func, Arity}, Clauses});
 expect(Mod, Func, Expect) when is_list(Mod) ->
     lists:foreach(fun(M) -> expect(M, Func, Expect) end, Mod),
     ok.
 
-%% @spec expect(Mod:: atom() | list(atom()), Func::atom(),
-%%              Arity::pos_integer(), Result::term()) -> ok
+
 %% @doc Adds an expectation with the supplied arity and return value.
 %%
 %% This creates an expectation which takes `Arity' number of functions
 %% and always returns `Result'.
 %%
 %% @see expect/3.
--spec expect(Mod:: atom() | [atom()], Func::atom(),
-             Arity::pos_integer(), Result::term()) -> ok.
-expect(Mod, Func, Arity, Result)
-  when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
+-spec expect(Mod, Func, ArgsSpec, RetSpec) -> ok when
+      Mod :: atom() | [atom()],
+      Func :: atom(),
+      ArgsSpec :: Arity | ArgPatterns,
+      Arity :: non_neg_integer(),
+      ArgPatterns :: [term() | '_'],
+      RetSpec :: term() | ret_spec().
+expect(Mod, Func, Arity, RetSpec) when is_atom(Mod),
+                                       is_atom(Func),
+                                       is_integer(Arity), Arity >= 0 ->
     valid_expect(Mod, Func, Arity),
-    call(Mod, {expect, Func, Arity, Result});
-expect(Mod, Func, Arity, Result) when is_list(Mod) ->
-    lists:foreach(fun(M) -> expect(M, Func, Arity, Result) end, Mod),
+    Clause = {arity_2_matcher(Arity), ret_spec_2_answer(RetSpec)},
+    call(Mod, {expect, {Func, Arity}, [Clause]});
+expect(Mod, Func, ArgPatterns, RetSpec) when is_atom(Mod),
+                                             is_atom(Func),
+                                             is_list(ArgPatterns) ->
+    {Arity, Clause} = parse_clause_spec(Mod, Func, ArgPatterns, RetSpec),
+    call(Mod, {expect, {Func, Arity}, [Clause]});
+expect(Mod, Func, ArgsSpec, RetSpec) when is_list(Mod) ->
+    lists:foreach(fun(M) -> expect(M, Func, ArgsSpec, RetSpec) end, Mod),
     ok.
 
 %% @spec sequence(Mod:: atom() | list(atom()), Func::atom(),
@@ -350,6 +398,41 @@ reset(Mods) when is_list(Mods) ->
     lists:foreach(fun(Mod) -> reset(Mod) end, Mods).
 
 
+%%--------------------------------------------------------------------
+%% @doc Converts a list of terms into `meck:ret_spec' defining sequence of
+%% values. It is intended to be in constructin of clause specs for the
+%% `expect/3' function.
+%% @end
+%%--------------------------------------------------------------------
+-spec loop(Loop) -> ret_spec() when
+      Loop :: [term()].
+loop(L) when is_list(L) ->
+    {meck_loop, L}.
+
+
+%%--------------------------------------------------------------------
+%% @doc Converts a list of terms into `meck:ret_spec' defining loop of values.
+%% It is intended to be in constructin of clause specs for the `expect/3'
+%% function.
+%% @end
+%%--------------------------------------------------------------------
+-spec seq(Sequence) -> ret_spec() when
+      Sequence :: [term()].
+seq(S) when is_list(S) ->
+    {meck_sequence, S}.
+
+
+%%--------------------------------------------------------------------
+%% @doc Converts a term into `meck:ret_spec' defining an individual value. It is
+%% intended to be in constructin of clause specs for the `expect/3' function.
+%% @end
+%%--------------------------------------------------------------------
+-spec val(Value) -> ret_spec() when
+      Value :: term().
+val(Value) ->
+    {meck_value, Value}.
+
+
 
 %%==============================================================================
 %% Callback functions
@@ -376,26 +459,26 @@ init([Mod, Options]) ->
     end.
 
 %% @hidden
-handle_call({get_expect, Func, Arity}, _From, S) ->
-    {Expect, NewExpects} = get_expect(S#state.expects, Func, Arity),
+handle_call({get_expect, FuncAri, Args}, _From, S) ->
+    {Expect, NewExpects} = get_expect(S#state.expects, S#state.mod, FuncAri, Args),
     {reply, Expect, S#state{expects = NewExpects}};
-handle_call({expect, Func, Expect}, _From, S) ->
-    NewExpects = store_expect(S#state.mod, Func, Expect, S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
-handle_call({expect, Func, Arity, Result}, _From, S) ->
-    NewExpects = store_expect(S#state.mod, Func, {anon, Arity, Result},
+handle_call({expect, FuncAri, Clauses}, _From, S) ->
+    NewExpects = store_expect(S#state.mod, FuncAri,
+                              Clauses,
                               S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
 handle_call({sequence, Func, Arity, Sequence}, _From, S) ->
-    NewExpects = store_expect(S#state.mod, Func, {sequence, Arity, Sequence},
+    NewExpects = store_expect(S#state.mod, {Func, Arity},
+                              [{arity_2_matcher(Arity), {sequence, Sequence}}],
                               S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
 handle_call({loop, Func, Arity, Loop}, _From, S) ->
-    NewExpects = store_expect(S#state.mod, Func, {loop, Arity, Loop, Loop},
+    NewExpects = store_expect(S#state.mod, {Func, Arity},
+                              [{arity_2_matcher(Arity), {loop, Loop, Loop}}],
                               S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
 handle_call({delete, Func, Arity}, _From, S) ->
-    NewExpects = delete_expect(S#state.mod, Func, Arity, S#state.expects),
+    NewExpects = delete_expect(S#state.mod, {Func, Arity}, S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
 handle_call(history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
@@ -430,7 +513,7 @@ code_change(_OldVsn, S, _Extra) -> {ok, S}.
 
 %% @hidden
 exec(Pid, Mod, Func, Arity, Args) ->
-    Expect = call(Mod, {get_expect, Func, Arity}),
+    Expect = call(Mod, {get_expect, {Func, Arity}, Args}),
     try
         put('$meck_call', {Mod, Func}),
         Result = call_expect(Mod, Func, Expect, Args),
@@ -508,47 +591,103 @@ valid_expect(M, F, A) ->
 
 init_expects(Mod, Options) ->
     case proplists:get_value(passthrough, Options, false) andalso exists(Mod) of
-        true -> dict:from_list([{FA, passthrough} || FA <- exports(Mod)]);
+        true -> dict:from_list([{FuncAri, [{arity_2_matcher(Arity), passthrough}]} ||
+                                   FuncAri = {_Func, Arity} <- exports(Mod)]);
         _    -> dict:new()
     end.
 
 
-get_expect(Expects, Func, Arity) ->
-    case e_fetch(Expects, Func, Arity) of
-        {sequence, Arity, [Result]} ->
-            {{sequence, Arity, Result}, Expects};
-        {sequence, Arity, [Result|Rest]} ->
-            {{sequence, Arity, Result},
-             e_store(Expects, Func, {sequence, Arity, Rest})};
-        {loop, Arity, [Result], Loop} ->
-            {{loop, Arity, Result},
-             e_store(Expects, Func, {loop, Arity, Loop, Loop})};
-        {loop, Arity, [Result|Rest], Loop} ->
-            {{loop, Arity, Result},
-             e_store(Expects, Func, {loop, Arity, Rest, Loop})};
-        Other ->
-            {Other, Expects}
+parse_clause_specs(Mod, Func, ClauseSpecs) ->
+    parse_clause_specs(Mod, Func, ClauseSpecs, undefined, []).
+
+parse_clause_specs(Mod, Func, [{ArgPatterns, RetSpec} | Rest], undefined, []) ->
+    {Arity, Clause} = parse_clause_spec(Mod, Func, ArgPatterns, RetSpec),
+    parse_clause_specs(Mod, Func, Rest, Arity, [Clause]);
+parse_clause_specs(Mod, Func, [{ArgPatterns, RetSpec} | Rest], Arity, Clauses) ->
+    {Arity, Clause} = parse_clause_spec(Mod, Func, ArgPatterns, RetSpec),
+    parse_clause_specs(Mod, Func, Rest, Arity, [Clause | Clauses]);
+parse_clause_specs(_Mod, _Func, [], Arity, Clauses) ->
+    {Arity, lists:reverse(Clauses)}.
+
+
+parse_clause_spec(Mod, Func, ArgPatterns, RetSpec) ->
+    Arity = length(ArgPatterns),
+    valid_expect(Mod, Func, Arity),
+    Clause = {{pattern, ArgPatterns},
+              ret_spec_2_answer(RetSpec)},
+    {Arity, Clause}.
+
+
+get_expect(Expects, Mod, FuncAri, Args) ->
+    try find_match(Args, dict:fetch(FuncAri, Expects)) of
+        {_ArgsMatcher, {sequence, [Result]}} ->
+            {{value, Result}, Expects};
+        {ArgsMatcher, {sequence, [Result | Rest]}} ->
+            NewExpects = update_clause(Expects, FuncAri, ArgsMatcher, {sequence, Rest}),
+            {{value, Result}, NewExpects};
+        {ArgsMatcher, {loop, [Result], Loop}} ->
+            NewExpects = update_clause(Expects, FuncAri, ArgsMatcher, {loop, Loop, Loop}),
+            {{value, Result}, NewExpects};
+        {ArgsMatcher, {loop, [Result | Rest], Loop}} ->
+            NewExpects = update_clause(Expects, FuncAri, ArgsMatcher, {loop, Rest, Loop}),
+            {{value, Result}, NewExpects};
+        {_ArgsMatcher, Answer} ->
+            {Answer, Expects}
+    catch
+        _:Error ->
+            throw({"Undefined expectation",
+                   {called, {Mod, FuncAri, Args}},
+                   {reason, Error}})
     end.
 
-store_expect(Mod, Func, Expect, Expects) ->
-    change_expects(fun e_store/3, Mod, Func, Expect, Expects).
 
-delete_expect(Mod, Func, Arity, Expects) ->
-    change_expects(fun e_delete/3, Mod, Func, Arity, Expects).
-
-change_expects(Op, Mod, Func, Value, Expects) ->
-    NewExpects = Op(Expects, Func, Value),
+store_expect(Mod, FuncAri, Clauses, Expects) ->
+    NewExpects = dict:store(FuncAri, Clauses, Expects),
     _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
     NewExpects.
 
-e_store(Expects, Func, Expect) ->
-    dict:store({Func, arity(Expect)}, Expect, Expects).
 
-e_fetch(Expects, Func, Arity) ->
-    dict:fetch({Func, Arity}, Expects).
+delete_expect(Mod, FuncAri, Expects) ->
+    NewExpects = dict:erase(FuncAri, Expects),
+    _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
+    NewExpects.
 
-e_delete(Expects, Func, Arity) ->
-    dict:erase({Func, Arity}, Expects).
+
+update_clause(Expects, FuncAri, ArgsMatcher, Answer) ->
+    dict:update(FuncAri,
+                fun(Clauses) ->
+                        lists:keyreplace(ArgsMatcher, 1, Clauses, {ArgsMatcher, Answer})
+                end,
+                Expects).
+
+
+find_match(Args, [{ArgsMatcher, Answer} | Rest]) ->
+    case ArgsMatcher of
+        {pattern, MatchSpec} ->
+            case ets:match_spec_run([Args], ets:match_spec_compile([?MATCH_SPEC(MatchSpec)])) of
+                [] ->
+                    find_match(Args, Rest);
+                _ ->
+                    {ArgsMatcher, Answer}
+            end;
+        {hamcrest, _Matchers} ->
+            throw(unimplemented) % TODO Hamcrest support is comming
+    end.
+
+
+arity_2_matcher(Arity) ->
+    {pattern, lists:duplicate(Arity, '_')}.
+
+
+ret_spec_2_answer({meck_sequence, Sequence}) when is_list(Sequence) ->
+    {sequence, Sequence};
+ret_spec_2_answer({meck_loop, Loop}) when is_list(Loop) ->
+    {loop, Loop, Loop};
+ret_spec_2_answer({meck_value, Value}) ->
+    {value, Value};
+ret_spec_2_answer(Value) ->
+    {value, Value}.
+
 
 %% --- Code generation ---------------------------------------------------------
 
@@ -627,15 +766,6 @@ list([H|T]) -> {cons, ?LINE, H, list(T)}.
 
 var_name(A) -> list_to_atom("A"++integer_to_list(A)).
 
-arity({anon, Arity, _Result}) ->
-    Arity;
-arity({sequence, Arity, _Sequence}) ->
-    Arity;
-arity({loop, Arity, _Current, _Loop}) ->
-    Arity;
-arity(Fun) when is_function(Fun) ->
-    {arity, Arity} = erlang:fun_info(Fun, arity),
-    Arity.
 
 %% --- Execution utilities -----------------------------------------------------
 
@@ -663,13 +793,12 @@ raise(Pid, Mod, Func, Args, Class, Reason) ->
 
 mock_exception_fun(Class, Reason) -> fun() -> {exception, Class, Reason} end.
 
-call_expect(_Mod, _Func, {_Type, Arity, Return}, VarList)
-  when Arity == length(VarList) ->
+call_expect(_Mod, _Func, {value, Return}, _Args) ->
     Return;
-call_expect(Mod, Func, passthrough, VarList) ->
-    apply(original_name(Mod), Func, VarList);
-call_expect(_Mod, _Func, Fun, VarList) when is_function(Fun) ->
-    apply(Fun, VarList).
+call_expect(_Mod, _Func, {func, Fun}, Args) when is_function(Fun) ->
+    apply(Fun, Args);
+call_expect(Mod, Func, passthrough, Args) ->
+    apply(original_name(Mod), Func, Args).
 
 inject(_Mod, _Func, _Args, []) ->
     [];
@@ -832,5 +961,5 @@ match_history(MatchSpec, History) ->
 match_mfa(MFA) -> match_mfa(MFA, '_').
 
 match_mfa(MFA, Pid) ->
-    [{{Pid, MFA, '_'}, [], ['$_']},
-     {{Pid, MFA, '_', '_', '_'}, [], ['$_']}].
+    [?MATCH_SPEC({Pid, MFA, '_'}),
+     ?MATCH_SPEC({Pid, MFA, '_', '_', '_'})].
