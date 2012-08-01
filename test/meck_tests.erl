@@ -208,7 +208,9 @@ change_func_(Mod) ->
 
 call_original_undef_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> meck:passthrough([]) end),
-    ?assertError(undef, Mod:test()).
+    ?assertError(undef, Mod:test()),
+    ?assert(not meck:validate(Mod)),
+    ?assertEqual(undefined, get('$meck_call')).
 
 history_empty_(Mod) ->
     ?assertEqual([], meck:history(Mod)).

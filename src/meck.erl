@@ -224,15 +224,14 @@ delete(Mod, Func, Arity) when is_list(Mod) ->
 exception(Class, Reason) when Class == throw; Class == error; Class == exit ->
     throw(mock_exception_fun(Class, Reason)).
 
-%% @spec passthrough(Args::list(term())) -> no_return()
+%% @spec passthrough(Args::list(term())) -> term()
 %% @doc Calls the original function (if existing) inside an expectation fun.
 %%
-%% This call does not return, thus everything after this call inside
-%% an expectation fun will be ignored.
-%%
 %% <em>Note: this code should only be used inside an expect fun.</em>
--spec passthrough(Args::[term()]) -> no_return().
-passthrough(Args) -> throw(passthrough_fun(Args)).
+-spec passthrough(Args::[term()]) -> term().
+passthrough(Args) when is_list(Args) ->
+    {Mod, Func} = get('$meck_call'),
+    erlang:apply(original_name(Mod), Func, Args).
 
 %% @spec validate(Mod:: atom() | list(atom())) -> boolean()
 %% @doc Validate the state of the mock module(s).
@@ -432,7 +431,9 @@ code_change(_OldVsn, S, _Extra) -> {ok, S}.
 %% @hidden
 exec(Pid, Mod, Func, Arity, Args) ->
     Expect = call(Mod, {get_expect, Func, Arity}),
-    try Result = call_expect(Mod, Func, Expect, Args),
+    try
+        put('$meck_call', {Mod, Func}),
+        Result = call_expect(Mod, Func, Expect, Args),
         add_history(Pid, Mod, Func, Args, Result),
         Result
     catch
@@ -443,6 +444,8 @@ exec(Pid, Mod, Func, Arity, Args) ->
             end;
         Class:Reason ->
             invalidate_and_raise(Pid, Mod, Func, Args, Class, Reason)
+    after
+        erase('$meck_call')
     end.
 
 %%==============================================================================
@@ -645,12 +648,7 @@ handle_mock_exception(Pid, Mod, Func, Fun, Args) ->
         {exception, Class, Reason} ->
             % exception created with the mock:exception function,
             % do not invalidate Mod
-            raise(Pid, Mod, Func, Args, Class, Reason);
-        {passthrough, PassthroughArgs} ->
-            % call_original(Args) called from mock function
-            Result = apply(original_name(Mod), Func, PassthroughArgs),
-            add_history(Pid, Mod, Func, PassthroughArgs, Result),
-            Result
+            raise(Pid, Mod, Func, Args, Class, Reason)
     end.
 
 -spec invalidate_and_raise(_, _, _, _, _, _) -> no_return().
@@ -664,8 +662,6 @@ raise(Pid, Mod, Func, Args, Class, Reason) ->
     erlang:raise(Class, Reason, Stacktrace).
 
 mock_exception_fun(Class, Reason) -> fun() -> {exception, Class, Reason} end.
-
-passthrough_fun(Args) -> fun() -> {passthrough, Args} end.
 
 call_expect(_Mod, _Func, {_Type, Arity, Return}, VarList)
   when Arity == length(VarList) ->
