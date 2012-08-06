@@ -146,9 +146,9 @@ new(Mod, Options) when is_list(Mod) ->
 %% <dl>
 %% <dt>`StubFun'</dt><dd>a stub function that is executed whenever the function
 %% `Func' is called;</dd>
-%% <dt>`ClauseSpecs'</dt><dd>a list of `ArgPatterns'/`RetSpec' pairs. Whenever
+%% <dt>`ClauseSpecs'</dt><dd>a list of `ArgsPattern'/`RetSpec' pairs. Whenever
 %% the function `Func' is called the arguments are matched against the
-%% `ArgPatterns' in the list. As soon as the first match is found then a value
+%% `ArgsPattern' in the list. As soon as the first match is found then a value
 %% defined by the corresponding `RetSpec' is returned.</dd>
 %% </dl>
 %%
@@ -161,8 +161,8 @@ new(Mod, Options) when is_list(Mod) ->
       Func :: atom(),
       Expect :: StubFun | [ClauseSpec],
       StubFun :: fun(),
-      ClauseSpec :: {ArgPatterns, RetSpec},
-      ArgPatterns :: [term() | '_'],
+      ClauseSpec :: {ArgsPattern, RetSpec},
+      ArgsPattern :: [term() | '_'],
       RetSpec :: term() | ret_spec().
 expect(Mod, Func, StubFun)
   when is_atom(Mod), is_atom(Func), is_function(StubFun) ->
@@ -187,18 +187,18 @@ expect(Mod, Func, Expect) when is_list(Mod) ->
 -spec expect(Mod, Func, ArgsSpec, RetSpec) -> ok when
       Mod :: atom() | [atom()],
       Func :: atom(),
-      ArgsSpec :: Arity | ArgPatterns,
+      ArgsSpec :: Arity | ArgsPattern,
       Arity :: non_neg_integer(),
-      ArgPatterns :: [term() | '_'],
+      ArgsPattern :: [term() | '_'],
       RetSpec :: term() | ret_spec().
 expect(Mod, Func, Arity, RetSpec)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
     valid_expect(Mod, Func, Arity),
     Clause = {arity_2_matcher(Arity), ret_spec_2_answer(RetSpec)},
     call(Mod, {expect, {Func, Arity}, [Clause]});
-expect(Mod, Func, ArgPatterns, RetSpec)
-  when is_atom(Mod), is_atom(Func), is_list(ArgPatterns) ->
-    {Arity, Clause} = parse_clause_spec(Mod, Func, {ArgPatterns, RetSpec}),
+expect(Mod, Func, ArgsPattern, RetSpec)
+  when is_atom(Mod), is_atom(Func), is_list(ArgsPattern) ->
+    {Arity, Clause} = parse_clause_spec(Mod, Func, {ArgsPattern, RetSpec}),
     call(Mod, {expect, {Func, Arity}, [Clause]});
 expect(Mod, Func, ArgsSpec, RetSpec) when is_list(Mod) ->
     lists:foreach(fun(M) -> expect(M, Func, ArgsSpec, RetSpec) end, Mod),
@@ -601,10 +601,11 @@ parse_clause_specs(_Mod, _Func, [], Arity, Clauses) ->
     {Arity, lists:reverse(Clauses)}.
 
 
-parse_clause_spec(Mod, Func, {ArgPatterns, RetSpec}) ->
-    Arity = length(ArgPatterns),
+parse_clause_spec(Mod, Func, {ArgsPattern, RetSpec}) ->
+    Arity = length(ArgsPattern),
     valid_expect(Mod, Func, Arity),
-    Clause = {{pattern, ArgPatterns}, ret_spec_2_answer(RetSpec)},
+    MatchSpec = ets:match_spec_compile([?MATCH_SPEC(ArgsPattern)]),
+    Clause = {{pattern, ArgsPattern, MatchSpec}, ret_spec_2_answer(RetSpec)},
     {Arity, Clause}.
 
 
@@ -657,10 +658,8 @@ update_clause(Expects, FuncAri, ArgsMatcher, Answer) ->
 
 find_match(Args, [{ArgsMatcher, Answer} | Rest]) ->
     case ArgsMatcher of
-        {pattern, MatchSpec} ->
-            case ets:match_spec_run(
-                   [Args], ets:match_spec_compile([?MATCH_SPEC(MatchSpec)]))
-            of
+        {pattern, _ArgsPattern, MatchSpec} ->
+            case ets:match_spec_run([Args], MatchSpec) of
                 [] ->
                     find_match(Args, Rest);
                 _ ->
@@ -672,7 +671,9 @@ find_match(Args, [{ArgsMatcher, Answer} | Rest]) ->
 
 
 arity_2_matcher(Arity) ->
-    {pattern, lists:duplicate(Arity, '_')}.
+    ArgsPattern = lists:duplicate(Arity, '_'),
+    MatchSpec = ets:match_spec_compile([?MATCH_SPEC(ArgsPattern)]),
+    {pattern, ArgsPattern, MatchSpec}.
 
 
 ret_spec_2_answer({meck_sequence, Sequence}) when is_list(Sequence) ->
