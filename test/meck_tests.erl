@@ -86,6 +86,7 @@ meck_test_() ->
                            fun ?MODULE:loop_multi_/1,
                            fun ?MODULE:expect_args_pattern_override_/1,
                            fun ?MODULE:expect_args_pattern_shadow_/1,
+                           fun ?MODULE:expect_args_pattern_missing_/1,
                            fun ?MODULE:expect_ret_specs_/1
                           ]]}.
 
@@ -600,6 +601,15 @@ expect_args_pattern_shadow_(Mod) ->
     ?assertEqual(a, Mod:f(1, 1)),
     ?assertEqual(c, Mod:f(1, 2)),
     ?assertEqual(c, Mod:f(2, 2)).
+
+expect_args_pattern_missing_(Mod) ->
+    %% When
+    meck:expect(Mod, f, [{[1, 1],     a},
+                         {[1, '_'],   b}]),
+    %% Then
+    ?assertError(function_clause, Mod:f(2, 2)),
+    ?assertEqual(a, Mod:f(1, 1)),
+    ?assertEqual(b, Mod:f(1, 2)).
 
 expect_ret_specs_(Mod) ->
     %% When

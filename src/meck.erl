@@ -609,8 +609,8 @@ parse_clause_spec(Mod, Func, {ArgsPattern, RetSpec}) ->
     {Arity, Clause}.
 
 
-get_expect(Expects, Mod, FuncAri, Args) ->
-    try find_match(Args, dict:fetch(FuncAri, Expects)) of
+get_expect(Expects, _Mod, FuncAri, Args) ->
+    case find_match(Args, dict:fetch(FuncAri, Expects)) of
         {_ArgsMatcher, {sequence, [Result]}} ->
             {{value, Result}, Expects};
         {ArgsMatcher, {sequence, [Result | Rest]}} ->
@@ -626,12 +626,9 @@ get_expect(Expects, Mod, FuncAri, Args) ->
                                        {loop, Rest, Loop}),
             {{value, Result}, NewExpects};
         {_ArgsMatcher, Answer} ->
-            {Answer, Expects}
-    catch
-        _:Error ->
-            throw({"Undefined expectation",
-                   {called, {Mod, FuncAri, Args}},
-                   {reason, Error}})
+            {Answer, Expects};
+        not_found ->
+            {not_found, Expects}
     end.
 
 
@@ -667,7 +664,9 @@ find_match(Args, [{ArgsMatcher, Answer} | Rest]) ->
             end;
         {hamcrest, _Matchers} ->
             throw(unimplemented) % TODO Hamcrest support is comming
-    end.
+    end;
+find_match(_Args, []) ->
+    not_found.
 
 
 arity_2_matcher(Arity) ->
