@@ -95,6 +95,7 @@
 
 %% Records
 -record(state, {mod :: atom(),
+                can_expect :: any | [{atom(), non_neg_integer()}],
                 expects :: dict(),
                 valid = true :: boolean(),
                 history = [] :: history() | undefined,
@@ -148,6 +149,13 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%                                </dd>
 %%   <dt>`no_history'</dt> <dd>Do not store history of meck calls.
 %%                         </dd>
+%%   <dt>`honest'</dt><dd>A mock created with this option will raise error
+%%                        `{undefined_module, <i>module-name</i>}' if you try to
+%%                        mock a non existent module, and error
+%%                        `{cannot_mock_fake, <i>MFA</i>}' if you try to create
+%%                        an expectation for a non existent or not exported
+%%                        function.
+%%                    </dd>
 %% </dl>
 -spec new(Mod:: atom() | [atom()], Options::[term()]) -> ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
@@ -187,11 +195,11 @@ expect(Mod, Func, StubFun)
   when is_atom(Mod), is_atom(Func), is_function(StubFun) ->
     {arity, Arity} = erlang:fun_info(StubFun, arity),
     Clause = {arity_2_matcher(Arity), {meck_func, StubFun}},
-    call(Mod, {expect, {Func, Arity}, [Clause]});
+    check_expect_result(call(Mod, {expect, {Func, Arity}, [Clause]}));
 expect(Mod, Func, ClauseSpecs)
   when is_atom(Mod), is_atom(Func), is_list(ClauseSpecs) ->
-    {Arity, Clauses} = parse_clause_specs(Mod, Func, ClauseSpecs),
-    call(Mod, {expect, {Func, Arity}, Clauses});
+    {Arity, Clauses} = parse_clause_specs(ClauseSpecs),
+    check_expect_result(call(Mod, {expect, {Func, Arity}, Clauses}));
 expect(Mod, Func, Expect) when is_list(Mod) ->
     lists:foreach(fun(M) -> expect(M, Func, Expect) end, Mod),
     ok.
@@ -211,13 +219,12 @@ expect(Mod, Func, Expect) when is_list(Mod) ->
       RetSpec :: ret_spec().
 expect(Mod, Func, Arity, RetSpec)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
-    valid_expect(Mod, Func, Arity),
     Clause = {arity_2_matcher(Arity), RetSpec},
-    call(Mod, {expect, {Func, Arity}, [Clause]});
+    check_expect_result(call(Mod, {expect, {Func, Arity}, [Clause]}));
 expect(Mod, Func, ArgsPattern, RetSpec)
   when is_atom(Mod), is_atom(Func), is_list(ArgsPattern) ->
-    {Arity, Clause} = parse_clause_spec(Mod, Func, {ArgsPattern, RetSpec}),
-    call(Mod, {expect, {Func, Arity}, [Clause]});
+    {Arity, Clause} = parse_clause_spec({ArgsPattern, RetSpec}),
+    check_expect_result(call(Mod, {expect, {Func, Arity}, [Clause]}));
 expect(Mod, Func, ArgsSpec, RetSpec) when is_list(Mod) ->
     lists:foreach(fun(M) -> expect(M, Func, ArgsSpec, RetSpec) end, Mod),
     ok.
@@ -240,7 +247,7 @@ expect(Mod, Func, ArgsSpec, RetSpec) when is_list(Mod) ->
 sequence(Mod, Func, Arity, Sequence)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
     Clause = {arity_2_matcher(Arity), seq(Sequence)},
-    call(Mod, {expect, {Func, Arity}, [Clause]});
+    check_expect_result(call(Mod, {expect, {Func, Arity}, [Clause]}));
 sequence(Mod, Func, Arity, Sequence) when is_list(Mod) ->
     lists:foreach(fun(M) -> sequence(M, Func, Arity, Sequence) end, Mod),
     ok.
@@ -262,7 +269,7 @@ sequence(Mod, Func, Arity, Sequence) when is_list(Mod) ->
 loop(Mod, Func, Arity, Loop)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
     Clause = {arity_2_matcher(Arity), loop(Loop)},
-    call(Mod, {expect, {Func, Arity}, [Clause]});
+    check_expect_result(call(Mod, {expect, {Func, Arity}, [Clause]}));
 loop(Mod, Func, Arity, Loop) when is_list(Mod) ->
     lists:foreach(fun(M) -> loop(M, Func, Arity, Loop) end, Mod),
     ok.
@@ -466,7 +473,20 @@ raise(exit, Reason) -> {meck_raise, exit, Reason}.
 
 %% @hidden
 init([Mod, Options]) ->
-    WasSticky = case proplists:is_defined(unstick, Options) of
+    case proplists:get_bool(honest, Options) of
+        true ->
+            try
+                Exports = Mod:module_info(exports),
+                init([Mod, Options, Exports])
+            catch
+                error:undef ->
+                    {stop, module_undefined}
+            end;
+        _ ->
+            init([Mod, Options, any])
+    end;
+init([Mod, Options, CanExpect]) ->
+    WasSticky = case proplists:get_bool(unstick, Options) of
                     true -> {module, Mod} = code:ensure_loaded(Mod),
                             unstick_original(Mod);
                     _    -> false
@@ -479,8 +499,12 @@ init([Mod, Options]) ->
     Expects = init_expects(Mod, Options),
     try
         _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
-        {ok, #state{mod = Mod, expects = Expects, original = Original,
-                    was_sticky = WasSticky, history=History}}
+        {ok, #state{mod = Mod,
+                    can_expect = CanExpect,
+                    expects = Expects,
+                    original = Original,
+                    was_sticky = WasSticky,
+                    history = History}}
     catch
         exit:{error_loading_module, Mod, sticky_directory} ->
             {stop, module_is_sticky}
@@ -491,11 +515,16 @@ handle_call({get_expect, FuncAri, Args}, _From, S) ->
     {Expect, NewExpects} = get_expect(S#state.expects, S#state.mod, FuncAri,
                                       Args),
     {reply, Expect, S#state{expects = NewExpects}};
-handle_call({expect, FuncAri, Clauses}, _From, S) ->
-    NewExpects = store_expect(S#state.mod, FuncAri,
-                              Clauses,
-                              S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
+handle_call({expect, FuncAri = {Func, Ari}, Clauses}, _From, S) ->
+    case validate_expect(S#state.mod, Func, Ari, S#state.can_expect) of
+        ok ->
+            NewExpects = store_expect(S#state.mod, FuncAri,
+                                      Clauses,
+                                      S#state.expects),
+            {reply, ok, S#state{expects = NewExpects}};
+        {error, Reason} ->
+            {reply, {error, Reason}, S}
+    end;
 handle_call({delete, Func, Arity}, _From, S) ->
     NewExpects = delete_expect(S#state.mod, {Func, Arity}, S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
@@ -606,11 +635,22 @@ unload_if_mocked(_P, L) ->
 
 %% --- Mock handling ----------------------------------------------------------
 
-valid_expect(M, F, A) ->
+check_expect_result(ok) -> ok;
+check_expect_result({error, Reason}) -> erlang:error(Reason).
+
+validate_expect(M, F, A, CanExpect) ->
     case expect_type(M, F, A) of
-        autogenerated -> erlang:error({cannot_mock_autogenerated, {M, F, A}});
-        builtin -> erlang:error({cannot_mock_builtin, {M, F, A}});
-        normal -> ok
+        autogenerated ->
+            {error, {cannot_mock_autogenerated, {M, F, A}}};
+        builtin ->
+            {error, {cannot_mock_builtin, {M, F, A}}};
+        normal ->
+            case CanExpect =:= any orelse lists:member({F, A}, CanExpect) of
+                true ->
+                    ok;
+                _ ->
+                    {error, {cannot_mock_fake, {M, F, A}}}
+            end
     end.
 
 init_expects(Mod, Options) ->
@@ -624,30 +664,28 @@ init_expects(Mod, Options) ->
 passthrough_stub(Func, Arity) ->
     {{Func, Arity}, [{arity_2_matcher(Arity), passthrough}]}.
 
-parse_clause_specs(Mod, Func, ClauseSpecs) ->
-    parse_clause_specs(Mod, Func, ClauseSpecs, undefined, []).
+parse_clause_specs(ClauseSpecs) ->
+    parse_clause_specs(ClauseSpecs, undefined, []).
 
-parse_clause_specs(Mod, Func, [ClauseSpec | Rest], undefined, []) ->
-    {Arity, Clause} = parse_clause_spec(Mod, Func, ClauseSpec),
-    parse_clause_specs(Mod, Func, Rest, Arity, [Clause]);
-parse_clause_specs(Mod, Func, [ClauseSpec | Rest], DeducedArity, Clauses) ->
-    {Arity, Clause} = parse_clause_spec(Mod, Func, ClauseSpec),
+parse_clause_specs([ClauseSpec | Rest], undefined, []) ->
+    {Arity, Clause} = parse_clause_spec(ClauseSpec),
+    parse_clause_specs(Rest, Arity, [Clause]);
+parse_clause_specs([ClauseSpec | Rest], DeducedArity, Clauses) ->
+    {Arity, Clause} = parse_clause_spec(ClauseSpec),
     case Arity of
         DeducedArity ->
-            parse_clause_specs(Mod, Func, Rest, DeducedArity,
-                               [Clause | Clauses]);
+            parse_clause_specs(Rest, DeducedArity, [Clause | Clauses]);
         _ ->
             erlang:error({invalid_arity, {{expected, DeducedArity},
                                           {actual, Arity},
                                           {clause, Clause}}})
     end;
-parse_clause_specs(_Mod, _Func, [], DeducedArity, Clauses) ->
+parse_clause_specs([], DeducedArity, Clauses) ->
     {DeducedArity, lists:reverse(Clauses)}.
 
 
-parse_clause_spec(Mod, Func, {ArgsPattern, RetSpec}) ->
+parse_clause_spec({ArgsPattern, RetSpec}) ->
     Arity = length(ArgsPattern),
-    valid_expect(Mod, Func, Arity),
     MatchSpec = ets:match_spec_compile([?MATCH_SPEC(ArgsPattern)]),
     Clause = {{pattern, ArgsPattern, MatchSpec}, RetSpec},
     {Arity, Clause}.

@@ -748,6 +748,19 @@ expect_ret_specs_(Mod) ->
 
 %% --- Tests with own setup ----------------------------------------------------
 
+honest_mock_test() ->
+    %% When/Then
+    ?assertError(module_undefined, meck:new(blah, [honest, no_link])).
+
+honest_mock_func_test() ->
+    %% Given
+    meck:new(meck_test_module, [honest]),
+    %% When/Then
+    meck:expect(meck_test_module, b, 0, ok),
+    ?assertError({cannot_mock_fake, {meck_test_module, b, 1}},
+                 meck:expect(meck_test_module, b, 1, ok)),
+    meck:unload(meck_test_module).
+
 call_original_test() ->
     false = code:purge(meck_test_module),
     ?assertEqual({module, meck_test_module}, code:load_file(meck_test_module)),
