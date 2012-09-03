@@ -221,7 +221,8 @@ expect(Mod, Func, ArgsSpec, RetSpec) when is_list(Mod) ->
                Arity::pos_integer(), Sequence::[term()]) -> ok.
 sequence(Mod, Func, Arity, Sequence)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
-    call(Mod, {sequence, Func, Arity, Sequence});
+    Clause = {arity_2_matcher(Arity), ret_spec_2_answer(seq(Sequence))},
+    call(Mod, {expect, {Func, Arity}, [Clause]});
 sequence(Mod, Func, Arity, Sequence) when is_list(Mod) ->
     lists:foreach(fun(M) -> sequence(M, Func, Arity, Sequence) end, Mod),
     ok.
@@ -242,7 +243,8 @@ sequence(Mod, Func, Arity, Sequence) when is_list(Mod) ->
            Arity::pos_integer(), Loop::[term()]) -> ok.
 loop(Mod, Func, Arity, Loop)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
-    call(Mod, {loop, Func, Arity, Loop});
+    Clause = {arity_2_matcher(Arity), ret_spec_2_answer(loop(Loop))},
+    call(Mod, {expect, {Func, Arity}, [Clause]});
 loop(Mod, Func, Arity, Loop) when is_list(Mod) ->
     lists:foreach(fun(M) -> loop(M, Func, Arity, Loop) end, Mod),
     ok.
@@ -319,7 +321,7 @@ history(Mod) when is_atom(Mod) -> call(Mod, history).
 %% @see num_calls/3
 %% @see num_calls/4
 -spec history(Mod::atom(), Pid:: pid() | '_') -> history().
-history(Mod, Pid) when is_atom(Mod), is_pid(Pid) orelse Pid == '_' -> 
+history(Mod, Pid) when is_atom(Mod), is_pid(Pid) orelse Pid == '_' ->
     match_history(match_mfa('_', Pid), call(Mod, history)).
 
 %% @spec unload() -> list(atom())
@@ -454,16 +456,6 @@ handle_call({get_expect, FuncAri, Args}, _From, S) ->
 handle_call({expect, FuncAri, Clauses}, _From, S) ->
     NewExpects = store_expect(S#state.mod, FuncAri,
                               Clauses,
-                              S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
-handle_call({sequence, Func, Arity, Sequence}, _From, S) ->
-    NewExpects = store_expect(S#state.mod, {Func, Arity},
-                              [{arity_2_matcher(Arity), {sequence, Sequence}}],
-                              S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
-handle_call({loop, Func, Arity, Loop}, _From, S) ->
-    NewExpects = store_expect(S#state.mod, {Func, Arity},
-                              [{arity_2_matcher(Arity), {loop, Loop, Loop}}],
                               S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
 handle_call({delete, Func, Arity}, _From, S) ->
