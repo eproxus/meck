@@ -72,12 +72,24 @@
                     | {pid(), meck_mfa(), Class:: exit | error | throw,
                        Reason::term(), Stacktrace::[mfa()]}].
 
+%% @type args_pattern() = [term() | '_'].
+%% Used in {@link expect/3} and {@link expect/4} to defines an expectation by
+%% an argument pattern. Every list element corresponds to a function argument
+%% at the respective position. '_' is a wildcard that matches any value. The
+%% length of the list defines the arity of the function an expectation is
+%% created for.
+-type args_pattern() :: [term() | '_'].
+
 %% @type ret_spec().
-%% Opaque data structure that defines values to be returned by a stub
+%% Opaque data structure that defines values to be returned by an expect
 %% function. Values of `ret_spec' are constructed by {@link seq/1},
 %% {@link loop/1}, and {@link val/1} functions. They are used to specify
 %% return values in {@link expect/3} and {@link expect/4} functions.
--type ret_spec() :: term().
+-opaque ret_spec() :: {meck_val, term()} |
+                      {meck_sequence, [term()]} |
+                      {meck_loop, [term()]} |
+                      {meck_func, fun()} |
+                      term().
 
 %% Records
 -record(state, {mod :: atom(),
@@ -145,7 +157,8 @@ new(Mod, Options) when is_list(Mod) ->
 %% An expectation is either of the following:
 %% <dl>
 %% <dt>`StubFun'</dt><dd>a stub function that is executed whenever the function
-%% `Func' is called;</dd>
+%% `Func' is called. The arity of `StubFun' identifies for which particular
+%% `Func' variant an expectation is created for;</dd>
 %% <dt>`ClauseSpecs'</dt><dd>a list of `ArgsPattern'/`RetSpec' pairs. Whenever
 %% the function `Func' is called the arguments are matched against the
 %% `ArgsPattern' in the list. As soon as the first match is found then a value
@@ -161,13 +174,12 @@ new(Mod, Options) when is_list(Mod) ->
       Func :: atom(),
       Expect :: StubFun | [ClauseSpec],
       StubFun :: fun(),
-      ClauseSpec :: {ArgsPattern, RetSpec},
-      ArgsPattern :: [term() | '_'],
+      ClauseSpec :: {args_pattern(), RetSpec},
       RetSpec :: term() | ret_spec().
 expect(Mod, Func, StubFun)
   when is_atom(Mod), is_atom(Func), is_function(StubFun) ->
     {arity, Arity} = erlang:fun_info(StubFun, arity),
-    Clause = {arity_2_matcher(Arity), {func, StubFun}},
+    Clause = {arity_2_matcher(Arity), {meck_func, StubFun}},
     call(Mod, {expect, {Func, Arity}, [Clause]});
 expect(Mod, Func, ClauseSpecs)
   when is_atom(Mod), is_atom(Func), is_list(ClauseSpecs) ->
@@ -187,14 +199,13 @@ expect(Mod, Func, Expect) when is_list(Mod) ->
 -spec expect(Mod, Func, ArgsSpec, RetSpec) -> ok when
       Mod :: atom() | [atom()],
       Func :: atom(),
-      ArgsSpec :: Arity | ArgsPattern,
+      ArgsSpec :: Arity | args_pattern(),
       Arity :: non_neg_integer(),
-      ArgsPattern :: [term() | '_'],
       RetSpec :: term() | ret_spec().
 expect(Mod, Func, Arity, RetSpec)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
     valid_expect(Mod, Func, Arity),
-    Clause = {arity_2_matcher(Arity), ret_spec_2_answer(RetSpec)},
+    Clause = {arity_2_matcher(Arity), RetSpec},
     call(Mod, {expect, {Func, Arity}, [Clause]});
 expect(Mod, Func, ArgsPattern, RetSpec)
   when is_atom(Mod), is_atom(Func), is_list(ArgsPattern) ->
@@ -221,7 +232,7 @@ expect(Mod, Func, ArgsSpec, RetSpec) when is_list(Mod) ->
                Arity::pos_integer(), Sequence::[term()]) -> ok.
 sequence(Mod, Func, Arity, Sequence)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
-    Clause = {arity_2_matcher(Arity), ret_spec_2_answer(seq(Sequence))},
+    Clause = {arity_2_matcher(Arity), seq(Sequence)},
     call(Mod, {expect, {Func, Arity}, [Clause]});
 sequence(Mod, Func, Arity, Sequence) when is_list(Mod) ->
     lists:foreach(fun(M) -> sequence(M, Func, Arity, Sequence) end, Mod),
@@ -243,7 +254,7 @@ sequence(Mod, Func, Arity, Sequence) when is_list(Mod) ->
            Arity::pos_integer(), Loop::[term()]) -> ok.
 loop(Mod, Func, Arity, Loop)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
-    Clause = {arity_2_matcher(Arity), ret_spec_2_answer(loop(Loop))},
+    Clause = {arity_2_matcher(Arity), loop(Loop)},
     call(Mod, {expect, {Func, Arity}, [Clause]});
 loop(Mod, Func, Arity, Loop) when is_list(Mod) ->
     lists:foreach(fun(M) -> loop(M, Func, Arity, Loop) end, Mod),
@@ -405,13 +416,21 @@ reset(Mods) when is_list(Mods) ->
 %% @doc Converts a list of terms into {@link ret_spec()} defining a loop of
 %% values. It is intended to be in construction of clause specs for the
 %% {@link expect/3} function.
+%%
+%% Calls to an expect, created with {@link ret_spec} returned by this function,
+%% will return one element at a time from the `Loop' list and will restart at
+%% the first element when the end is reached.
 -spec loop(Loop::[term()]) -> ret_spec().
-loop(L) when is_list(L) -> {meck_loop, L}.
+loop(L) when is_list(L) -> {meck_loop, L, L}.
 
 
 %% @doc Converts a list of terms into {@link ret_spec()} defining a sequence of
 %% values. It is intended to be in construction of clause specs for the
 %% {@link expect/3} function.
+%%
+%% Calls to an expect, created with {@link ret_spec} returned by this function,
+%% will exhaust the `Sequence' list of return values in order until the last
+%% value is reached. That value is then returned for all subsequent calls.
 -spec seq(Sequence::[term()]) -> ret_spec().
 seq(S) when is_list(S) -> {meck_sequence, S}.
 
@@ -604,30 +623,30 @@ parse_clause_spec(Mod, Func, {ArgsPattern, RetSpec}) ->
     Arity = length(ArgsPattern),
     valid_expect(Mod, Func, Arity),
     MatchSpec = ets:match_spec_compile([?MATCH_SPEC(ArgsPattern)]),
-    Clause = {{pattern, ArgsPattern, MatchSpec}, ret_spec_2_answer(RetSpec)},
+    Clause = {{pattern, ArgsPattern, MatchSpec}, RetSpec},
     {Arity, Clause}.
 
 
 get_expect(Expects, _Mod, FuncAri, Args) ->
     case find_match(Args, dict:fetch(FuncAri, Expects)) of
-        {_ArgsMatcher, {sequence, [Result]}} ->
-            {{value, Result}, Expects};
-        {ArgsMatcher, {sequence, [Result | Rest]}} ->
-            NewExpects = update_clause(Expects, FuncAri, ArgsMatcher,
-                                       {sequence, Rest}),
-            {{value, Result}, NewExpects};
-        {ArgsMatcher, {loop, [Result], Loop}} ->
-            NewExpects = update_clause(Expects, FuncAri, ArgsMatcher,
-                                       {loop, Loop, Loop}),
-            {{value, Result}, NewExpects};
-        {ArgsMatcher, {loop, [Result | Rest], Loop}} ->
-            NewExpects = update_clause(Expects, FuncAri, ArgsMatcher,
-                                       {loop, Rest, Loop}),
-            {{value, Result}, NewExpects};
-        {_ArgsMatcher, Answer} ->
-            {Answer, Expects};
         not_found ->
-            {not_found, Expects}
+            {meck_undefined, Expects};
+        {_ArgsMatcher, {meck_sequence, [Result]}} ->
+            {{meck_value, Result}, Expects};
+        {ArgsMatcher, {meck_sequence, [Result | Rest]}} ->
+            NewExpects = update_clause(Expects, FuncAri, ArgsMatcher,
+                                       {meck_sequence, Rest}),
+            {{meck_value, Result}, NewExpects};
+        {ArgsMatcher, {meck_loop, [Result], Loop}} ->
+            NewExpects = update_clause(Expects, FuncAri, ArgsMatcher,
+                                       {meck_loop, Loop, Loop}),
+            {{meck_value, Result}, NewExpects};
+        {ArgsMatcher, {meck_loop, [Result | Rest], Loop}} ->
+            NewExpects = update_clause(Expects, FuncAri, ArgsMatcher,
+                                       {meck_loop, Rest, Loop}),
+            {{meck_value, Result}, NewExpects};
+        {_ArgsMatcher, RetSpec} ->
+            {RetSpec, Expects}
     end.
 
 
@@ -643,23 +662,23 @@ delete_expect(Mod, FuncAri, Expects) ->
     NewExpects.
 
 
-update_clause(Expects, FuncAri, ArgsMatcher, Answer) ->
+update_clause(Expects, FuncAri, ArgsMatcher, RetSpec) ->
     dict:update(FuncAri,
                 fun(Clauses) ->
                         lists:keyreplace(ArgsMatcher, 1, Clauses,
-                                         {ArgsMatcher, Answer})
+                                         {ArgsMatcher, RetSpec})
                 end,
                 Expects).
 
 
-find_match(Args, [{ArgsMatcher, Answer} | Rest]) ->
+find_match(Args, [{ArgsMatcher, RetSpec} | Rest]) ->
     case ArgsMatcher of
         {pattern, _ArgsPattern, MatchSpec} ->
             case ets:match_spec_run([Args], MatchSpec) of
                 [] ->
                     find_match(Args, Rest);
                 _ ->
-                    {ArgsMatcher, Answer}
+                    {ArgsMatcher, RetSpec}
             end;
         {hamcrest, _Matchers} ->
             throw(unimplemented) % TODO Hamcrest support is comming
@@ -672,16 +691,6 @@ arity_2_matcher(Arity) ->
     ArgsPattern = lists:duplicate(Arity, '_'),
     MatchSpec = ets:match_spec_compile([?MATCH_SPEC(ArgsPattern)]),
     {pattern, ArgsPattern, MatchSpec}.
-
-
-ret_spec_2_answer({meck_sequence, Sequence}) when is_list(Sequence) ->
-    {sequence, Sequence};
-ret_spec_2_answer({meck_loop, Loop}) when is_list(Loop) ->
-    {loop, Loop, Loop};
-ret_spec_2_answer({meck_value, Value}) ->
-    {value, Value};
-ret_spec_2_answer(Value) ->
-    {value, Value}.
 
 
 %% --- Code generation ---------------------------------------------------------
@@ -788,12 +797,16 @@ raise(Pid, Mod, Func, Args, Class, Reason) ->
 
 mock_exception_fun(Class, Reason) -> fun() -> {exception, Class, Reason} end.
 
-call_expect(_Mod, _Func, {value, Return}, _Args) ->
-    Return;
-call_expect(_Mod, _Func, {func, Fun}, Args) when is_function(Fun) ->
+call_expect(_Mod, _Func, meck_undefined, _Args) ->
+    erlang:error(function_clause);
+call_expect(_Mod, _Func, {meck_value, Value}, _Args) ->
+    Value;
+call_expect(_Mod, _Func, {meck_func, Fun}, Args) when is_function(Fun) ->
     apply(Fun, Args);
 call_expect(Mod, Func, passthrough, Args) ->
-    apply(original_name(Mod), Func, Args).
+    apply(original_name(Mod), Func, Args);
+call_expect(_Mod, _Func, Value, _Args) ->
+    Value.
 
 inject(_Mod, _Func, _Args, []) ->
     [];
