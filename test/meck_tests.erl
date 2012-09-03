@@ -87,6 +87,7 @@ meck_test_() ->
                            fun ?MODULE:expect_args_pattern_override_/1,
                            fun ?MODULE:expect_args_pattern_shadow_/1,
                            fun ?MODULE:expect_args_pattern_missing_/1,
+                           fun ?MODULE:expect_args_pattern_invalid_/1,
                            fun ?MODULE:expect_ret_specs_/1
                           ]]}.
 
@@ -610,6 +611,14 @@ expect_args_pattern_missing_(Mod) ->
     ?assertError(function_clause, Mod:f(2, 2)),
     ?assertEqual(a, Mod:f(1, 1)),
     ?assertEqual(b, Mod:f(1, 2)).
+
+expect_args_pattern_invalid_(Mod) ->
+    %% When/Then
+    ?assertError({invalid_arity, {{expected, 2},
+                                  {actual, 3},
+                                  {clause, {{pattern, [1, 2, 3], _}, _}}}},
+                 meck:expect(Mod, f, [{[1, 2],    a},
+                                      {[1, 2, 3], b}])).
 
 expect_ret_specs_(Mod) ->
     %% When

@@ -586,11 +586,18 @@ parse_clause_specs(Mod, Func, ClauseSpecs) ->
 parse_clause_specs(Mod, Func, [ClauseSpec | Rest], undefined, []) ->
     {Arity, Clause} = parse_clause_spec(Mod, Func, ClauseSpec),
     parse_clause_specs(Mod, Func, Rest, Arity, [Clause]);
-parse_clause_specs(Mod, Func, [ClauseSpec | Rest], Arity, Clauses) ->
+parse_clause_specs(Mod, Func, [ClauseSpec | Rest], DeducedArity, Clauses) ->
     {Arity, Clause} = parse_clause_spec(Mod, Func, ClauseSpec),
-    parse_clause_specs(Mod, Func, Rest, Arity, [Clause | Clauses]);
-parse_clause_specs(_Mod, _Func, [], Arity, Clauses) ->
-    {Arity, lists:reverse(Clauses)}.
+    case Arity of
+        DeducedArity ->
+            parse_clause_specs(Mod, Func, Rest, DeducedArity, [Clause | Clauses]);
+        _ ->
+            erlang:error({invalid_arity, {{expected, DeducedArity},
+                                          {actual, Arity},
+                                          {clause, Clause}}})
+    end;
+parse_clause_specs(_Mod, _Func, [], DeducedArity, Clauses) ->
+    {DeducedArity, lists:reverse(Clauses)}.
 
 
 parse_clause_spec(Mod, Func, {ArgsPattern, RetSpec}) ->
