@@ -80,6 +80,7 @@ meck_test_() ->
                            fun ?MODULE:sequence_multi_/1,
                            fun ?MODULE:loop_/1,
                            fun ?MODULE:expect_args_value_/1,
+                           fun ?MODULE:expect_args_invalid_call_/1,
                            fun ?MODULE:expect_arity_value_/1,
                            fun ?MODULE:expect_args_loop_/1,
                            fun ?MODULE:expect_arity_loop_/1,
@@ -516,6 +517,12 @@ expect_args_value_(Mod) ->
     %% Then
     ?assertEqual(a, Mod:val(1001)),
     ?assertEqual(a, Mod:val(1001)).
+
+expect_args_invalid_call_(Mod) ->
+    %% When
+    meck:expect(Mod, val, [1001], meck:val(a)),
+    %% Then
+    ?assertError(function_clause, Mod:val(1002)).
 
 expect_arity_value_(Mod) ->
     %% When
