@@ -77,6 +77,7 @@ meck_test_() ->
                            fun ?MODULE:sequence_/1,
                            fun ?MODULE:expect_args_sequence_/1,
                            fun ?MODULE:expect_arity_sequence_/1,
+                           fun ?MODULE:expect_complex_sequence_/1,
                            fun ?MODULE:sequence_multi_/1,
                            fun ?MODULE:loop_/1,
                            fun ?MODULE:expect_args_value_/1,
@@ -84,6 +85,10 @@ meck_test_() ->
                            fun ?MODULE:expect_arity_value_/1,
                            fun ?MODULE:expect_args_loop_/1,
                            fun ?MODULE:expect_arity_loop_/1,
+                           fun ?MODULE:expect_complex_loop_/1,
+                           fun ?MODULE:expect_loop_in_seq_/1,
+                           fun ?MODULE:expect_args_exception_/1,
+                           fun ?MODULE:expect_arity_exception_/1,
                            fun ?MODULE:loop_multi_/1,
                            fun ?MODULE:expect_args_pattern_override_/1,
                            fun ?MODULE:expect_args_pattern_shadow_/1,
@@ -551,6 +556,27 @@ expect_arity_sequence_(Mod) ->
     ?assertEqual(c, Mod:seq(1001)),
     ?assertEqual(c, Mod:seq(1001)).
 
+expect_complex_sequence_(Mod) ->
+    %% When
+    meck:expect(Mod, seq, 1, meck:seq([meck:val(a),
+                                       meck:seq([b, c]),
+                                       meck:seq([meck:raise(error, d),
+                                                 meck:seq([e, f, g]),
+                                                 h,
+                                                 meck:val(i)])])),
+    %% Then
+    ?assertEqual(a, Mod:seq(1001)),
+    ?assertEqual(b, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)),
+    ?assertException(error, d, Mod:seq(1001)),
+    ?assertEqual(e, Mod:seq(1001)),
+    ?assertEqual(f, Mod:seq(1001)),
+    ?assertEqual(g, Mod:seq(1001)),
+    ?assertEqual(h, Mod:seq(1001)),
+    ?assertEqual(i, Mod:seq(1001)),
+    ?assertEqual(i, Mod:seq(1001)),
+    ?assertEqual(i, Mod:seq(1001)).
+
 loop_(Mod) ->
     Loop = [a, b, c, d, e],
     ?assertEqual(ok, meck:loop(Mod, l, 2, Loop)),
@@ -580,6 +606,75 @@ expect_arity_loop_(Mod) ->
     ?assertEqual(b, Mod:loop(1001)),
     ?assertEqual(c, Mod:loop(1001)),
     ?assertEqual(a, Mod:loop(1001)).
+
+expect_complex_loop_(Mod) ->
+    %% When
+    meck:expect(Mod, loop, 1, meck:loop([meck:val(a),
+                                         meck:seq([b, c]),
+                                         meck:seq([meck:raise(error, d),
+                                                   meck:seq([e, f, g]),
+                                                   h,
+                                                   meck:val(i)])])),
+    %% Then
+    ?assertEqual(a, Mod:loop(1001)),
+    ?assertEqual(b, Mod:loop(1001)),
+    ?assertEqual(c, Mod:loop(1001)),
+    ?assertException(error, d, Mod:loop(1001)),
+    ?assertEqual(e, Mod:loop(1001)),
+    ?assertEqual(f, Mod:loop(1001)),
+    ?assertEqual(g, Mod:loop(1001)),
+    ?assertEqual(h, Mod:loop(1001)),
+    ?assertEqual(i, Mod:loop(1001)),
+    %% The second round
+    ?assertEqual(a, Mod:loop(1001)),
+    ?assertEqual(b, Mod:loop(1001)),
+    ?assertEqual(c, Mod:loop(1001)),
+    ?assertException(error, d, Mod:loop(1001)),
+    ?assertEqual(e, Mod:loop(1001)),
+    ?assertEqual(f, Mod:loop(1001)),
+    ?assertEqual(g, Mod:loop(1001)),
+    ?assertEqual(h, Mod:loop(1001)),
+    ?assertEqual(i, Mod:loop(1001)),
+    %% The third round
+    ?assertEqual(a, Mod:loop(1001)).
+
+expect_loop_in_seq_(Mod) ->
+    %% When
+    meck:expect(Mod, seq, 1, meck:seq([meck:val(a),
+                                       meck:loop([b,
+                                                  meck:raise(throw, c),
+                                                  d]),
+                                       meck:val(e), % Never returned
+                                       meck:raise(exit, f)])),
+    %% Then
+    ?assertEqual(a, Mod:seq(1001)),
+    ?assertEqual(b, Mod:seq(1001)),
+    ?assertException(throw, c, Mod:seq(1001)),
+    ?assertEqual(d, Mod:seq(1001)),
+    %% The second round
+    ?assertEqual(b, Mod:seq(1001)),
+    ?assertException(throw, c, Mod:seq(1001)),
+    ?assertEqual(d, Mod:seq(1001)),
+    %% The third round
+    ?assertEqual(b, Mod:seq(1001)).
+
+expect_args_exception_(Mod) ->
+    %% Given
+    meck:expect(Mod, f, [{[1001], meck:raise(error, a)},
+                         {[1002], meck:raise(throw, b)},
+                         {[1003], meck:raise(exit, c)},
+                         {[1004], meck:val(d)}]),
+    %% When/Then
+    ?assertException(error, a, Mod:f(1001)),
+    ?assertException(throw, b, Mod:f(1002)),
+    ?assertException(exit, c, Mod:f(1003)),
+    ?assertMatch(d, Mod:f(1004)).
+
+expect_arity_exception_(Mod) ->
+    %% Given
+    meck:expect(Mod, f, 1, meck:raise(error, a)),
+    %% When/Then
+    ?assertError(a, Mod:f(1001)).
 
 loop_multi_(Mod) ->
     meck:new(mymod2),
