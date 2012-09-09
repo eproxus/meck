@@ -75,9 +75,21 @@ meck_test_() ->
                            fun ?MODULE:num_calls_with_pid_no_args_/1,
                            fun ?MODULE:called_wildcard_/1,
                            fun ?MODULE:sequence_/1,
+                           fun ?MODULE:expect_args_sequence_/1,
+                           fun ?MODULE:expect_arity_sequence_/1,
                            fun ?MODULE:sequence_multi_/1,
                            fun ?MODULE:loop_/1,
-                           fun ?MODULE:loop_multi_/1
+                           fun ?MODULE:expect_args_value_/1,
+                           fun ?MODULE:expect_args_invalid_call_/1,
+                           fun ?MODULE:expect_arity_value_/1,
+                           fun ?MODULE:expect_args_loop_/1,
+                           fun ?MODULE:expect_arity_loop_/1,
+                           fun ?MODULE:loop_multi_/1,
+                           fun ?MODULE:expect_args_pattern_override_/1,
+                           fun ?MODULE:expect_args_pattern_shadow_/1,
+                           fun ?MODULE:expect_args_pattern_missing_/1,
+                           fun ?MODULE:expect_args_pattern_invalid_/1,
+                           fun ?MODULE:expect_ret_specs_/1
                           ]]}.
 
 setup() ->
@@ -499,11 +511,75 @@ sequence_multi_(Mod) ->
                  [mymod2:s(a, b) || _ <- lists:seq(1, 5)]),
     ?assert(meck:validate(Mods)).
 
+expect_args_value_(Mod) ->
+    %% When
+    meck:expect(Mod, val, [1001], meck:val(a)),
+    %% Then
+    ?assertEqual(a, Mod:val(1001)),
+    ?assertEqual(a, Mod:val(1001)).
+
+expect_args_invalid_call_(Mod) ->
+    %% When
+    meck:expect(Mod, val, [1001], meck:val(a)),
+    %% Then
+    ?assertError(function_clause, Mod:val(1002)).
+
+expect_arity_value_(Mod) ->
+    %% When
+    meck:expect(Mod, val, 1, meck:val(a)),
+    %% Then
+    ?assertEqual(a, Mod:val(1001)),
+    ?assertEqual(a, Mod:val(1001)).
+
+expect_args_sequence_(Mod) ->
+    %% When
+    meck:expect(Mod, seq, [1001], meck:seq([a, b, c])),
+    %% Then
+    ?assertEqual(a, Mod:seq(1001)),
+    ?assertEqual(b, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)).
+
+expect_arity_sequence_(Mod) ->
+    %% When
+    meck:expect(Mod, seq, 1, meck:seq([a, b, c])),
+    %% Then
+    ?assertEqual(a, Mod:seq(1001)),
+    ?assertEqual(b, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)).
+
 loop_(Mod) ->
     Loop = [a, b, c, d, e],
     ?assertEqual(ok, meck:loop(Mod, l, 2, Loop)),
     [?assertEqual(V, Mod:l(a, b)) || _ <- lists:seq(1, length(Loop)), V <- Loop],
     ?assert(meck:validate(Mod)).
+
+expect_args_loop_(Mod) ->
+    %% When
+    meck:expect(Mod, loop, [1001], meck:loop([a, b, c])),
+    %% Then
+    ?assertEqual(a, Mod:loop(1001)),
+    ?assertEqual(b, Mod:loop(1001)),
+    ?assertEqual(c, Mod:loop(1001)),
+    ?assertEqual(a, Mod:loop(1001)),
+    ?assertEqual(b, Mod:loop(1001)),
+    ?assertEqual(c, Mod:loop(1001)),
+    ?assertEqual(a, Mod:loop(1001)).
+
+expect_arity_loop_(Mod) ->
+    %% When
+    meck:expect(Mod, loop, 1, meck:loop([a, b, c])),
+    %% Then
+    ?assertEqual(a, Mod:loop(1001)),
+    ?assertEqual(b, Mod:loop(1001)),
+    ?assertEqual(c, Mod:loop(1001)),
+    ?assertEqual(a, Mod:loop(1001)),
+    ?assertEqual(b, Mod:loop(1001)),
+    ?assertEqual(c, Mod:loop(1001)),
+    ?assertEqual(a, Mod:loop(1001)).
 
 loop_multi_(Mod) ->
     meck:new(mymod2),
@@ -513,6 +589,62 @@ loop_multi_(Mod) ->
     [[?assertEqual(V, M:l(a, b)) || _ <- lists:seq(1, length(Loop)), V <- Loop]
      || M <- Mods],
     ?assert(meck:validate(Mods)).
+
+expect_args_pattern_override_(Mod) ->
+    %% When
+    meck:expect(Mod, f, [{[1, 1],     a},
+                         {[1, '_'],   b},
+                         {['_', '_'], c}]),
+    %% Then
+    ?assertEqual(a, Mod:f(1, 1)),
+    ?assertEqual(b, Mod:f(1, 2)),
+    ?assertEqual(c, Mod:f(2, 2)).
+
+expect_args_pattern_shadow_(Mod) ->
+    %% When
+    meck:expect(Mod, f, [{[1, 1],     a},
+                         {['_', '_'], c},
+                         {[1, '_'],   b}]),
+    %% Then
+    ?assertEqual(a, Mod:f(1, 1)),
+    ?assertEqual(c, Mod:f(1, 2)),
+    ?assertEqual(c, Mod:f(2, 2)).
+
+expect_args_pattern_missing_(Mod) ->
+    %% When
+    meck:expect(Mod, f, [{[1, 1],     a},
+                         {[1, '_'],   b}]),
+    %% Then
+    ?assertError(function_clause, Mod:f(2, 2)),
+    ?assertEqual(a, Mod:f(1, 1)),
+    ?assertEqual(b, Mod:f(1, 2)).
+
+expect_args_pattern_invalid_(Mod) ->
+    %% When/Then
+    ?assertError({invalid_arity, {{expected, 2},
+                                  {actual, 3},
+                                  {clause, {{pattern, [1, 2, 3], _}, _}}}},
+                 meck:expect(Mod, f, [{[1, 2],    a},
+                                      {[1, 2, 3], b}])).
+
+expect_ret_specs_(Mod) ->
+    %% When
+    meck:expect(Mod, f, [{[1, 1],     meck:seq([a, b, c])},
+                         {[1, '_'],   meck:loop([d, e])},
+                         {['_', '_'], meck:val(f)}]),
+    %% Then
+    ?assertEqual(d, Mod:f(1, 2)),
+    ?assertEqual(f, Mod:f(2, 2)),
+    ?assertEqual(e, Mod:f(1, 2)),
+    ?assertEqual(a, Mod:f(1, 1)),
+    ?assertEqual(d, Mod:f(1, 2)),
+    ?assertEqual(b, Mod:f(1, 1)),
+    ?assertEqual(c, Mod:f(1, 1)),
+    ?assertEqual(f, Mod:f(2, 2)),
+    ?assertEqual(c, Mod:f(1, 1)),
+    ?assertEqual(e, Mod:f(1, 2)),
+    ?assertEqual(c, Mod:f(1, 1)).
+
 
 %% --- Tests with own setup ----------------------------------------------------
 
