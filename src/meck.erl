@@ -41,6 +41,9 @@
 -export([num_calls/3]).
 -export([num_calls/4]).
 -export([reset/1]).
+-export([verify/3]).
+-export([verify/4]).
+-export([verify/5]).
 
 %% Syntactic sugar
 -export([loop/1]).
@@ -55,6 +58,14 @@
 -export([terminate/2]).
 -export([code_change/3]).
 -export([exec/5]).
+
+% exported to be called by erlang:apply/2
+-export([at_least/2]).
+-export([at_least_once/2]).
+-export([at_most/2]).
+-export([never/2]).
+-export([times/2]).
+
 
 %% Types
 %% @type meck_mfa() = {Mod::atom(), Func::atom(), Args::list(term())}.
@@ -441,6 +452,121 @@ seq(S) when is_list(S) -> {meck_sequence, S}.
 -spec val(Value::term()) -> ret_spec().
 val(Value) -> {meck_value, Value}.
 
+%% @doc Checks that `Mod:Func' with `Args' was called just once.
+%%
+%% The return value of the function is irrelevant. The important thing is that
+%% it throws a runtime error if the checked condition does not holds true.
+%% Therefore there is no need to wrap it in any form of `?assert(...)'. The
+%% funcion call itself is an assertion.
+%%
+%% It is a somewhat equivalent of:
+%% `?assertEquals(1, meck:num_calls(Mod, Fun, Args)).'
+-spec verify(Mod, Fun, Args) -> ok | no_return() when
+      Mod :: atom(),
+      Fun :: atom(),
+      Args :: [term()].
+verify(Mod, Fun, Args) ->
+    verify(1, Mod, Fun, Args, '_').
+
+%% @doc Checks that the number of times that `Mod:Func' with `Args' was called
+%% meets requirements given by `Times'.
+%%
+%% For description of possible `Times' values see {@link verify/5}.
+%%
+%% The return value of the function is irrelevant. The important thing is that
+%% it throws a runtime error if the checked condition does not holds true.
+%% Therefore there is no need to wrap it in any form of `?assert(...)'. The
+%% funcion call itself is an assertion.
+-spec verify(Times, Mod, Fun, Args) -> ok | no_return() when
+      Times :: Count | never | at_least_once | Matcher,
+      Count :: non_neg_integer(),
+      Matcher :: {MatcherSpec, Params},
+      MatcherSpec :: MatcherName | MatcherFun,
+      MatcherName :: times | at_least | at_most,
+      Params :: term() | [term()],
+      MatcherFun :: fun((Actual::non_neg_integer(), Params) -> boolean()),
+      Mod :: atom(),
+      Fun :: atom(),
+      Args :: [term()].
+verify(Times, Mod, Fun, Args) ->
+    verify(Times, Mod, Fun, Args, '_').
+
+%% @doc Checks that the number of times that `Mod:Func' with `Args' was called
+%% by process `Pid' meets requirements given by `Times'.
+%%
+%% Allowed `Times' values and their meaning are outlined in the table below:
+%%
+%% <table border="2">
+%% <tr>
+%% <td>Count</td>
+%% <td>Is a shortcut for `{times, Count}' see below.
+%% </td>
+%% </tr>
+%% <tr>
+%% <td>never</td>
+%% <td>Checks that the function has never been called.
+%% Equivalent to: `?assertEquals(0, num_calls(Mod, Fun, Args, Pid))'</td>
+%% </tr>
+%% <tr>
+%% <td>at_least_once</td>
+%% <td>Checks that the function has been called at least once.
+%% Equivalent to: `?assert(called(Mod, Fun, Args, Pid))'</td>
+%% </tr>
+%% <tr>
+%% <td>{times, Count}</td>
+%% <td>Checks that the function has been called exactly `Count' times.
+%% Equivalent to `?assertEquals(Count, num_calls(Mod, Fun, Args, Pid))'</td>
+%% </tr>
+%% <tr>
+%% <td>{at_least, Count}</td>
+%% <td>Checks that the function has been called at least `Count' times.</td>
+%% </tr>
+%% <tr>
+%% <td>{at_most, Count}</td>
+%% <td>Checks that the function has been called at most `Count' times.</td>
+%% </tr>
+%% <tr>
+%% <td>{MatcherFun, Params}</td>
+%% <td>The following call is made `MatcherFun(Actual, Params)' where `Actual' is
+%% the actual number of calls that has been made. If it returns `true' then
+%% the verification is considered as passed, otherwise a runtime error is
+%% raised.</td>
+%% </tr>
+%% </table><br/>
+%% The return value of the function is irrelevant. The important thing is that
+%% it throws a runtime error if the checked condition does not holds true.
+%% Therefore there is no need to wrap it in any form of `?assert(...)'. The
+%% funcion call itself is an assertion.
+-spec verify(Times, Mod, Fun, Args, Pid) -> ok | no_return() when
+      Times :: Count | never | at_least_once | Matcher,
+      Count :: non_neg_integer(),
+      Matcher :: {MatcherSpec, Params},
+      MatcherSpec :: MatcherName | MatcherFun,
+      MatcherName :: times | never | at_least | at_least_once | at_most,
+      Params :: term() | [term()],
+      MatcherFun :: fun((Actual::non_neg_integer(), Params) -> boolean()),
+      Mod :: atom(),
+      Fun :: atom(),
+      Args :: [term()],
+      Pid :: '_' | pid().
+verify(MatcherName, Mod, Fun, Args, Pid) when is_atom(MatcherName) ->
+    verify({fun ?MODULE:MatcherName/2, []}, Mod, Fun, Args, Pid);
+verify(Exact, Mod, Fun, Args, Pid) when is_number(Exact) ->
+    verify({fun ?MODULE:times/2, Exact}, Mod, Fun, Args, Pid);
+verify({MatcherName, Params}, Mod, Fun, Args, Pid) when is_atom(MatcherName) ->
+    verify({fun ?MODULE:MatcherName/2, Params}, Mod, Fun, Args, Pid);
+verify({MatcherFun, Params}, Mod, Fun, Args, Pid) when is_function(MatcherFun) ->
+    Actual = num_calls({Mod, Fun, Args}, history(Mod, Pid)),
+    {name, MatcherName} = lists:keyfind(name, 1, erlang:fun_info(MatcherFun)),
+    case MatcherFun(Actual, Params) of
+        true ->
+            ok;
+        _ ->
+            error({"Unexpected number of calls",
+                   {pattern, {Mod, Fun, Args}},
+                   {expected, {MatcherName, Params}},
+                   {actual, Actual}})
+    end.
 
 
 %%==============================================================================
@@ -971,3 +1097,21 @@ match_mfa(MFA) -> match_mfa(MFA, '_').
 match_mfa(MFA, Pid) ->
     [?MATCH_SPEC({Pid, MFA, '_'}),
      ?MATCH_SPEC({Pid, MFA, '_', '_', '_'})].
+
+
+%% --- Matchers ----------------------------------------------------------------
+
+%% @hidden
+times(Actual, Expected) -> Actual =:= Expected.
+
+%% @hidden
+never(Actual, _) -> Actual =:= 0.
+
+%% @hidden
+at_least(Actual, Expected) -> Actual >= Expected.
+
+%% @hidden
+at_least_once(Actual, _) -> Actual >= 1.
+
+%% @hidden
+at_most(Actual, Expected) -> Actual =< Expected.
