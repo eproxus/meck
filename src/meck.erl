@@ -74,7 +74,7 @@
                        Reason::term(), Stacktrace::[mfa()]}].
 
 %% @type args_pattern() = [term() | '_'].
-%% Used in {@link expect/3} and {@link expect/4} to defines an expectation by
+%% Used in {@link expect/3} and {@link expect/4} to define an expectation by
 %% an argument pattern. Every list element corresponds to a function argument
 %% at the respective position. '_' is a wildcard that matches any value. The
 %% length of the list defines the arity of the function an expectation is
@@ -82,13 +82,13 @@
 -type args_pattern() :: [term() | '_'].
 
 %% @type ret_spec().
-%% Opaque data structure that defines values to be returned by an expect
-%% function. Values of `ret_spec' are constructed by {@link seq/1},
-%% {@link loop/1}, {@link val/1}, and {@link raise/2} functions. They are used
-%% to specify return values in {@link expect/3} and {@link expect/4} functions.
+%% Opaque data structure that defines values to be returned by expectations.
+%% Values of `ret_spec' are constructed by {@link seq/1}, {@link loop/1},
+%% {@link val/1}, and {@link raise/2} functions. They are used to specify
+%% return values in {@link expect/3} and {@link expect/4} functions.
 -opaque ret_spec() :: {meck_val, term()} |
                       {meck_seq, [term()]} |
-                      {meck_loop, [term()]} |
+                      {meck_loop, [term()], [term()]} |
                       {meck_func, fun()} |
                       {meck_raise, throw | error | exit, term()} |
                       term().
@@ -176,8 +176,7 @@ new(Mod, Options) when is_list(Mod) ->
       Func :: atom(),
       Expect :: StubFun | [ClauseSpec],
       StubFun :: fun(),
-      ClauseSpec :: {args_pattern(), RetSpec},
-      RetSpec :: term() | ret_spec().
+      ClauseSpec :: {args_pattern(), ret_spec()}.
 expect(Mod, Func, StubFun)
   when is_atom(Mod), is_atom(Func), is_function(StubFun) ->
     {arity, Arity} = erlang:fun_info(StubFun, arity),
@@ -203,7 +202,7 @@ expect(Mod, Func, Expect) when is_list(Mod) ->
       Func :: atom(),
       ArgsSpec :: Arity | args_pattern(),
       Arity :: non_neg_integer(),
-      RetSpec :: term() | ret_spec().
+      RetSpec :: ret_spec().
 expect(Mod, Func, Arity, RetSpec)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
     valid_expect(Mod, Func, Arity),
