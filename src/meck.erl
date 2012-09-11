@@ -46,6 +46,7 @@
 -export([loop/1]).
 -export([seq/1]).
 -export([val/1]).
+-export([raise/2]).
 
 %% Callback exports
 -export([init/1]).
@@ -73,7 +74,7 @@
                        Reason::term(), Stacktrace::[mfa()]}].
 
 %% @type args_pattern() = [term() | '_'].
-%% Used in {@link expect/3} and {@link expect/4} to defines an expectation by
+%% Used in {@link expect/3} and {@link expect/4} to define an expectation by
 %% an argument pattern. Every list element corresponds to a function argument
 %% at the respective position. '_' is a wildcard that matches any value. The
 %% length of the list defines the arity of the function an expectation is
@@ -81,14 +82,15 @@
 -type args_pattern() :: [term() | '_'].
 
 %% @type ret_spec().
-%% Opaque data structure that defines values to be returned by an expect
-%% function. Values of `ret_spec' are constructed by {@link seq/1},
-%% {@link loop/1}, and {@link val/1} functions. They are used to specify
+%% Opaque data structure that defines values to be returned by expectations.
+%% Values of `ret_spec' are constructed by {@link seq/1}, {@link loop/1},
+%% {@link val/1}, and {@link raise/2} functions. They are used to specify
 %% return values in {@link expect/3} and {@link expect/4} functions.
 -opaque ret_spec() :: {meck_val, term()} |
-                      {meck_sequence, [term()]} |
-                      {meck_loop, [term()]} |
+                      {meck_seq, [term()]} |
+                      {meck_loop, [term()], [term()]} |
                       {meck_func, fun()} |
+                      {meck_raise, throw | error | exit, term()} |
                       term().
 
 %% Records
@@ -174,8 +176,7 @@ new(Mod, Options) when is_list(Mod) ->
       Func :: atom(),
       Expect :: StubFun | [ClauseSpec],
       StubFun :: fun(),
-      ClauseSpec :: {args_pattern(), RetSpec},
-      RetSpec :: term() | ret_spec().
+      ClauseSpec :: {args_pattern(), ret_spec()}.
 expect(Mod, Func, StubFun)
   when is_atom(Mod), is_atom(Func), is_function(StubFun) ->
     {arity, Arity} = erlang:fun_info(StubFun, arity),
@@ -201,7 +202,7 @@ expect(Mod, Func, Expect) when is_list(Mod) ->
       Func :: atom(),
       ArgsSpec :: Arity | args_pattern(),
       Arity :: non_neg_integer(),
-      RetSpec :: term() | ret_spec().
+      RetSpec :: ret_spec().
 expect(Mod, Func, Arity, RetSpec)
   when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
     valid_expect(Mod, Func, Arity),
@@ -432,7 +433,7 @@ loop(L) when is_list(L) -> {meck_loop, L, L}.
 %% will exhaust the `Sequence' list of return values in order until the last
 %% value is reached. That value is then returned for all subsequent calls.
 -spec seq(Sequence::[term()]) -> ret_spec().
-seq(S) when is_list(S) -> {meck_sequence, S}.
+seq(S) when is_list(S) -> {meck_seq, S}.
 
 
 %% @doc Converts a term into {@link ret_spec()} defining an individual value.
@@ -440,6 +441,16 @@ seq(S) when is_list(S) -> {meck_sequence, S}.
 %% {@link expect/3} function.
 -spec val(Value::term()) -> ret_spec().
 val(Value) -> {meck_value, Value}.
+
+
+%% @doc Creates a {@link ret_spec()} that defines an exception.
+%%
+%% Calls to an expect, created with {@link ret_spec} returned by this function,
+%% will raise the specified exception.
+-spec raise(Class::throw|error|exit, Reason::term) -> ret_spec().
+raise(throw, Reason) -> {meck_raise, throw, Reason};
+raise(error, Reason) -> {meck_raise, error, Reason};
+raise(exit, Reason) -> {meck_raise, exit, Reason}.
 
 
 
@@ -631,23 +642,43 @@ get_expect(Expects, _Mod, FuncAri, Args) ->
     case find_match(Args, dict:fetch(FuncAri, Expects)) of
         not_found ->
             {meck_undefined, Expects};
-        {_ArgsMatcher, {meck_sequence, [Result]}} ->
-            {{meck_value, Result}, Expects};
-        {ArgsMatcher, {meck_sequence, [Result | Rest]}} ->
-            NewExpects = update_clause(Expects, FuncAri, ArgsMatcher,
-                                       {meck_sequence, Rest}),
-            {{meck_value, Result}, NewExpects};
-        {ArgsMatcher, {meck_loop, [Result], Loop}} ->
-            NewExpects = update_clause(Expects, FuncAri, ArgsMatcher,
-                                       {meck_loop, Loop, Loop}),
-            {{meck_value, Result}, NewExpects};
-        {ArgsMatcher, {meck_loop, [Result | Rest], Loop}} ->
-            NewExpects = update_clause(Expects, FuncAri, ArgsMatcher,
-                                       {meck_loop, Rest, Loop}),
-            {{meck_value, Result}, NewExpects};
-        {_ArgsMatcher, RetSpec} ->
-            {RetSpec, Expects}
+        {ArgsMatcher, RetSpec} ->
+            case next_result(RetSpec, []) of
+                {Result, unchanged} ->
+                    {Result, Expects};
+                {Result, NewRetSpec} ->
+                    NewExpects = update_clause(Expects, FuncAri, ArgsMatcher, NewRetSpec),
+                    {Result, NewExpects}
+            end
     end.
+
+
+next_result(RetSpec = {meck_seq, [InnerRs | _Rest]}, Stack) ->
+    next_result(InnerRs, [RetSpec | Stack]);
+next_result(RetSpec = {meck_loop, [InnerRs | _Rest], _Loop}, Stack) ->
+    next_result(InnerRs, [RetSpec | Stack]);
+next_result(LeafRetSpec, Stack) ->
+    {LeafRetSpec, unwind_stack(LeafRetSpec, Stack, false)}.
+
+
+unwind_stack(InnerRs, [], true) ->
+    InnerRs;
+unwind_stack(_InnerRs, [], false) ->
+    unchanged;
+unwind_stack(InnerRs, [CurrRs = {meck_seq, [InnerRs]} | Stack], Updated) ->
+    unwind_stack(CurrRs, Stack, Updated);
+unwind_stack(InnerRs, [{meck_seq, [InnerRs | Rest]} | Stack], _Updated) ->
+    unwind_stack({meck_seq, Rest}, Stack, true);
+unwind_stack(NewInnerRs, [{meck_seq, [_InnerRs | Rest]} | Stack], _Updated) ->
+    unwind_stack({meck_seq, [NewInnerRs | Rest]}, Stack, true);
+unwind_stack(InnerRs, [{meck_loop, [InnerRs], Loop} | Stack], _Updated) ->
+    unwind_stack({meck_loop, Loop, Loop}, Stack, true);
+unwind_stack(InnerRs, [{meck_loop, [InnerRs | Rest], Loop} | Stack],
+             _Updated) ->
+    unwind_stack({meck_loop, Rest, Loop}, Stack, true);
+unwind_stack(NewInnerRs, [{meck_loop, [_InnerRs | Rest], Loop} | Stack],
+             _Updated) ->
+    unwind_stack({meck_loop, [NewInnerRs | Rest], Loop}, Stack, true).
 
 
 store_expect(Mod, FuncAri, Clauses, Expects) ->
@@ -803,6 +834,8 @@ call_expect(_Mod, _Func, {meck_value, Value}, _Args) ->
     Value;
 call_expect(_Mod, _Func, {meck_func, Fun}, Args) when is_function(Fun) ->
     apply(Fun, Args);
+call_expect(_Mod, _Func, {meck_raise, Class, Reason}, _Args) ->
+    exception(Class, Reason);
 call_expect(Mod, Func, passthrough, Args) ->
     apply(original_name(Mod), Func, Args);
 call_expect(_Mod, _Func, Value, _Args) ->
