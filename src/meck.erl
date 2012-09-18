@@ -601,7 +601,7 @@ valid_expect(M, F, A) ->
     end.
 
 init_expects(Mod, Options) ->
-    Passthrough = proplists:get_value(passthrough, Options, false)
+    Passthrough = proplists:get_value(passthrough, Options, false),
     case Passthrough andalso exists(Mod) of
         true -> dict:from_list([passthrough_stub(Func, Arity) ||
                                    {Func, Arity} <- exports(Mod)]);
