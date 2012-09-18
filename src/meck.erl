@@ -1,4 +1,4 @@
-%%==============================================================================
+%%=============================================================================
 %% Copyright 2011 Adam Lindberg & Erlang Solutions Ltd.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +12,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%==============================================================================
+%%=============================================================================
 
 %% @author Adam Lindberg <eproxus@gmail.com>
 %% @copyright 2011, Adam Lindberg & Erlang Solutions Ltd
@@ -107,9 +107,9 @@
 -define(MATCH_SPEC(L), {L, [], ['$_']}).
 
 
-%%==============================================================================
+%%=============================================================================
 %% Interface exports
-%%==============================================================================
+%%=============================================================================
 
 %% @spec new(Mod:: atom() | list(atom())) -> ok
 %% @equiv new(Mod, [])
@@ -454,9 +454,9 @@ raise(exit, Reason) -> {meck_raise, exit, Reason}.
 
 
 
-%%==============================================================================
+%%=============================================================================
 %% Callback functions
-%%==============================================================================
+%%=============================================================================
 
 %% @hidden
 init([Mod, Options]) ->
@@ -542,11 +542,11 @@ exec(Pid, Mod, Func, Arity, Args) ->
         erase('$meck_call')
     end.
 
-%%==============================================================================
+%%=============================================================================
 %% Internal functions
-%%==============================================================================
+%%=============================================================================
 
-%% --- Process functions -------------------------------------------------------
+%% --- Process functions ------------------------------------------------------
 
 start(Mod, Options) ->
     case proplists:is_defined(no_link, Options) of
@@ -591,7 +591,7 @@ unload_if_mocked(P, L) when length(P) > 5 ->
 unload_if_mocked(_P, L) ->
     L.
 
-%% --- Mock handling -----------------------------------------------------------
+%% --- Mock handling ----------------------------------------------------------
 
 valid_expect(M, F, A) ->
     case expect_type(M, F, A) of
@@ -601,7 +601,8 @@ valid_expect(M, F, A) ->
     end.
 
 init_expects(Mod, Options) ->
-    case proplists:get_value(passthrough, Options, false) andalso exists(Mod) of
+    Passthrough = proplists:get_value(passthrough, Options, false)
+    case Passthrough andalso exists(Mod) of
         true -> dict:from_list([passthrough_stub(Func, Arity) ||
                                    {Func, Arity} <- exports(Mod)]);
         _    -> dict:new()
@@ -620,7 +621,8 @@ parse_clause_specs(Mod, Func, [ClauseSpec | Rest], DeducedArity, Clauses) ->
     {Arity, Clause} = parse_clause_spec(Mod, Func, ClauseSpec),
     case Arity of
         DeducedArity ->
-            parse_clause_specs(Mod, Func, Rest, DeducedArity, [Clause | Clauses]);
+            parse_clause_specs(Mod, Func, Rest, DeducedArity,
+                               [Clause | Clauses]);
         _ ->
             erlang:error({invalid_arity, {{expected, DeducedArity},
                                           {actual, Arity},
@@ -647,7 +649,8 @@ get_expect(Expects, _Mod, FuncAri, Args) ->
                 {Result, unchanged} ->
                     {Result, Expects};
                 {Result, NewRetSpec} ->
-                    NewExpects = update_clause(Expects, FuncAri, ArgsMatcher, NewRetSpec),
+                    NewExpects = update_clause(Expects, FuncAri, ArgsMatcher,
+                                               NewRetSpec),
                     {Result, NewExpects}
             end
     end.
@@ -724,7 +727,7 @@ arity_2_matcher(Arity) ->
     {pattern, ArgsPattern, MatchSpec}.
 
 
-%% --- Code generation ---------------------------------------------------------
+%% --- Code generation --------------------------------------------------------
 
 func(Mod, {Func, Arity}, {anon, Arity, Result}) ->
    case contains_opaque(Result) of
@@ -802,7 +805,7 @@ list([H|T]) -> {cons, ?LINE, H, list(T)}.
 var_name(A) -> list_to_atom("A"++integer_to_list(A)).
 
 
-%% --- Execution utilities -----------------------------------------------------
+%% --- Execution utilities ----------------------------------------------------
 
 is_local_function(Fun) ->
     {module, Module} = erlang:fun_info(Fun, module),
@@ -852,7 +855,7 @@ inject(Mod, Func, Args, [H|Stack]) ->
 
 is_mock_exception(Fun) -> is_local_function(Fun).
 
-%% --- Original module handling ------------------------------------------------
+%% --- Original module handling -----------------------------------------------
 
 backup_original(Module, NoPassCover) ->
     Cover = get_cover_state(Module),
@@ -979,7 +982,7 @@ cleanup(Mod) ->
     code:purge(original_name(Mod)),
     code:delete(original_name(Mod)).
 
-%% --- History utilities -------------------------------------------------------
+%% --- History utilities ------------------------------------------------------
 
 add_history(Pid, Mod, Func, Args, Result) ->
     add_history(Mod, {Pid, {Mod, Func, Args}, Result}).

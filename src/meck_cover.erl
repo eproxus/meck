@@ -1,4 +1,4 @@
-%%==============================================================================
+%%=============================================================================
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -10,7 +10,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%==============================================================================
+%%=============================================================================
 
 %% @doc Module containing functions needed by meck to integrate with cover.
 
@@ -20,9 +20,9 @@
 -export([compile_beam/2]).
 -export([rename_module/2]).
 
-%%==============================================================================
+%%=============================================================================
 %% Interface exports
-%%==============================================================================
+%%=============================================================================
 
 %% @doc Enabled cover on `<name>_meck_original'.
 compile_beam(OriginalMod, Bin) ->
@@ -36,9 +36,9 @@ rename_module(File, Name) ->
     write_terms(File, NewTerms),
     ok.
 
-%%==============================================================================
+%%=============================================================================
 %% Internal functions
-%%==============================================================================
+%%=============================================================================
 
 %% @private
 %%
@@ -107,4 +107,3 @@ write_terms(File, Terms) ->
 
 write_term(Fd) ->
     fun(Term) -> cover:write(Term, Fd) end.
-

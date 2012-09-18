@@ -1,4 +1,4 @@
-%%==============================================================================
+%%=============================================================================
 %% Copyright 2010 Erlang Solutions Ltd.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +12,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%==============================================================================
+%%=============================================================================
 
 -module(meck_tests).
 
@@ -108,7 +108,7 @@ setup() ->
 teardown(Module) ->
     catch meck:unload(Module).
 
-%% --- Tests using setup and teardown ------------------------------------------
+%% --- Tests using setup and teardown -----------------------------------------
 
 new_(Mod) ->
     Info = Mod:module_info(),
@@ -198,10 +198,11 @@ stacktrace_function_clause_(Mod) ->
     catch
         error:function_clause ->
             Stacktrace = erlang:get_stacktrace(),
-            ?assert(lists:any(fun({M, test, [error]}) when M == Mod     -> true;
-                                 ({M, test, [error], []}) when M == Mod -> true;
-                                 (_)                                    -> false
-                              end, Stacktrace))
+            ?assert(lists:any(
+                fun ({M, test, [error]}) when M == Mod     -> true;
+                    ({M, test, [error], []}) when M == Mod -> true;
+                    (_)                                    -> false
+                end, Stacktrace))
     end.
 
 
@@ -269,7 +270,8 @@ history_error_(Mod) ->
                  meck:history(Mod)).
 
 history_error_args_(Mod) ->
-    ok = meck:expect(Mod, test, fun() -> erlang:error(test_error, [fake_args]) end),
+    ok = meck:expect(Mod, test,
+                     fun() -> erlang:error(test_error, [fake_args]) end),
     catch Mod:test(),
     History = meck:history(Mod),
     ?assertMatch([{_Pid, {Mod, test, []}, error, test_error, _Stacktrace}],
@@ -280,7 +282,8 @@ history_error_args_(Mod) ->
                          (_) -> false end, Stacktrace)).
 
 history_meck_throw_(Mod) ->
-    ok = meck:expect(Mod, test, fun() -> meck:exception(throw, test_exception) end),
+    ok = meck:expect(Mod, test,
+                     fun() -> meck:exception(throw, test_exception) end),
     catch Mod:test(),
     ?assertMatch([{_Pid, {Mod, test, []}, throw, test_exception, _Stacktrace}],
                  meck:history(Mod)).
@@ -299,7 +302,8 @@ history_meck_exit_(Mod) ->
                  meck:history(Mod)).
 
 history_meck_error_(Mod) ->
-    ok = meck:expect(Mod, test, fun() -> meck:exception(error, test_error) end),
+    ok = meck:expect(Mod, test,
+                     fun() -> meck:exception(error, test_error) end),
     catch Mod:test(),
     ?assertMatch([{_Pid, {Mod, test, []}, error, test_error, _Stacktrace}],
                  meck:history(Mod)).
@@ -319,7 +323,8 @@ history_by_pid_(Mod) ->
     receive {Pid, done} -> ok end,
     ?assertEqual([{Pid, {Mod, test1, []}, ok}], meck:history(Mod, Pid)),
     ?assertEqual([{TestPid, {Mod, test1, []}, ok},
-                  {TestPid, {Mod, test2, []}, ok}], meck:history(Mod, TestPid)),
+                  {TestPid, {Mod, test2, []}, ok}],
+                 meck:history(Mod, TestPid)),
     ?assertEqual(meck:history(Mod), meck:history(Mod, '_')).
 
 reset_(Mod) ->
@@ -929,7 +934,8 @@ unlink_test() ->
     ?assert(not lists:member(self(), Links)),
     ok = meck:unload(mymod).
 
-%% @doc Exception is thrown when you run expect on a non-existing (and not yet mocked) module.
+%% @doc Exception is thrown when you run expect on a non-existing (and not yet
+%% mocked) module.
 expect_without_new_test() ->
     ?assertError({not_mocked, othermod},
                  meck:expect(othermod, test, fun() -> ok end)).
@@ -1120,7 +1126,8 @@ meck_parametrized_module_test() ->
                                  fun(V1, V2) ->
                                      {meck_test_parametrized_module, V1, V2}
                                  end)),
-    ?assertEqual(ok, meck:expect(meck_test_parametrized_module, which, 1, mecked)),
+    ?assertEqual(ok, meck:expect(meck_test_parametrized_module, which, 1,
+                                 mecked)),
     Object = meck_test_parametrized_module:new(var1, var2),
     ?assertEqual(mecked, Object:which()),
     ?assertEqual(ok, meck:unload(meck_test_parametrized_module)).
@@ -1147,9 +1154,9 @@ meck_module_attributes_test() ->
                                     meck_test_module:module_info()))),
     ?assertEqual(ok, meck:unload(meck_test_module)).
 
-%%==============================================================================
+%%=============================================================================
 %% Internal Functions
-%%==============================================================================
+%%=============================================================================
 
 assert_called(Mod, Function, Args, WasCalled) ->
     ?assertEqual(WasCalled, meck:called(Mod, Function, Args)),
