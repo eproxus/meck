@@ -149,13 +149,11 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%                                </dd>
 %%   <dt>`no_history'</dt> <dd>Do not store history of meck calls.
 %%                         </dd>
-%%   <dt>`honest'</dt><dd>A mock created with this option will raise error
-%%                        `{undefined_module, <i>module-name</i>}' if you try to
-%%                        mock a non existent module, and error
-%%                        `{cannot_mock_fake, <i>MFA</i>}' if you try to create
-%%                        an expectation for a non existent or not exported
-%%                        function.
-%%                    </dd>
+%%   <dt>`non_strict'</dt><dd>A mock created with this option will allow setting
+%%                            expectations on functions that are not exported
+%%                            from the mocked module. With this option on it is
+%%                            even possible to mock non existing modules.
+%%                        </dd>
 %% </dl>
 -spec new(Mod:: atom() | [atom()], Options::[term()]) -> ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
@@ -473,17 +471,17 @@ raise(exit, Reason) -> {meck_raise, exit, Reason}.
 
 %% @hidden
 init([Mod, Options]) ->
-    case proplists:get_bool(honest, Options) of
+    case proplists:get_bool(non_strict, Options) of
         true ->
+            init([Mod, Options, any]);
+        _ ->
             try
                 Exports = Mod:module_info(exports),
                 init([Mod, Options, Exports])
             catch
                 error:undef ->
                     {stop, module_undefined}
-            end;
-        _ ->
-            init([Mod, Options, any])
+            end
     end;
 init([Mod, Options, CanExpect]) ->
     WasSticky = case proplists:get_bool(unstick, Options) of
@@ -649,7 +647,7 @@ validate_expect(M, F, A, CanExpect) ->
                 true ->
                     ok;
                 _ ->
-                    {error, {cannot_mock_fake, {M, F, A}}}
+                    {error, {undefined_function, {M, F, A}}}
             end
     end.
 
