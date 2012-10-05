@@ -142,6 +142,10 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%                                      This option allows you to disable that
 %%                                      feature if it causes problems.
 %%                                  </dd>
+%%   <dt>`{spawn_opt, list()}'</dt><dd>Specify Erlang process spawn options.
+%%                                    Typically used to specify non-default,
+%%                                    garbage collection options.
+%%                                </dd>
 %% </dl>
 -spec new(Mod:: atom() | [atom()], Options::[term()]) -> ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
@@ -555,7 +559,8 @@ start(Mod, Options) ->
     end.
 
 start(Func, Mod, Options) ->
-    gen_server:Func({local, proc_name(Mod)}, ?MODULE, [Mod, Options], []).
+    SpawnOpt = proplists:get_value(spawn_opt, Options, []),
+    gen_server:Func({local, proc_name(Mod)}, ?MODULE, [Mod, Options], [{spawn_opt, SpawnOpt}]).
 
 cast(Mod, Msg) -> gen_server(cast, Mod, Msg).
 call(Mod, Msg) -> gen_server(call, Mod, Msg).
