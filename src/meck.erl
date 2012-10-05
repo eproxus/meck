@@ -97,7 +97,7 @@
 -record(state, {mod :: atom(),
                 expects :: dict(),
                 valid = true :: boolean(),
-                history = [] :: history(),
+                history = [] :: history() | undefined,
                 original :: term(),
                 was_sticky :: boolean()}).
 
@@ -146,6 +146,8 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%                                    Typically used to specify non-default,
 %%                                    garbage collection options.
 %%                                </dd>
+%%   <dt>`no_history'</dt> <dd>Do not store history of meck calls.
+%%                         </dd>
 %% </dl>
 -spec new(Mod:: atom() | [atom()], Options::[term()]) -> ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
@@ -471,12 +473,14 @@ init([Mod, Options]) ->
                 end,
     NoPassCover = proplists:get_bool(no_passthrough_cover, Options),
     Original = backup_original(Mod, NoPassCover),
+    NoHistory = proplists:get_bool(no_history, Options),
+    History = if NoHistory -> undefined; true -> [] end,
     process_flag(trap_exit, true),
     Expects = init_expects(Mod, Options),
     try
         _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
         {ok, #state{mod = Mod, expects = Expects, original = Original,
-                    was_sticky = WasSticky}}
+                    was_sticky = WasSticky, history=History}}
     catch
         exit:{error_loading_module, Mod, sticky_directory} ->
             {stop, module_is_sticky}
@@ -495,6 +499,8 @@ handle_call({expect, FuncAri, Clauses}, _From, S) ->
 handle_call({delete, Func, Arity}, _From, S) ->
     NewExpects = delete_expect(S#state.mod, {Func, Arity}, S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
+handle_call(history, _From, #state{history=undefined}=S) ->
+    {reply, [], S};
 handle_call(history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
 handle_call(reset, _From, S) ->
@@ -507,6 +513,8 @@ handle_call(stop, _From, S) ->
     {stop, normal, ok, S}.
 
 %% @hidden
+handle_cast({add_history, _Item}, #state{history=undefined}=S) ->
+    {noreply, S};
 handle_cast({add_history, Item}, S) ->
     {noreply, S#state{history = [Item| S#state.history]}};
 handle_cast(_Msg, S)  ->
