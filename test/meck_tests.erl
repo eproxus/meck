@@ -102,7 +102,7 @@ setup() ->
     % dbg:tracer(),
     % dbg:p(all, call),
     % dbg:tpl(meck, []),
-    ok = meck:new(mymod),
+    ok = meck:new(mymod, [non_strict]),
     mymod.
 
 teardown(Module) ->
@@ -165,7 +165,7 @@ validate_expected_error_(Mod) ->
     ?assertEqual(true, meck:validate(Mod)).
 
 validate_chained_(Mod) ->
-    ok = meck:new(mymod2),
+    ok = meck:new(mymod2, [non_strict]),
     ok = meck:expect(mymod2, test, fun() ->
                                       meck:exception(error, test_error)
                               end),
@@ -507,7 +507,7 @@ sequence_(Mod) ->
     ?assert(meck:validate(Mod)).
 
 sequence_multi_(Mod) ->
-    meck:new(mymod2),
+    meck:new(mymod2, [non_strict]),
     Mods = [Mod, mymod2],
     Sequence = [a, b, c, d, e],
     ?assertEqual(ok, meck:sequence(Mods, s, 2, Sequence)),
@@ -682,7 +682,7 @@ expect_arity_exception_(Mod) ->
     ?assertError(a, Mod:f(1001)).
 
 loop_multi_(Mod) ->
-    meck:new(mymod2),
+    meck:new(mymod2, [non_strict]),
     Mods = [Mod, mymod2],
     Loop = [a, b, c, d, e],
     ?assertEqual(ok, meck:loop(Mods, l, 2, Loop)),
@@ -748,6 +748,19 @@ expect_ret_specs_(Mod) ->
 
 %% --- Tests with own setup ----------------------------------------------------
 
+undefined_module_test() ->
+    %% When/Then
+    ?assertError(undefined_module, meck:new(blah, [no_link])).
+
+undefined_function_test() ->
+    %% Given
+    meck:new(meck_test_module),
+    %% When/Then
+    meck:expect(meck_test_module, b, 0, ok),
+    ?assertError({undefined_function, {meck_test_module, b, 1}},
+                 meck:expect(meck_test_module, b, 1, ok)),
+    meck:unload(meck_test_module).
+
 call_original_test() ->
     false = code:purge(meck_test_module),
     ?assertEqual({module, meck_test_module}, code:load_file(meck_test_module)),
@@ -766,7 +779,7 @@ unload_renamed_original_test() ->
 
 unload_all_test() ->
     Mods = [test_a, test_b, test_c, test_d, test_e],
-    ok = meck:new(Mods),
+    ok = meck:new(Mods, [non_strict]),
     ?assertEqual(lists:sort(Mods), lists:sort(meck:unload())),
     [?assertEqual(false, code:is_loaded(M)) || M <- Mods].
 
@@ -785,7 +798,7 @@ original_has_no_object_code_test() ->
     ok = meck:unload(meck_on_disk).
 
 passthrough_nonexisting_module_test() ->
-    ok = meck:new(mymod, [passthrough]),
+    ok = meck:new(mymod, [passthrough, non_strict]),
     ok = meck:expect(mymod, test, fun() -> ok end),
     ?assertEqual(ok, mymod:test()),
     ok = meck:unload(mymod).
@@ -915,7 +928,7 @@ cover_passthrough_test() ->
 
 % @doc The mocked module is unloaded if the meck process crashes.
 unload_when_crashed_test() ->
-    ok = meck:new(mymod),
+    ok = meck:new(mymod, [non_strict]),
     ?assertMatch({file, _}, code:is_loaded(mymod)),
     SaltedName = mymod_meck,
     Pid = whereis(SaltedName),
@@ -928,7 +941,7 @@ unload_when_crashed_test() ->
 
 % @doc The mocked module is unloaded if the meck process crashes.
 unlink_test() ->
-    ok = meck:new(mymod, [no_link]),
+    ok = meck:new(mymod, [no_link, non_strict]),
     SaltedName = mymod_meck,
     {links, Links} = process_info(whereis(SaltedName), links),
     ?assert(not lists:member(self(), Links)),
@@ -952,7 +965,7 @@ history_passthrough_test() ->
 
 multi_test() ->
     Mods = [mod1, mod2, mod3],
-    ok = meck:new(Mods),
+    ok = meck:new(Mods, [non_strict]),
     ok = meck:expect(Mods, test, fun() -> ok end),
     ok = meck:expect(Mods, test2, 0, ok),
     [?assertEqual(ok, M:test()) || M <- Mods],
@@ -961,7 +974,7 @@ multi_test() ->
 
 multi_invalid_test() ->
     Mods = [mod1, mod2, mod3],
-    ok = meck:new(Mods),
+    ok = meck:new(Mods, [non_strict]),
     ok = meck:expect(Mods, test, fun(1) -> ok end),
     ?assertError(function_clause, mod2:test(2)),
     ?assert(not meck:validate(Mods)),
@@ -969,7 +982,7 @@ multi_invalid_test() ->
 
 multi_option_test() ->
     Mods = [mod1, mod2, mod3],
-    ok = meck:new(Mods, [passthrough]),
+    ok = meck:new(Mods, [passthrough, non_strict]),
     ok = meck:expect(Mods, test, fun() -> ok end),
     [?assertEqual(ok, M:test()) || M <- Mods],
     ?assert(meck:validate(Mods)),
@@ -977,7 +990,7 @@ multi_option_test() ->
 
 multi_shortcut_test() ->
     Mods = [mod1, mod2, mod3],
-    ok = meck:new(Mods),
+    ok = meck:new(Mods, [non_strict]),
     ok = meck:expect(Mods, test, 0, ok),
     [?assertEqual(ok, M:test()) || M <- Mods],
     ?assert(meck:validate(Mods)),
@@ -985,7 +998,7 @@ multi_shortcut_test() ->
 
 multi_delete_test() ->
     Mods = [mod1, mod2, mod3],
-    ok = meck:new(Mods),
+    ok = meck:new(Mods, [non_strict]),
     ok = meck:expect(Mods, test, 0, ok),
     ?assertEqual(ok, meck:delete(Mods, test, 0)),
     [?assertError(undef, M:test()) || M <- Mods],
@@ -995,7 +1008,7 @@ multi_delete_test() ->
 multi_reset_test() ->
     % Given
     Mods = [mod1, mod2, mod3],
-    meck:new(Mods),
+    meck:new(Mods, [non_strict]),
     meck:expect(Mods, test1, 0, ok),
     meck:expect(Mods, test2, 0, ok),
     mod1:test1(),
@@ -1042,7 +1055,7 @@ remote_teardown({Node, _Mod}) ->
     ok = slave:stop(Node).
 
 remote_meck_({Node, Mod}) ->
-    ?assertEqual(ok, rpc:call(Node, meck, new, [Mod, [no_link]])),
+    ?assertEqual(ok, rpc:call(Node, meck, new, [Mod, [no_link, non_strict]])),
     ?assertEqual(ok, rpc:call(Node, meck, expect, [Mod, test, 0, true])),
     ?assertEqual(true, rpc:call(Node, Mod, test, [])).
 
