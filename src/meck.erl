@@ -480,7 +480,7 @@ init([Mod, Options]) ->
                 init([Mod, Options, Exports])
             catch
                 error:undef ->
-                    {stop, module_undefined}
+                    {stop, undefined_module}
             end
     end;
 init([Mod, Options, CanExpect]) ->
@@ -644,10 +644,8 @@ validate_expect(M, F, A, CanExpect) ->
             {error, {cannot_mock_builtin, {M, F, A}}};
         normal ->
             case CanExpect =:= any orelse lists:member({F, A}, CanExpect) of
-                true ->
-                    ok;
-                _ ->
-                    {error, {undefined_function, {M, F, A}}}
+                true -> ok;
+                _ -> {error, {undefined_function, {M, F, A}}}
             end
     end.
 
