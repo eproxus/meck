@@ -526,7 +526,7 @@ handle_call({expect, FuncAri = {Func, Ari}, Clauses}, _From, S) ->
 handle_call({delete, Func, Arity}, _From, S) ->
     NewExpects = delete_expect(S#state.mod, {Func, Arity}, S#state.expects),
     {reply, ok, S#state{expects = NewExpects}};
-handle_call(history, _From, #state{history=undefined}=S) ->
+handle_call(history, _From, S = #state{history = undefined}) ->
     {reply, [], S};
 handle_call(history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
@@ -540,7 +540,7 @@ handle_call(stop, _From, S) ->
     {stop, normal, ok, S}.
 
 %% @hidden
-handle_cast({add_history, _Item}, #state{history=undefined}=S) ->
+handle_cast({add_history, _Item}, S = #state{history = undefined}) ->
     {noreply, S};
 handle_cast({add_history, Item}, S) ->
     {noreply, S#state{history = [Item| S#state.history]}};
@@ -595,7 +595,8 @@ start(Mod, Options) ->
 
 start(Func, Mod, Options) ->
     SpawnOpt = proplists:get_value(spawn_opt, Options, []),
-    gen_server:Func({local, proc_name(Mod)}, ?MODULE, [Mod, Options], [{spawn_opt, SpawnOpt}]).
+    gen_server:Func({local, proc_name(Mod)}, ?MODULE, [Mod, Options],
+                    [{spawn_opt, SpawnOpt}]).
 
 cast(Mod, Msg) -> gen_server(cast, Mod, Msg).
 call(Mod, Msg) -> gen_server(call, Mod, Msg).
