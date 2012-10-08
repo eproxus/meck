@@ -130,7 +130,8 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %% The valid options are:
 %% <dl>
 %%   <dt>`passthrough'</dt><dd>Retains the original functions, if not
-%%                             mocked by meck.</dd>
+%%                             mocked by meck. If used along with `stub_all'
+%%                             then `stub_all' is ignored.</dd>
 %%   <dt>`no_link'</dt>    <dd>Does not link the meck process to the caller
 %%                             process (needed for using meck in rpc calls).
 %%                         </dd>
@@ -154,6 +155,11 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%                            from the mocked module. With this option on it is
 %%                            even possible to mock non existing modules.
 %%                        </dd>
+%%   <dt>`stub_all'</dt> <dd>Stubs all functions exported from the mocked
+%%                           module. The stubs made return `meck_stub'
+%%                           regardless of arguments passed in. If used along
+%%                           with `passthrough' then `stub_all' is ignored.
+%%                       </dd>
 %% </dl>
 -spec new(Mod:: atom() | [atom()], Options::[term()]) -> ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
@@ -471,19 +477,7 @@ raise(exit, Reason) -> {meck_raise, exit, Reason}.
 
 %% @hidden
 init([Mod, Options]) ->
-    case proplists:get_bool(non_strict, Options) of
-        true ->
-            init([Mod, Options, any]);
-        _ ->
-            try
-                Exports = Mod:module_info(exports),
-                init([Mod, Options, Exports])
-            catch
-                error:undef ->
-                    {stop, undefined_module}
-            end
-    end;
-init([Mod, Options, CanExpect]) ->
+    Exports = normal_exports(Mod),
     WasSticky = case proplists:get_bool(unstick, Options) of
                     true -> {module, Mod} = code:ensure_loaded(Mod),
                             unstick_original(Mod);
@@ -493,8 +487,9 @@ init([Mod, Options, CanExpect]) ->
     Original = backup_original(Mod, NoPassCover),
     NoHistory = proplists:get_bool(no_history, Options),
     History = if NoHistory -> undefined; true -> [] end,
+    CanExpect = resolve_can_expect(Exports, Options),
+    Expects = init_expects(Exports, Options),
     process_flag(trap_exit, true),
-    Expects = init_expects(Mod, Options),
     try
         _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
         {ok, #state{mod = Mod,
@@ -513,12 +508,11 @@ handle_call({get_expect, FuncAri, Args}, _From, S) ->
     {Expect, NewExpects} = get_expect(S#state.expects, S#state.mod, FuncAri,
                                       Args),
     {reply, Expect, S#state{expects = NewExpects}};
-handle_call({expect, FuncAri = {Func, Ari}, Clauses}, _From, S) ->
-    case validate_expect(S#state.mod, Func, Ari, S#state.can_expect) of
+handle_call({expect, FuncAri = {Func, Ari}, Clauses}, _From,
+            S = #state{mod = Mod, expects = Expects}) ->
+    case validate_expect(Mod, Func, Ari, S#state.can_expect) of
         ok ->
-            NewExpects = store_expect(S#state.mod, FuncAri,
-                                      Clauses,
-                                      S#state.expects),
+            NewExpects = store_expect(Mod, FuncAri, Clauses, Expects),
             {reply, ok, S#state{expects = NewExpects}};
         {error, Reason} ->
             {reply, {error, Reason}, S}
@@ -646,20 +640,39 @@ validate_expect(M, F, A, CanExpect) ->
         normal ->
             case CanExpect =:= any orelse lists:member({F, A}, CanExpect) of
                 true -> ok;
-                _ -> {error, {undefined_function, {M, F, A}}}
+                _    -> {error, {undefined_function, {M, F, A}}}
             end
     end.
 
-init_expects(Mod, Options) ->
-    Passthrough = proplists:get_value(passthrough, Options, false),
-    case Passthrough andalso exists(Mod) of
-        true -> dict:from_list([passthrough_stub(Func, Arity) ||
-                                   {Func, Arity} <- exports(Mod)]);
-        _    -> dict:new()
+resolve_can_expect(Exports, Options) ->
+    NonStrict = proplists:get_bool(non_strict, Options),
+    case {Exports, NonStrict} of
+        {_, true}      -> any;
+        {undefined, _} -> erlang:exit(undefined_module);
+        _              -> Exports
     end.
 
-passthrough_stub(Func, Arity) ->
+init_expects(Exports, Options) ->
+    Passthrough = proplists:get_bool(passthrough, Options),
+    StubAll = proplists:get_bool(stub_all, Options),
+    Expects = case {Exports, Passthrough, StubAll} of
+                  {undefined, _, _} ->
+                      [];
+                  {Exports, true, _} ->
+                      [passthrough_stub(FuncArity) || FuncArity <- Exports];
+                  {Exports, _, true}->
+                      [void_stub(FuncArity) || FuncArity <- Exports];
+                  _ ->
+                      []
+              end,
+    dict:from_list(Expects).
+
+passthrough_stub({Func, Arity}) ->
     {{Func, Arity}, [{arity_2_matcher(Arity), passthrough}]}.
+
+void_stub({Func, Arity}) ->
+    {{Func, Arity}, [{arity_2_matcher(Arity), meck:val(meck_stub)}]}.
+
 
 parse_clause_specs(ClauseSpecs) ->
     parse_clause_specs(ClauseSpecs, undefined, []).
@@ -1009,12 +1022,13 @@ get_cover_state(Module, {file, File}) ->
 get_cover_state(_Module, _IsCompiled) ->
     false.
 
-exists(Module) ->
-    code:which(Module) /= non_existing.
-
-exports(M) ->
-    [ FA ||  FA = {F, A}  <- M:module_info(exports),
-             normal == expect_type(M, F, A)].
+normal_exports(M) ->
+    try
+        [FA || FA = {F, A} <- M:module_info(exports),
+            normal == expect_type(M, F, A)]
+    catch
+        error:undef -> undefined
+    end.
 
 %% Functions we should not create expects for (auto-generated and BIFs)
 expect_type(_, module_info, 0) -> autogenerated;
