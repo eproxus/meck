@@ -857,23 +857,29 @@ stub_all_overridden_by_passthrough_test() ->
     ?assertEqual(a, meck_test_module:a()),
     ok = meck:unload(meck_test_module).
 
-passthrough_file_bif_test() ->
-    NeverExists = "/proc/0", %% 0 is invalid
-    AlwaysExists = "/proc/1", %% 1 is init
-    ?assertEqual({error, enoent}, file:read_file_info(NeverExists)),
-    ?assertMatch({ok, _}, file:read_file_info(AlwaysExists)),
-    {ok, ExistsInfo} = file:read_file_info(AlwaysExists),
-    {setup,local,
-        fun() -> ok = meck:new(file, [unstick, passthrough]) end,
-        fun(_) -> ok = meck:unload(file) end,
-        ?_test(begin
-            ?assertEqual(ok, meck:expect(file, read_file_info, fun
-                (Path) when Path =:= NeverExists -> {ok, no_info};
-                (Path) when Path =:= AlwaysExists -> meck:passthrough([Path]) end)),
-            ?assertEqual([], meck:history(file)),
-            ?assertEqual({ok, no_info}, file:read_file_info(NeverExists)),
-            ?assertEqual({ok, ExistsInfo}, file:read_file_info(AlwaysExists))
-        end)}.
+mock_file_existing_test() ->
+    %% Given
+    ExistingFile = atom_to_list(?MODULE) ++ ".erl",
+    {ok, ExistsInfo} = file:read_file_info(ExistingFile),
+    meck:new(file, [unstick, passthrough]),
+    %% When
+    meck:expect(file, read_file_info, fun(Path) -> meck:passthrough([Path]) end),
+    %% Then
+    ?assertEqual({ok, ExistsInfo}, file:read_file_info(ExistingFile)),
+    %% Cleanup
+    meck:unload(file).
+
+mock_file_missing_test() ->
+    %% Given
+    MissingFile = "blah.erl",
+    {error, enoent} = file:read_file_info(MissingFile),
+    meck:new(file, [unstick, passthrough]),
+    %% When
+    meck:expect(file, read_file_info, 1, {ok, no_info}),
+    %% Then
+    ?assertEqual({ok, no_info}, file:read_file_info(MissingFile)),
+    %% Cleanup
+    meck:unload(file).
 
 cover_test() ->
     {ok, _} = cover:compile("../test/meck_test_module.erl"),
