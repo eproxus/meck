@@ -85,7 +85,8 @@
 %% Opaque data structure that defines values to be returned by expectations.
 %% Values of `ret_spec' are constructed by {@link seq/1}, {@link loop/1},
 %% {@link val/1}, and {@link raise/2} functions. They are used to specify
-%% return values in {@link expect/3} and {@link expect/4} functions.
+%% return values in {@link expect/3} and {@link expect/4} functions, and also
+%% as the parameter of the `stub_all' option of {@link new/2} function.
 -opaque ret_spec() :: {meck_val, term()} |
                       {meck_seq, [term()]} |
                       {meck_loop, [term()], [term()]} |
@@ -129,37 +130,41 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%
 %% The valid options are:
 %% <dl>
-%%   <dt>`passthrough'</dt><dd>Retains the original functions, if not
-%%                             mocked by meck. If used along with `stub_all'
-%%                             then `stub_all' is ignored.</dd>
-%%   <dt>`no_link'</dt>    <dd>Does not link the meck process to the caller
-%%                             process (needed for using meck in rpc calls).
-%%                         </dd>
-%%   <dt>`unstick'</dt>    <dd>Unstick the module to be mocked (e.g. needed
-%%                             for using meck with kernel and stdlib modules).
-%%                         </dd>
-%%   <dt>`no_passthrough_cover'</dt><dd>If cover is enabled on the module to be
-%%                                      mocked then meck will continue to
-%%                                      capture coverage on passthrough calls.
-%%                                      This option allows you to disable that
-%%                                      feature if it causes problems.
-%%                                  </dd>
-%%   <dt>`{spawn_opt, list()}'</dt><dd>Specify Erlang process spawn options.
-%%                                    Typically used to specify non-default,
-%%                                    garbage collection options.
-%%                                </dd>
-%%   <dt>`no_history'</dt> <dd>Do not store history of meck calls.
-%%                         </dd>
-%%   <dt>`non_strict'</dt><dd>A mock created with this option will allow setting
-%%                            expectations on functions that are not exported
-%%                            from the mocked module. With this option on it is
-%%                            even possible to mock non existing modules.
-%%                        </dd>
-%%   <dt>`stub_all'</dt> <dd>Stubs all functions exported from the mocked
-%%                           module. The stubs made return `meck_stub'
-%%                           regardless of arguments passed in. If used along
-%%                           with `passthrough' then `stub_all' is ignored.
-%%                       </dd>
+%%   <dt>`passthrough'</dt>
+%%   <dd>Retains the original functions, if not mocked by meck. If used along
+%%       with `stub_all' then `stub_all' is ignored.</dd>
+%%
+%%   <dt>`no_link'</dt>
+%%   <dd>Does not link the meck process to the caller process (needed for using
+%%       meck in rpc calls).</dd>
+%%
+%%   <dt>`unstick'</dt>
+%%   <dd>Unstick the module to be mocked (e.g. needed for using meck with
+%%       kernel and stdlib modules).</dd>
+%%
+%%   <dt>`no_passthrough_cover'</dt>
+%%   <dd>If cover is enabled on the module to be mocked then meck will continue
+%%       to capture coverage on passthrough calls. This option allows you to
+%%       disable that feature if it causes problems.</dd>
+%%
+%%   <dt>`{spawn_opt, list()}'</dt>
+%%   <dd>Specify Erlang process spawn options. Typically used to specify
+%%       non-default, garbage collection options.</dd>
+%%
+%%   <dt>`no_history'</dt>
+%%   <dd>Do not store history of meck calls.</dd>
+%%
+%%   <dt>`non_strict'</dt>
+%%   <dd>A mock created with this option will allow setting expectations on
+%%       functions that are not exported from the mocked module. With this
+%%       option on it is even possible to mock non existing modules.</dd>
+%%
+%%   <dt>`{stub_all, '{@link ret_spec()}`}'</dt>
+%%   <dd>Stubs all functions exported from the mocked module. The stubs will
+%%       return whatever defined by {@link ret_spec()} regardless of arguments
+%%       passed in. It is possible to specify this option as just `stub_all'
+%%       then stubs will return atom `ok'. If used along with `passthrough'
+%%       then `stub_all' is ignored. </dd>
 %% </dl>
 -spec new(Mod:: atom() | [atom()], Options::[term()]) -> ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
@@ -435,7 +440,7 @@ reset(Mods) when is_list(Mods) ->
 %% values. It is intended to be in construction of clause specs for the
 %% {@link expect/3} function.
 %%
-%% Calls to an expect, created with {@link ret_spec} returned by this function,
+%% Calls to an expect, created with {@link ret_spec()} returned by this function,
 %% will return one element at a time from the `Loop' list and will restart at
 %% the first element when the end is reached.
 -spec loop(Loop::[term()]) -> ret_spec().
@@ -654,24 +659,26 @@ resolve_can_expect(Exports, Options) ->
 
 init_expects(Exports, Options) ->
     Passthrough = proplists:get_bool(passthrough, Options),
-    StubAll = proplists:get_bool(stub_all, Options),
-    Expects = case {Exports, Passthrough, StubAll} of
-                  {undefined, _, _} ->
+    StubRet = proplists:get_value(stub_all, Options),
+    Expects = case Exports of
+                  undefined ->
                       [];
-                  {Exports, true, _} ->
+                  Exports when Passthrough ->
                       [passthrough_stub(FuncArity) || FuncArity <- Exports];
-                  {Exports, _, true}->
-                      [void_stub(FuncArity) || FuncArity <- Exports];
-                  _ ->
-                      []
+                  Exports when StubRet =:= undefined ->
+                      [];
+                  Exports when StubRet =:= true ->
+                      [void_stub(FuncArity, val(ok)) || FuncArity <- Exports];
+                  Exports ->
+                      [void_stub(FuncArity, StubRet) || FuncArity <- Exports]
               end,
     dict:from_list(Expects).
 
 passthrough_stub({Func, Arity}) ->
     {{Func, Arity}, [{arity_2_matcher(Arity), passthrough}]}.
 
-void_stub({Func, Arity}) ->
-    {{Func, Arity}, [{arity_2_matcher(Arity), meck:val(meck_stub)}]}.
+void_stub({Func, Arity}, RetSpec) ->
+    {{Func, Arity}, [{arity_2_matcher(Arity), RetSpec}]}.
 
 
 parse_clause_specs(ClauseSpecs) ->
