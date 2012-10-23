@@ -85,7 +85,8 @@
 %% Opaque data structure that defines values to be returned by expectations.
 %% Values of `ret_spec' are constructed by {@link seq/1}, {@link loop/1},
 %% {@link val/1}, and {@link raise/2} functions. They are used to specify
-%% return values in {@link expect/3} and {@link expect/4} functions.
+%% return values in {@link expect/3} and {@link expect/4} functions, and also
+%% as the parameter of the `stub_all' option of {@link new/2} function.
 -opaque ret_spec() :: {meck_val, term()} |
                       {meck_seq, [term()]} |
                       {meck_loop, [term()], [term()]} |
@@ -129,31 +130,41 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%
 %% The valid options are:
 %% <dl>
-%%   <dt>`passthrough'</dt><dd>Retains the original functions, if not
-%%                             mocked by meck.</dd>
-%%   <dt>`no_link'</dt>    <dd>Does not link the meck process to the caller
-%%                             process (needed for using meck in rpc calls).
-%%                         </dd>
-%%   <dt>`unstick'</dt>    <dd>Unstick the module to be mocked (e.g. needed
-%%                             for using meck with kernel and stdlib modules).
-%%                         </dd>
-%%   <dt>`no_passthrough_cover'</dt><dd>If cover is enabled on the module to be
-%%                                      mocked then meck will continue to
-%%                                      capture coverage on passthrough calls.
-%%                                      This option allows you to disable that
-%%                                      feature if it causes problems.
-%%                                  </dd>
-%%   <dt>`{spawn_opt, list()}'</dt><dd>Specify Erlang process spawn options.
-%%                                    Typically used to specify non-default,
-%%                                    garbage collection options.
-%%                                </dd>
-%%   <dt>`no_history'</dt> <dd>Do not store history of meck calls.
-%%                         </dd>
-%%   <dt>`non_strict'</dt><dd>A mock created with this option will allow setting
-%%                            expectations on functions that are not exported
-%%                            from the mocked module. With this option on it is
-%%                            even possible to mock non existing modules.
-%%                        </dd>
+%%   <dt>`passthrough'</dt>
+%%   <dd>Retains the original functions, if not mocked by meck. If used along
+%%       with `stub_all' then `stub_all' is ignored.</dd>
+%%
+%%   <dt>`no_link'</dt>
+%%   <dd>Does not link the meck process to the caller process (needed for using
+%%       meck in rpc calls).</dd>
+%%
+%%   <dt>`unstick'</dt>
+%%   <dd>Unstick the module to be mocked (e.g. needed for using meck with
+%%       kernel and stdlib modules).</dd>
+%%
+%%   <dt>`no_passthrough_cover'</dt>
+%%   <dd>If cover is enabled on the module to be mocked then meck will continue
+%%       to capture coverage on passthrough calls. This option allows you to
+%%       disable that feature if it causes problems.</dd>
+%%
+%%   <dt>`{spawn_opt, list()}'</dt>
+%%   <dd>Specify Erlang process spawn options. Typically used to specify
+%%       non-default, garbage collection options.</dd>
+%%
+%%   <dt>`no_history'</dt>
+%%   <dd>Do not store history of meck calls.</dd>
+%%
+%%   <dt>`non_strict'</dt>
+%%   <dd>A mock created with this option will allow setting expectations on
+%%       functions that are not exported from the mocked module. With this
+%%       option on it is even possible to mock non existing modules.</dd>
+%%
+%%   <dt>`{stub_all, '{@link ret_spec()}`}'</dt>
+%%   <dd>Stubs all functions exported from the mocked module. The stubs will
+%%       return whatever defined by {@link ret_spec()} regardless of arguments
+%%       passed in. It is possible to specify this option as just `stub_all'
+%%       then stubs will return atom `ok'. If used along with `passthrough'
+%%       then `stub_all' is ignored. </dd>
 %% </dl>
 -spec new(Mod:: atom() | [atom()], Options::[term()]) -> ok.
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
@@ -429,7 +440,7 @@ reset(Mods) when is_list(Mods) ->
 %% values. It is intended to be in construction of clause specs for the
 %% {@link expect/3} function.
 %%
-%% Calls to an expect, created with {@link ret_spec} returned by this function,
+%% Calls to an expect, created with {@link ret_spec()} returned by this function,
 %% will return one element at a time from the `Loop' list and will restart at
 %% the first element when the end is reached.
 -spec loop(Loop::[term()]) -> ret_spec().
@@ -471,19 +482,7 @@ raise(exit, Reason) -> {meck_raise, exit, Reason}.
 
 %% @hidden
 init([Mod, Options]) ->
-    case proplists:get_bool(non_strict, Options) of
-        true ->
-            init([Mod, Options, any]);
-        _ ->
-            try
-                Exports = Mod:module_info(exports),
-                init([Mod, Options, Exports])
-            catch
-                error:undef ->
-                    {stop, undefined_module}
-            end
-    end;
-init([Mod, Options, CanExpect]) ->
+    Exports = normal_exports(Mod),
     WasSticky = case proplists:get_bool(unstick, Options) of
                     true -> {module, Mod} = code:ensure_loaded(Mod),
                             unstick_original(Mod);
@@ -493,8 +492,9 @@ init([Mod, Options, CanExpect]) ->
     Original = backup_original(Mod, NoPassCover),
     NoHistory = proplists:get_bool(no_history, Options),
     History = if NoHistory -> undefined; true -> [] end,
+    CanExpect = resolve_can_expect(Exports, Options),
+    Expects = init_expects(Exports, Options),
     process_flag(trap_exit, true),
-    Expects = init_expects(Mod, Options),
     try
         _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
         {ok, #state{mod = Mod,
@@ -513,12 +513,11 @@ handle_call({get_expect, FuncAri, Args}, _From, S) ->
     {Expect, NewExpects} = get_expect(S#state.expects, S#state.mod, FuncAri,
                                       Args),
     {reply, Expect, S#state{expects = NewExpects}};
-handle_call({expect, FuncAri = {Func, Ari}, Clauses}, _From, S) ->
-    case validate_expect(S#state.mod, Func, Ari, S#state.can_expect) of
+handle_call({expect, FuncAri = {Func, Ari}, Clauses}, _From,
+            S = #state{mod = Mod, expects = Expects}) ->
+    case validate_expect(Mod, Func, Ari, S#state.can_expect) of
         ok ->
-            NewExpects = store_expect(S#state.mod, FuncAri,
-                                      Clauses,
-                                      S#state.expects),
+            NewExpects = store_expect(Mod, FuncAri, Clauses, Expects),
             {reply, ok, S#state{expects = NewExpects}};
         {error, Reason} ->
             {reply, {error, Reason}, S}
@@ -646,20 +645,43 @@ validate_expect(M, F, A, CanExpect) ->
         normal ->
             case CanExpect =:= any orelse lists:member({F, A}, CanExpect) of
                 true -> ok;
-                _ -> {error, {undefined_function, {M, F, A}}}
+                _    -> {error, {undefined_function, {M, F, A}}}
             end
     end.
 
-init_expects(Mod, Options) ->
-    Passthrough = proplists:get_value(passthrough, Options, false),
-    case Passthrough andalso exists(Mod) of
-        true -> dict:from_list([passthrough_stub(Func, Arity) ||
-                                   {Func, Arity} <- exports(Mod)]);
-        _    -> dict:new()
+resolve_can_expect(Exports, Options) ->
+    NonStrict = proplists:get_bool(non_strict, Options),
+    case {Exports, NonStrict} of
+        {_, true}      -> any;
+        {undefined, _} -> erlang:exit(undefined_module);
+        _              -> Exports
     end.
 
-passthrough_stub(Func, Arity) ->
+init_expects(Exports, Options) ->
+    Passthrough = proplists:get_bool(passthrough, Options),
+    StubAll = proplists:is_defined(stub_all, Options),
+    Expects = case Exports of
+                  undefined ->
+                      [];
+                  Exports when Passthrough ->
+                      [passthrough_stub(FuncArity) || FuncArity <- Exports];
+                  Exports when StubAll ->
+                      StubRet = case lists:keyfind(stub_all, 1, Options) of
+                                    {stub_all, RetSpec} -> RetSpec;
+                                    _ -> val(ok)
+                                end,
+                      [void_stub(FuncArity, StubRet) || FuncArity <- Exports];
+                  Exports ->
+                      []
+              end,
+    dict:from_list(Expects).
+
+passthrough_stub({Func, Arity}) ->
     {{Func, Arity}, [{arity_2_matcher(Arity), passthrough}]}.
+
+void_stub({Func, Arity}, RetSpec) ->
+    {{Func, Arity}, [{arity_2_matcher(Arity), RetSpec}]}.
+
 
 parse_clause_specs(ClauseSpecs) ->
     parse_clause_specs(ClauseSpecs, undefined, []).
@@ -1009,12 +1031,13 @@ get_cover_state(Module, {file, File}) ->
 get_cover_state(_Module, _IsCompiled) ->
     false.
 
-exists(Module) ->
-    code:which(Module) /= non_existing.
-
-exports(M) ->
-    [ FA ||  FA = {F, A}  <- M:module_info(exports),
-             normal == expect_type(M, F, A)].
+normal_exports(M) ->
+    try
+        [FA || FA = {F, A} <- M:module_info(exports),
+            normal == expect_type(M, F, A)]
+    catch
+        error:undef -> undefined
+    end.
 
 %% Functions we should not create expects for (auto-generated and BIFs)
 expect_type(_, module_info, 0) -> autogenerated;
