@@ -825,17 +825,9 @@ passthrough_bif_test() ->
     ?assertEqual(ok, meck:new(file, [unstick, passthrough])),
     ?assertEqual(ok, meck:unload(file)).
 
-stub_all_default_test() ->
-    ok = meck:new(meck_test_module, [stub_all]),
-    ok = meck:expect(meck_test_module, a, fun() -> c end),
-    ?assertEqual(c, meck_test_module:a()),
-    ?assertEqual(ok, meck_test_module:b()),
-    ?assertEqual(ok, meck_test_module:c(1, 2)),
-    ok = meck:unload(meck_test_module).
-
-stub_all_ret_spec_test() ->
+stub_all_test() ->
     ok = meck:new(meck_test_module, [{stub_all, meck:seq([a, b])}]),
-    ok = meck:expect(meck_test_module, a, fun() -> c end),
+    ok = meck:expect(meck_test_module, a, [], c),
     ?assertEqual(c, meck_test_module:a()),
     ?assertEqual(a, meck_test_module:b()),
     ?assertEqual(b, meck_test_module:b()),
@@ -843,6 +835,21 @@ stub_all_ret_spec_test() ->
     ?assertEqual(a, meck_test_module:c(1, 2)),
     ?assertEqual(b, meck_test_module:c(1, 2)),
     ?assertEqual(b, meck_test_module:c(1, 2)),
+    ok = meck:unload(meck_test_module).
+
+stub_all_default_test() ->
+    ok = meck:new(meck_test_module, [stub_all]),
+    ?assertEqual(ok, meck_test_module:c(1, 2)),
+    ok = meck:unload(meck_test_module).
+
+stub_all_undefined_test() ->
+    ok = meck:new(meck_test_module, [{stub_all, undefined}]),
+    ?assertEqual(undefined, meck_test_module:c(1, 2)),
+    ok = meck:unload(meck_test_module).
+
+stub_all_true_test() ->
+    ok = meck:new(meck_test_module, [{stub_all, true}]),
+    ?assertEqual(true, meck_test_module:c(1, 2)),
     ok = meck:unload(meck_test_module).
 
 stub_all_overridden_by_passthrough_test() ->

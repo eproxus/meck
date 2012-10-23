@@ -659,18 +659,20 @@ resolve_can_expect(Exports, Options) ->
 
 init_expects(Exports, Options) ->
     Passthrough = proplists:get_bool(passthrough, Options),
-    StubRet = proplists:get_value(stub_all, Options),
+    StubAll = proplists:is_defined(stub_all, Options),
     Expects = case Exports of
                   undefined ->
                       [];
                   Exports when Passthrough ->
                       [passthrough_stub(FuncArity) || FuncArity <- Exports];
-                  Exports when StubRet =:= undefined ->
-                      [];
-                  Exports when StubRet =:= true ->
-                      [void_stub(FuncArity, val(ok)) || FuncArity <- Exports];
+                  Exports when StubAll ->
+                      StubRet = case lists:keyfind(stub_all, 1, Options) of
+                                    {stub_all, RetSpec} -> RetSpec;
+                                    _ -> val(ok)
+                                end,
+                      [void_stub(FuncArity, StubRet) || FuncArity <- Exports];
                   Exports ->
-                      [void_stub(FuncArity, StubRet) || FuncArity <- Exports]
+                      []
               end,
     dict:from_list(Expects).
 
