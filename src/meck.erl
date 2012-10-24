@@ -101,7 +101,9 @@
                 valid = true :: boolean(),
                 history = [] :: history() | undefined,
                 original :: term(),
-                was_sticky :: boolean()}).
+                was_sticky = false :: boolean(),
+                reload :: {CompilerPid::pid(), From::{pid(), Tag::any()}} |
+                          undefined}).
 
 %% Includes
 -include("meck_abstract.hrl").
@@ -513,18 +515,24 @@ handle_call({get_expect, FuncAri, Args}, _From, S) ->
     {Expect, NewExpects} = get_expect(S#state.expects, S#state.mod, FuncAri,
                                       Args),
     {reply, Expect, S#state{expects = NewExpects}};
-handle_call({expect, FuncAri = {Func, Ari}, Clauses}, _From,
+handle_call({expect, FuncAri = {Func, Ari}, Clauses}, From,
             S = #state{mod = Mod, expects = Expects}) ->
+    check_if_being_reloaded(S),
     case validate_expect(Mod, Func, Ari, S#state.can_expect) of
         ok ->
-            NewExpects = store_expect(Mod, FuncAri, Clauses, Expects),
-            {reply, ok, S#state{expects = NewExpects}};
+            {NewExpects, CompilerPid} = store_expect(Mod, FuncAri, Clauses,
+                                                     Expects),
+            {noreply, S#state{expects = NewExpects,
+                              reload = {CompilerPid, From}}};
         {error, Reason} ->
             {reply, {error, Reason}, S}
     end;
-handle_call({delete, Func, Arity}, _From, S) ->
-    NewExpects = delete_expect(S#state.mod, {Func, Arity}, S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
+handle_call({delete, Func, Ari}, From,
+            S = #state{mod = Mod, expects = Expects}) ->
+    check_if_being_reloaded(S),
+    {NewExpects, CompilerPid} = delete_expect(Mod, {Func, Ari}, Expects),
+    {noreply, S#state{expects = NewExpects,
+                      reload = {CompilerPid, From}}};
 handle_call(history, _From, S = #state{history = undefined}) ->
     {reply, [], S};
 handle_call(history, _From, S) ->
@@ -541,13 +549,28 @@ handle_call(stop, _From, S) ->
 %% @hidden
 handle_cast({add_history, _Item}, S = #state{history = undefined}) ->
     {noreply, S};
-handle_cast({add_history, Item}, S) ->
-    {noreply, S#state{history = [Item| S#state.history]}};
+handle_cast({add_history, Item}, S = #state{reload = Reload}) ->
+    case Reload of
+        undefined ->
+            {noreply, S#state{history = [Item | S#state.history]}};
+        _ ->
+            % Skip Item if the mocked module compiler is running.
+            {noreply, S}
+    end;
 handle_cast(_Msg, S)  ->
     {noreply, S}.
 
 %% @hidden
-handle_info(_Info, S) -> {noreply, S}.
+handle_info({'EXIT', Pid, _Reason}, S = #state{reload = Reload}) ->
+    case Reload of
+        {Pid, From} ->
+            gen_server:reply(From, ok),
+            {noreply, S#state{reload = undefined}};
+        _ ->
+            {noreply, S}
+    end;
+handle_info(_Info, S) ->
+    {noreply, S}.
 
 %% @hidden
 terminate(_Reason, #state{mod = Mod, original = OriginalState,
@@ -754,16 +777,31 @@ unwind_stack(NewInnerRs, [{meck_loop, [_InnerRs | Rest], Loop} | Stack],
     unwind_stack({meck_loop, [NewInnerRs | Rest], Loop}, Stack, true).
 
 
+check_if_being_reloaded(#state{reload = undefined}) ->
+    ok;
+check_if_being_reloaded(_S) ->
+    erlang:error(concurrent_reload).
+
+
 store_expect(Mod, FuncAri, Clauses, Expects) ->
     NewExpects = dict:store(FuncAri, Clauses, Expects),
-    _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
-    NewExpects.
+    compile_expects(Mod, NewExpects).
 
 
 delete_expect(Mod, FuncAri, Expects) ->
     NewExpects = dict:erase(FuncAri, Expects),
-    _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
-    NewExpects.
+    compile_expects(Mod, NewExpects).
+
+
+compile_expects(Mod, Expects) ->
+    %% If the recompilation is made by the server that executes a module
+    %% no module that is called from meck_mod:compile_and_load_forms/2
+    %% can be mocked by meck.
+    CompilerPid = spawn_link(fun() ->
+                                     Forms = to_forms(Mod, Expects),
+                                     meck_mod:compile_and_load_forms(Forms)
+                             end),
+    {Expects, CompilerPid}.
 
 
 update_clause(Expects, FuncAri, ArgsMatcher, RetSpec) ->

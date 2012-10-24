@@ -857,6 +857,30 @@ stub_all_overridden_by_passthrough_test() ->
     ?assertEqual(a, meck_test_module:a()),
     ok = meck:unload(meck_test_module).
 
+mock_file_existing_test() ->
+    %% Given
+    ExistingFile = atom_to_list(?MODULE) ++ ".erl",
+    {ok, ExistsInfo} = file:read_file_info(ExistingFile),
+    meck:new(file, [unstick, passthrough]),
+    %% When
+    meck:expect(file, read_file_info, fun(Path) -> meck:passthrough([Path]) end),
+    %% Then
+    ?assertEqual({ok, ExistsInfo}, file:read_file_info(ExistingFile)),
+    %% Cleanup
+    meck:unload(file).
+
+mock_file_missing_test() ->
+    %% Given
+    MissingFile = "blah.erl",
+    {error, enoent} = file:read_file_info(MissingFile),
+    meck:new(file, [unstick, passthrough]),
+    %% When
+    meck:expect(file, read_file_info, 1, {ok, no_info}),
+    %% Then
+    ?assertEqual({ok, no_info}, file:read_file_info(MissingFile)),
+    %% Cleanup
+    meck:unload(file).
+
 cover_test() ->
     {ok, _} = cover:compile("../test/meck_test_module.erl"),
     a = meck_test_module:a(),
