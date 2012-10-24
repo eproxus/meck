@@ -12,6 +12,7 @@
 %% limitations under the License.
 %%=============================================================================
 
+%% @private
 %% @doc Module containing functions needed by meck to integrate with cover.
 
 -module(meck_cover).

@@ -80,6 +80,7 @@ meck_test_() ->
                            fun ?MODULE:expect_complex_sequence_/1,
                            fun ?MODULE:sequence_multi_/1,
                            fun ?MODULE:loop_/1,
+                           fun ?MODULE:expect_empty_clause_list_/1,
                            fun ?MODULE:expect_args_value_/1,
                            fun ?MODULE:expect_args_invalid_call_/1,
                            fun ?MODULE:expect_arity_value_/1,
@@ -520,6 +521,9 @@ sequence_multi_(Mod) ->
     ?assertEqual([e, e, e, e, e],
                  [mymod2:s(a, b) || _ <- lists:seq(1, 5)]),
     ?assert(meck:validate(Mods)).
+
+expect_empty_clause_list_(Mod) ->
+    ?assertError(empty_clause_list, meck:expect(Mod, dummy, [])).
 
 expect_args_value_(Mod) ->
     %% When
@@ -1083,11 +1087,11 @@ multi_reset_test() ->
 
 handle_cast_unmodified_state_test() ->
     S = dummy_state,
-    ?assertEqual({noreply, S}, meck:handle_cast(dummy_msg, S)).
+    ?assertEqual({noreply, S}, meck_proc:handle_cast(dummy_msg, S)).
 
 code_change_unmodified_state_test() ->
     S = dummy_state,
-    ?assertEqual({ok, S}, meck:code_change(old_version, S, [])).
+    ?assertEqual({ok, S}, meck_proc:code_change(old_version, S, [])).
 
 remote_meck_test_() ->
     {foreach, fun remote_setup/0, fun remote_teardown/1,
