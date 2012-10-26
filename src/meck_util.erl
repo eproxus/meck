@@ -21,7 +21,6 @@
 
 -export([proc_name/1,
          original_name/1,
-         arity_2_matcher/1,
          match_spec_item/1]).
 
 
@@ -41,13 +40,6 @@ proc_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck").
 
 -spec original_name(Mod::atom()) -> OrigMod::atom().
 original_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck_original").
-
-
--spec arity_2_matcher(Ari::byte()) -> meck:pattern_matcher().
-arity_2_matcher(Ari) ->
-    ArgsPattern = lists:duplicate(Ari, '_'),
-    MatchSpec = ets:match_spec_compile([match_spec_item({ArgsPattern})]),
-    {pattern, ArgsPattern, MatchSpec}.
 
 
 -spec match_spec_item(Pattern::tuple()) -> match_spec_item().

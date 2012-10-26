@@ -231,12 +231,12 @@ is_mock_exception(Fun) ->
     ?MODULE == Mod.
 
 
--spec inject(Mod::atom(), Func::atom(), Args::[any()], meck:stack_trace()) ->
-        NewStackTrace::meck:stack_trace().
+-spec inject(Mod::atom(), Func::atom(), Args::[any()],
+             meck_history:stack_trace()) ->
+        NewStackTrace::meck_history:stack_trace().
 inject(_Mod, _Func, _Args, []) ->
     [];
 inject(Mod, Func, Args, [{?MODULE, exec, _AriOrArgs, _Loc} = Meck | Stack]) ->
     [Meck, {Mod, Func, Args} | Stack];
 inject(Mod, Func, Args, [H | Stack]) ->
     [H | inject(Mod, Func, Args, Stack)].
-

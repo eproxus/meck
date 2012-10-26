@@ -21,22 +21,9 @@
 -module(meck).
 
 %% API
--export_type([meck_mfa/0,
-              history/0,
-              args_spec/0,
+-export_type([args_spec/0,
               ret_spec/0,
               func_clause_spec/0]).
-
-%% To be accessible from other meck modules
--export_type([pattern_matcher/0,
-              hamcrest_matcher/0,
-              args_matcher/0,
-              func_clause/0,
-              stack_trace/0,
-              returned_call/0,
-              failed_call/0,
-              history_rec/0]).
-
 
 %% Interface exports
 -export([new/1]).
@@ -72,16 +59,15 @@
 
 %% @type meck_mfa() = {Mod::atom(), Func::atom(), Args::list(term())}.
 %% Module, function and arguments that the mock module got called with.
--type meck_mfa() :: {Mod::atom(), Func::atom(), Args::[term()]}.
 
-%% @type history() = [{pid(), meck_mfa(), Result::term()}
-%%                     | {pid(), meck_mfa(), Class:: exit | error | throw,
-%%                        Reason::term(), Stacktrace::list(mfa())}].
+%% @type history() = [{pid(), meck_mfa(), Result::term()} |
+%%                    {pid(), meck_mfa(), Class:: exit | error | throw,
+%%                     Reason::term(), Stacktrace::list(mfa())}].
 %% History is a list of either successful function calls with a returned
 %% result or function calls that resulted in an exception with a type,
 %% reason and a stack trace. Each tuple begins with the pid of the process
 %% that made the call to the function.
--type history() :: [history_rec()].
+-type history() :: meck_history:history().
 
 %% @type args_spec() = [term() | '_'].
 %% Used in {@link expect/3} and {@link expect/4} to define an expectation by
@@ -109,21 +95,6 @@
 %% Used in {@link expect/3} and {@link expect/4} to define a function clause of
 %% complex multi-clause expectations.
 -type func_clause_spec() :: {args_spec(), ret_spec()}.
-
--type pattern_matcher() :: {pattern, meck:args_spec(), ets:comp_match_spec()}.
--type hamcrest_matcher() :: {hamcrest, any()}. % TODO define 'any'.
--type args_matcher() :: pattern_matcher() | hamcrest_matcher().
--type func_clause() :: {args_matcher(), ret_spec()}.
-
--type stack_trace() :: [{Mod::atom(),
-                         Func::atom(),
-                         AriOrArgs::byte() | [any()],
-                         Location::[{atom(), any()}]}].
-
--type returned_call() :: {Caller::pid(), meck_mfa(), Result::any()}.
--type failed_call() :: {Caller::pid(), meck_mfa(), Class:: exit | error | throw,
-                        Reason::term(), stack_trace()}.
--type history_rec() :: returned_call() | failed_call().
 
 
 %%%============================================================================
@@ -210,25 +181,18 @@ new(Mod, Options) when is_list(Mod) ->
 %% expectation is called with the wrong number of arguments or invalid
 %% arguments the mock module(s) is invalidated. It is also invalidated if
 %% an unexpected exception occurs.
--spec expect(Mod, Func, Expect) -> ok when
+-spec expect(Mod, Func, FunOrClauses) -> ok when
       Mod :: atom() | [atom()],
       Func :: atom(),
-      Expect :: StubFun | [func_clause_spec()],
-      StubFun :: fun().
-expect(Mod, Func, StubFun)
-  when is_atom(Mod), is_atom(Func), is_function(StubFun) ->
-    {arity, Arity} = erlang:fun_info(StubFun, arity),
-    Clause = {meck_util:arity_2_matcher(Arity), {meck_func, StubFun}},
-    check_expect_result(meck_proc:set_expect(Mod, Func, Arity, [Clause]));
+      FunOrClauses :: fun() | [func_clause_spec()].
+expect(Mod, Func, FunOrClauses) when is_list(Mod) ->
+    lists:foreach(fun(M) -> expect(M, Func, FunOrClauses) end, Mod),
+    ok;
 expect(_Mod, _Func, []) ->
     erlang:error(empty_clause_list);
-expect(Mod, Func, ClauseSpecs)
-  when is_atom(Mod), is_atom(Func), is_list(ClauseSpecs) ->
-    {Arity, Clauses} = parse_clause_specs(ClauseSpecs),
-    check_expect_result(meck_proc:set_expect(Mod, Func, Arity, Clauses));
-expect(Mod, Func, Expect) when is_list(Mod) ->
-    lists:foreach(fun(M) -> expect(M, Func, Expect) end, Mod),
-    ok.
+expect(Mod, Func, FunOrClauses) when is_atom(Mod), is_atom(Func) ->
+    Expect = meck_expect:new(Func, FunOrClauses),
+    check_expect_result(meck_proc:set_expect(Mod, Expect)).
 
 
 %% @doc Adds an expectation with the supplied arity and return value.
@@ -237,23 +201,17 @@ expect(Mod, Func, Expect) when is_list(Mod) ->
 %% and always returns `Result'.
 %%
 %% @see expect/3.
--spec expect(Mod, Func, ArgsSpec, RetSpec) -> ok when
+-spec expect(Mod, Func, AriOrArgs, RetSpec) -> ok when
       Mod :: atom() | [atom()],
       Func :: atom(),
-      ArgsSpec :: Ari | args_spec(),
-      Ari :: byte(),
+      AriOrArgs :: byte() | args_spec(),
       RetSpec :: ret_spec().
-expect(Mod, Func, Ari, RetSpec)
-  when is_atom(Mod), is_atom(Func), is_integer(Ari), Ari >= 0 ->
-    Clause = {meck_util:arity_2_matcher(Ari), RetSpec},
-    check_expect_result(meck_proc:set_expect(Mod, Func, Ari, [Clause]));
-expect(Mod, Func, ArgsPattern, RetSpec)
-  when is_atom(Mod), is_atom(Func), is_list(ArgsPattern) ->
-    {Arity, Clause} = parse_clause_spec({ArgsPattern, RetSpec}),
-    check_expect_result(meck_proc:set_expect(Mod, Func, Arity, [Clause]));
-expect(Mod, Func, ArgsSpec, RetSpec) when is_list(Mod) ->
-    lists:foreach(fun(M) -> expect(M, Func, ArgsSpec, RetSpec) end, Mod),
-    ok.
+expect(Mod, Func, AriOrArgs, RetSpec) when is_list(Mod) ->
+    lists:foreach(fun(M) -> expect(M, Func, AriOrArgs, RetSpec) end, Mod),
+    ok;
+expect(Mod, Func, AriOrArgs, RetSpec) when is_atom(Mod), is_atom(Func) ->
+    Expect = meck_expect:new(Func, AriOrArgs, RetSpec),
+    check_expect_result(meck_proc:set_expect(Mod, Expect)).
 
 
 %% @doc Adds an expectation which returns a value from `Sequence'
@@ -271,8 +229,8 @@ expect(Mod, Func, ArgsSpec, RetSpec) when is_list(Mod) ->
                Ari::byte(), Sequence::[term()]) -> ok.
 sequence(Mod, Func, Ari, Sequence)
   when is_atom(Mod), is_atom(Func), is_integer(Ari), Ari >= 0 ->
-    Clause = {meck_util:arity_2_matcher(Ari), seq(Sequence)},
-    check_expect_result(meck_proc:set_expect(Mod, Func, Ari, [Clause]));
+    Expect = meck_expect:new(Func, Ari, seq(Sequence)),
+    check_expect_result(meck_proc:set_expect(Mod, Expect));
 sequence(Mod, Func, Ari, Sequence) when is_list(Mod) ->
     lists:foreach(fun(M) -> sequence(M, Func, Ari, Sequence) end, Mod),
     ok.
@@ -292,8 +250,8 @@ sequence(Mod, Func, Ari, Sequence) when is_list(Mod) ->
            Ari::byte(), Loop::[term()]) -> ok.
 loop(Mod, Func, Ari, Loop)
   when is_atom(Mod), is_atom(Func), is_integer(Ari), Ari >= 0 ->
-    Clause = {meck_util:arity_2_matcher(Ari), loop(Loop)},
-    check_expect_result(meck_proc:set_expect(Mod, Func, Ari, [Clause]));
+    Expect = meck_expect:new(Func, Ari, loop(Loop)),
+    check_expect_result(meck_proc:set_expect(Mod, Expect));
 loop(Mod, Func, Ari, Loop) when is_list(Mod) ->
     lists:foreach(fun(M) -> loop(M, Func, Ari, Loop) end, Mod),
     ok.
@@ -530,37 +488,3 @@ unload_if_mocked(_P, Unloaded) ->
 -spec check_expect_result(ok | {error, Reason::any()}) -> ok.
 check_expect_result(ok) -> ok;
 check_expect_result({error, Reason}) -> erlang:error(Reason).
-
-
--spec parse_clause_specs([func_clause_spec()]) -> {Ari::byte(), [func_clause()]}.
-parse_clause_specs(ClauseSpecs) ->
-    parse_clause_specs(ClauseSpecs, undefined, []).
-
-
--spec parse_clause_specs([func_clause_spec()],
-                         DeducedAri::byte() | undefined,
-                         ParsedClauses::[func_clause()]) ->
-        {Ari::byte(), [func_clause()]}.
-parse_clause_specs([ClauseSpec | Rest], undefined, []) ->
-    {Ari, Clause} = parse_clause_spec(ClauseSpec),
-    parse_clause_specs(Rest, Ari, [Clause]);
-parse_clause_specs([ClauseSpec | Rest], DeducedAri, Clauses) ->
-    {Ari, Clause} = parse_clause_spec(ClauseSpec),
-    case Ari of
-        DeducedAri ->
-            parse_clause_specs(Rest, DeducedAri, [Clause | Clauses]);
-        _ ->
-            erlang:error({invalid_arity, {{expected, DeducedAri},
-                                          {actual, Ari},
-                                          {clause, Clause}}})
-    end;
-parse_clause_specs([], DeducedArity, Clauses) ->
-    {DeducedArity, lists:reverse(Clauses)}.
-
-
--spec parse_clause_spec(func_clause_spec()) -> {Ari::byte(), func_clause()}.
-parse_clause_spec({ArgsSpec, RetSpec}) ->
-    Ari = length(ArgsSpec),
-    MatchSpec = ets:match_spec_compile([meck_util:match_spec_item({ArgsSpec})]),
-    Clause = {{pattern, ArgsSpec, MatchSpec}, RetSpec},
-    {Ari, Clause}.

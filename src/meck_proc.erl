@@ -21,7 +21,7 @@
 
 %% API
 -export([start/2,
-         set_expect/4,
+         set_expect/2,
          delete_expect/3,
          get_history/1,
          reset/1,
@@ -50,18 +50,11 @@
                 can_expect :: any | [{Mod::atom(), Ari::byte()}],
                 expects :: dict(),
                 valid = true :: boolean(),
-                history = [] :: meck:history() | undefined,
+                history = [] :: meck_history:history() | undefined,
                 original :: term(),
                 was_sticky = false :: boolean(),
                 reload :: {Compiler::pid(), {From::pid(), Tag::any()}} |
                 undefined}).
-
-
-%%%============================================================================
-%%% Types
-%%%============================================================================
-
--type func_ari() :: {Func::atom(), Ari::byte()}.
 
 
 %%%============================================================================
@@ -87,10 +80,10 @@ get_ret_spec(Mod, Func, Args) ->
     gen_server(call, Mod, {get_ret_spec, Func, Args}).
 
 
--spec set_expect(Mod::atom(), Func::atom(), Ari::byte(), [meck:func_clause()]) ->
+-spec set_expect(Mod::atom(), meck_expect:expect()) ->
         ok | {error, Reason :: any()}.
-set_expect(Mod, Func, Ari, Clauses) ->
-    gen_server(call, Mod, {set_expect, {Func, Ari}, Clauses}).
+set_expect(Mod, Expect) ->
+    gen_server(call, Mod, {set_expect, Expect}).
 
 
 -spec delete_expect(Mod::atom(), Func::atom(), Ari::byte()) -> ok.
@@ -107,7 +100,7 @@ add_history(Mod, CallerPid, Func, Args, Result) ->
     gen_server(cast, Mod, {add_history, {CallerPid, {Mod, Func, Args}, Result}}).
 
 
--spec get_history(Mod::atom()) -> meck:history().
+-spec get_history(Mod::atom()) -> meck_history:history().
 get_history(Mod) ->
     gen_server(call, Mod, get_history).
 
@@ -170,7 +163,7 @@ init([Mod, Options]) ->
 handle_call({get_ret_spec, Func, Args}, _From, S) ->
     {Expect, NewExpects} = do_get_ret_spec(S#state.expects, Func, Args),
     {reply, Expect, S#state{expects = NewExpects}};
-handle_call({set_expect, FuncAri = {Func, Ari}, Clauses}, From,
+handle_call({set_expect, {FuncAri = {Func, Ari}, Clauses}}, From,
             S = #state{mod = Mod, expects = Expects}) ->
     check_if_being_reloaded(S),
     case validate_expect(Mod, Func, Ari, S#state.can_expect) of
@@ -247,7 +240,7 @@ code_change(_OldVsn, S, _Extra) -> {ok, S}.
 %%% Internal functions
 %%%============================================================================
 
--spec normal_exports(Mod::atom()) -> [func_ari()] | undefined.
+-spec normal_exports(Mod::atom()) -> [meck_expect:func_ari()] | undefined.
 normal_exports(Mod) ->
     try
         [FuncAri || FuncAri = {Func, Ari} <- Mod:module_info(exports),
@@ -335,9 +328,9 @@ get_cover_state(Mod) ->
     end.
 
 
--spec resolve_can_expect(Exports::[func_ari()] | undefined,
+-spec resolve_can_expect(Exports::[meck_expect:func_ari()] | undefined,
                          Options::[proplists:property()]) ->
-        any | [func_ari()].
+        any | [meck_expect:func_ari()].
 resolve_can_expect(Exports, Options) ->
     NonStrict = proplists:get_bool(non_strict, Options),
     case {Exports, NonStrict} of
@@ -347,7 +340,7 @@ resolve_can_expect(Exports, Options) ->
     end.
 
 
--spec init_expects(Exports::[func_ari()] | undefined,
+-spec init_expects(Exports::[meck_expect:func_ari()] | undefined,
                    Options::[proplists:property()]) ->
         dict().
 init_expects(Exports, Options) ->
@@ -357,27 +350,19 @@ init_expects(Exports, Options) ->
                   undefined ->
                       [];
                   Exports when Passthrough ->
-                      [passthrough_stub(FuncArity) || FuncArity <- Exports];
+                      [meck_expect:new_passthrough(FuncArity) ||
+                          FuncArity <- Exports];
                   Exports when StubAll ->
                       StubRet = case lists:keyfind(stub_all, 1, Options) of
                                     {stub_all, RetSpec} -> RetSpec;
                                     _ -> meck:val(ok)
                                 end,
-                      [void_stub(FuncArity, StubRet) || FuncArity <- Exports];
+                      [meck_expect:new_dummy(FuncArity, StubRet) ||
+                          FuncArity <- Exports];
                   Exports ->
                       []
               end,
     dict:from_list(Expects).
-
-
--spec passthrough_stub(func_ari()) -> {func_ari(), [meck:func_clause()]}.
-passthrough_stub({Func, Ari}) ->
-    {{Func, Ari}, [{meck_util:arity_2_matcher(Ari), meck_passthrough}]}.
-
-
--spec void_stub(func_ari(), meck:ret_spec()) -> {func_ari(), [meck:func_clause()]}.
-void_stub({Func, Ari}, RetSpec) ->
-    {{Func, Ari}, [{meck_util:arity_2_matcher(Ari), RetSpec}]}.
 
 
 -spec gen_server(Method:: call | cast, Mod::atom(), Msg::tuple() | atom()) -> any().
@@ -398,86 +383,19 @@ check_if_being_reloaded(_S) ->
         {meck:ret_spec() | meck_undefined, NewExpects::dict()}.
 do_get_ret_spec(Expects, Func, Args) ->
     FuncAri = {Func, erlang:length(Args)},
-    case find_match(Args, dict:fetch(FuncAri, Expects)) of
-        not_found ->
-            {meck_undefined, Expects};
-        {ArgsMatcher, RetSpec} ->
-            case next_result(RetSpec, []) of
-                {Result, unchanged} ->
-                    {Result, Expects};
-                {Result, NewRetSpec} ->
-                    NewExpects = update_clause(Expects, FuncAri, ArgsMatcher,
-                                               NewRetSpec),
-                    {Result, NewExpects}
-            end
-    end.
-
-
--spec find_match(Args::[any()], Defined::[meck:func_clause()]) ->
-        Matching:: meck:func_clause() | not_found.
-find_match(Args, [{ArgsMatcher, RetSpec} | Rest]) ->
-    case ArgsMatcher of
-        {pattern, _ArgsPattern, MatchSpec} ->
-            case ets:match_spec_run([{Args}], MatchSpec) of
-                [] ->
-                    find_match(Args, Rest);
-                _ ->
-                    {ArgsMatcher, RetSpec}
-            end;
-        {hamcrest, _Matchers} ->
-            throw(unsupported) % TODO Hamcrest support is comming
-    end;
-find_match(_Args, []) ->
-    not_found.
-
-
--spec next_result(RetSpec::meck:ret_spec(), Stack::[meck:ret_spec()]) ->
-        {ScalarRs::meck:ret_spec(), NewRetSpec::meck:ret_spec() | unchanged}.
-next_result(RetSpec = {meck_seq, [InnerRs | _Rest]}, Stack) ->
-    next_result(InnerRs, [RetSpec | Stack]);
-next_result(RetSpec = {meck_loop, [InnerRs | _Rest], _Loop}, Stack) ->
-    next_result(InnerRs, [RetSpec | Stack]);
-next_result(LeafRetSpec, Stack) ->
-    {LeafRetSpec, unwind_stack(LeafRetSpec, Stack, false)}.
-
-
--spec unwind_stack(InnerRs::meck:ret_spec(),
-                   Stack::[meck:ret_spec()], Done::boolean()) ->
-        NewRetSpec::meck:ret_spec() | unchanged.
-unwind_stack(InnerRs, [], true) ->
-    InnerRs;
-unwind_stack(_InnerRs, [], false) ->
-    unchanged;
-unwind_stack(InnerRs, [CurrRs = {meck_seq, [InnerRs]} | Stack], Updated) ->
-    unwind_stack(CurrRs, Stack, Updated);
-unwind_stack(InnerRs, [{meck_seq, [InnerRs | Rest]} | Stack], _Updated) ->
-    unwind_stack({meck_seq, Rest}, Stack, true);
-unwind_stack(NewInnerRs, [{meck_seq, [_InnerRs | Rest]} | Stack], _Updated) ->
-    unwind_stack({meck_seq, [NewInnerRs | Rest]}, Stack, true);
-unwind_stack(InnerRs, [{meck_loop, [InnerRs], Loop} | Stack], _Updated) ->
-    unwind_stack({meck_loop, Loop, Loop}, Stack, true);
-unwind_stack(InnerRs, [{meck_loop, [InnerRs | Rest], Loop} | Stack],
-             _Updated) ->
-    unwind_stack({meck_loop, Rest, Loop}, Stack, true);
-unwind_stack(NewInnerRs, [{meck_loop, [_InnerRs | Rest], Loop} | Stack],
-             _Updated) ->
-    unwind_stack({meck_loop, [NewInnerRs | Rest], Loop}, Stack, true).
-
-
--spec update_clause(Expects::dict(), func_ari(), meck:args_matcher(),
-                    meck:ret_spec()) ->
-        NewExpects::dict().
-update_clause(Expects, FuncAri, ArgsMatcher, RetSpec) ->
-    dict:update(FuncAri,
-                fun(Clauses) ->
-                    lists:keyreplace(ArgsMatcher, 1, Clauses,
-                                     {ArgsMatcher, RetSpec})
-                end,
-                Expects).
+    Clauses = dict:fetch(FuncAri, Expects),
+    {RetSpec, NewClauses} = meck_expect:match(Args, Clauses),
+    NewExpects = case NewClauses of
+                     unchanged ->
+                         Expects;
+                     _ ->
+                         dict:store(FuncAri, NewClauses, Expects)
+                 end,
+    {RetSpec, NewExpects}.
 
 
 -spec validate_expect(Mod::atom(), Func::atom(), Ari::byte(),
-                      CanExpect::any | [func_ari()]) ->
+                      CanExpect::any | [meck_expect:func_ari()]) ->
         ok | {error, Reason::any()}.
 validate_expect(Mod, Func, Ari, CanExpect) ->
     case expect_type(Mod, Func, Ari) of
@@ -493,15 +411,15 @@ validate_expect(Mod, Func, Ari, CanExpect) ->
     end.
 
 
--spec store_expect(Mod::atom(), func_ari(), [meck:func_clause()],
-                   Expects::dict()) ->
+-spec store_expect(Mod::atom(), meck_expect:func_ari(),
+                   [meck_expect:func_clause()], Expects::dict()) ->
         {NewExpects::dict(), CompilerPid::pid()}.
 store_expect(Mod, FuncAri, Clauses, Expects) ->
     NewExpects = dict:store(FuncAri, Clauses, Expects),
     compile_expects(Mod, NewExpects).
 
 
--spec do_delete_expect(Mod::atom(), func_ari(), Expects::dict()) ->
+-spec do_delete_expect(Mod::atom(), meck_expect:func_ari(), Expects::dict()) ->
         {NewExpects::dict(), CompilerPid::pid()}.
 do_delete_expect(Mod, FuncAri, Expects) ->
     NewExpects = dict:erase(FuncAri, Expects),
