@@ -279,7 +279,7 @@ delete(Mod, Func, Ari) when is_list(Mod) ->
 %% <em>Note: this code should only be used inside an expect fun.</em>
 -spec exception(Class:: throw | error | exit, Reason::term()) -> no_return().
 exception(Class, Reason) when Class == throw; Class == error; Class == exit ->
-    throw(meck_code_gen:exception_fun(Class, Reason)).
+    meck_code_gen:throw_exception(Class, Reason).
 
 
 %% @doc Calls the original function (if existing) inside an expectation fun.

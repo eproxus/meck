@@ -19,7 +19,7 @@
 %% @copyright 2011, Adam Lindberg & Erlang Solutions Ltd
 %% @doc Module wrangling helper functions.
 
--module(meck_mod).
+-module(meck_code).
 
 %% Interface exports
 -export([abstract_code/1]).

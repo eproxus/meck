@@ -20,7 +20,7 @@
 %% API
 -export([to_forms/2,
          get_current_call/0,
-         exception_fun/2]).
+         throw_exception/2]).
 
 %% Exported to be accessible from generated modules.
 -export([exec/4]).
@@ -184,7 +184,7 @@ simulate_call(_Mod, _Func, _Args, {meck_value, Value}) ->
 simulate_call(_Mod, _Func, Args, {meck_func, Fun}) when is_function(Fun) ->
     apply(Fun, Args);
 simulate_call(_Mod, _Func, _Args, {meck_raise, Class, Reason}) ->
-    meck:exception(Class, Reason);
+    throw_exception(Class, Reason);
 simulate_call(Mod, Func, Args, meck_passthrough) ->
     apply(meck_util:original_name(Mod), Func, Args);
 simulate_call(_Mod, _Func, _Args, Value) ->
@@ -221,8 +221,9 @@ raise(Pid, Mod, Func, Args, Class, Reason) ->
     erlang:raise(Class, Reason, StackTrace).
 
 
--spec exception_fun(Class:: exit | error | throw, Reason::any()) -> fun().
-exception_fun(Class, Reason) -> fun() -> {exception, Class, Reason} end.
+-spec throw_exception(Class:: exit | error | throw, Reason::any()) -> fun().
+throw_exception(Class, Reason) ->
+    erlang:throw(fun() -> {exception, Class, Reason} end).
 
 
 -spec is_mock_exception(Fun::fun()) -> boolean().

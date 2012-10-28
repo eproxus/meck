@@ -146,7 +146,7 @@ init([Mod, Options]) ->
     process_flag(trap_exit, true),
     try
         Forms = meck_code_gen:to_forms(Mod, Expects),
-        _Bin = meck_mod:compile_and_load_forms(Forms),
+        _Bin = meck_code:compile_and_load_forms(Forms),
         {ok, #state{mod = Mod,
                     can_expect = CanExpect,
                     expects = Expects,
@@ -270,11 +270,11 @@ expect_type(Mod, Func, Ari) ->
 backup_original(Mod, NoPassCover) ->
     Cover = get_cover_state(Mod),
     try
-        Forms = meck_mod:abstract_code(meck_mod:beam_file(Mod)),
+        Forms = meck_code:abstract_code(meck_code:beam_file(Mod)),
         NewName = meck_util:original_name(Mod),
-        CompileOpts = meck_mod:compile_options(meck_mod:beam_file(Mod)),
-        Renamed = meck_mod:rename_module(Forms, NewName),
-        Binary = meck_mod:compile_and_load_forms(Renamed, CompileOpts),
+        CompileOpts = meck_code:compile_options(meck_code:beam_file(Mod)),
+        Renamed = meck_code:rename_module(Forms, NewName),
+        Binary = meck_code:compile_and_load_forms(Renamed, CompileOpts),
 
         %% At this point we care about `Binary' if and only if we want
         %% to recompile it to enable cover on the original module code
@@ -318,7 +318,7 @@ get_cover_state(Mod) ->
             ok = cover:export(Data, Mod),
             CompileOptions =
             try
-                meck_mod:compile_options(meck_mod:beam_file(Mod))
+                meck_code:compile_options(meck_code:beam_file(Mod))
             catch
                 throw:{object_code_not_found, _Module} -> []
             end,
@@ -430,11 +430,11 @@ do_delete_expect(Mod, FuncAri, Expects) ->
         {NewExpects::dict(), CompilerPid::pid()}.
 compile_expects(Mod, Expects) ->
     %% If the recompilation is made by the server that executes a module
-    %% no module that is called from meck_mod:compile_and_load_forms/2
+    %% no module that is called from meck_code:compile_and_load_forms/2
     %% can be mocked by meck.
     CompilerPid = spawn_link(fun() ->
                                      Forms = meck_code_gen:to_forms(Mod, Expects),
-                                     meck_mod:compile_and_load_forms(Forms)
+                                     meck_code:compile_and_load_forms(Forms)
                              end),
     {Expects, CompilerPid}.
 

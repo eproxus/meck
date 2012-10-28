@@ -57,11 +57,11 @@ alter_cover() ->
         true ->
             ok;
         false ->
-            Beam = meck_mod:beam_file(cover),
-            AbsCode = meck_mod:abstract_code(Beam),
+            Beam = meck_code:beam_file(cover),
+            AbsCode = meck_code:abstract_code(Beam),
             Exports = [{compile_beam, 2}, {get_term, 1}, {write, 2}],
-            AbsCode2 = meck_mod:add_exports(Exports, AbsCode),
-            _Bin = meck_mod:compile_and_load_forms(AbsCode2),
+            AbsCode2 = meck_code:add_exports(Exports, AbsCode),
+            _Bin = meck_code:compile_and_load_forms(AbsCode2),
             ok
     end.
 
