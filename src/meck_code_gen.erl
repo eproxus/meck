@@ -239,5 +239,7 @@ inject(_Mod, _Func, _Args, []) ->
     [];
 inject(Mod, Func, Args, [{?MODULE, exec, _AriOrArgs, _Loc} = Meck | Stack]) ->
     [Meck, {Mod, Func, Args} | Stack];
+inject(Mod, Func, Args, [{?MODULE, exec, _AriOrArgs} = Meck | Stack]) ->
+    [Meck, {Mod, Func, Args} | Stack];
 inject(Mod, Func, Args, [H | Stack]) ->
     [H | inject(Mod, Func, Args, Stack)].

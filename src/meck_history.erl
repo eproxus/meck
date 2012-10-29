@@ -18,7 +18,8 @@
 -module(meck_history).
 
 %% API
--export_type([stack_trace_rec/0,
+-export_type([stack_trace_rec_r14b/0,
+              stack_trace_rec_r15b/0,
               stack_trace/0,
               meck_mfa/0,
               successfull_call/0,
@@ -32,11 +33,14 @@
 %%% Types
 %%%============================================================================
 
--type stack_trace_rec() :: {Mod::atom(), Func::atom(),
-                            AriOrArgs::byte() | [any()],
-                            Location::[{atom(), any()}]}.
+-type stack_trace_rec_r14b() :: {Mod::atom(), Func::atom(),
+                                 AriOrArgs::byte() | [any()]}.
 
--type stack_trace() :: [stack_trace_rec()].
+-type stack_trace_rec_r15b() :: {Mod::atom(), Func::atom(),
+                                 AriOrArgs::byte() | [any()],
+                                 Location::[{atom(), any()}]}.
+
+-type stack_trace() :: [stack_trace_rec_r14b() | stack_trace_rec_r15b()].
 
 -type meck_mfa() :: {Mod::atom(), Func::atom(), Args::[term()]}.
 
