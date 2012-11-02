@@ -80,6 +80,7 @@ meck_test_() ->
                            fun ?MODULE:expect_complex_sequence_/1,
                            fun ?MODULE:sequence_multi_/1,
                            fun ?MODULE:loop_/1,
+                           fun ?MODULE:expect_empty_clause_list_/1,
                            fun ?MODULE:expect_args_value_/1,
                            fun ?MODULE:expect_args_invalid_call_/1,
                            fun ?MODULE:expect_arity_value_/1,
@@ -521,6 +522,9 @@ sequence_multi_(Mod) ->
                  [mymod2:s(a, b) || _ <- lists:seq(1, 5)]),
     ?assert(meck:validate(Mods)).
 
+expect_empty_clause_list_(Mod) ->
+    ?assertError(empty_clause_list, meck:expect(Mod, dummy, [])).
+
 expect_args_value_(Mod) ->
     %% When
     meck:expect(Mod, val, [1001], meck:val(a)),
@@ -857,6 +861,30 @@ stub_all_overridden_by_passthrough_test() ->
     ?assertEqual(a, meck_test_module:a()),
     ok = meck:unload(meck_test_module).
 
+mock_file_existing_test() ->
+    %% Given
+    ExistingFile = atom_to_list(?MODULE) ++ ".erl",
+    {ok, ExistsInfo} = file:read_file_info(ExistingFile),
+    meck:new(file, [unstick, passthrough]),
+    %% When
+    meck:expect(file, read_file_info, fun(Path) -> meck:passthrough([Path]) end),
+    %% Then
+    ?assertEqual({ok, ExistsInfo}, file:read_file_info(ExistingFile)),
+    %% Cleanup
+    meck:unload(file).
+
+mock_file_missing_test() ->
+    %% Given
+    MissingFile = "blah.erl",
+    {error, enoent} = file:read_file_info(MissingFile),
+    meck:new(file, [unstick, passthrough]),
+    %% When
+    meck:expect(file, read_file_info, 1, {ok, no_info}),
+    %% Then
+    ?assertEqual({ok, no_info}, file:read_file_info(MissingFile)),
+    %% Cleanup
+    meck:unload(file).
+
 cover_test() ->
     {ok, _} = cover:compile("../test/meck_test_module.erl"),
     a = meck_test_module:a(),
@@ -916,9 +944,9 @@ cover_options_fail_({_OldPath, Src, Module}) ->
     CompilerOptions = [{i, "../test/include"}, {d, 'TEST', true},
                        {outdir, "../test"}, debug_info],
     {ok, _} = compile:file(Src, CompilerOptions),
-    ?assertEqual(CompilerOptions, meck_mod:compile_options(Module)),
+    ?assertEqual(CompilerOptions, meck_code:compile_options(Module)),
     {ok, _} = cover:compile_beam(Module),
-    ?assertEqual([], meck_mod:compile_options(Module)),
+    ?assertEqual([], meck_code:compile_options(Module)),
     a      = Module:a(),
     b      = Module:b(),
     {1, 2} = Module:c(1, 2),
@@ -1059,11 +1087,11 @@ multi_reset_test() ->
 
 handle_cast_unmodified_state_test() ->
     S = dummy_state,
-    ?assertEqual({noreply, S}, meck:handle_cast(dummy_msg, S)).
+    ?assertEqual({noreply, S}, meck_proc:handle_cast(dummy_msg, S)).
 
 code_change_unmodified_state_test() ->
     S = dummy_state,
-    ?assertEqual({ok, S}, meck:code_change(old_version, S, [])).
+    ?assertEqual({ok, S}, meck_proc:code_change(old_version, S, [])).
 
 remote_meck_test_() ->
     {foreach, fun remote_setup/0, fun remote_teardown/1,
