@@ -17,7 +17,8 @@
 -module(meck_expect).
 
 %% API
--export_type([func_ari/0,
+-export_type([ret_spec/0,
+              func_ari/0,
               func_clause/0,
               expect/0]).
 
@@ -32,13 +33,21 @@
 %%% Types
 %%%============================================================================
 
+-type ret_spec() :: {meck_val, any()} |
+                    {meck_seq, [ret_spec()]} |
+                    {meck_loop, [ret_spec()], [ret_spec()]} |
+                    {meck_func, fun()} |
+                    {meck_raise, throw | error | exit, any()} |
+                    meck_passthrough |
+                    term().
+
 -type pattern_matcher() :: {pattern, meck:args_spec(), ets:comp_match_spec()}.
 
 -type hamcrest_matcher() :: {hamcrest, any()}. % TODO define 'any'.
 
 -type args_matcher() :: pattern_matcher() | hamcrest_matcher().
 
--opaque func_clause() :: {args_matcher(), meck:ret_spec()}.
+-opaque func_clause() :: {args_matcher(), ret_spec()}.
 
 -type func_ari() :: {Func::atom(), Ari::byte()}.
 
@@ -59,7 +68,7 @@ new(Func, ClauseSpecs) when is_list(ClauseSpecs) ->
     {{Func, Arity}, Clauses}.
 
 
--spec new(Func::atom(), byte() | meck:args_spec(), meck:ret_spec()) -> expect().
+-spec new(Func::atom(), byte() | meck:args_spec(), ret_spec()) -> expect().
 new(Func, Ari, RetSpec) when is_integer(Ari), Ari >= 0 ->
     Clause = {arity_2_matcher(Ari), RetSpec},
     {{Func, Ari}, [Clause]};
@@ -73,15 +82,15 @@ new_passthrough({Func, Ari}) ->
     {{Func, Ari}, [{arity_2_matcher(Ari), meck_passthrough}]}.
 
 
--spec new_dummy(func_ari(), meck:ret_spec()) -> expect().
+-spec new_dummy(func_ari(), ret_spec()) -> expect().
 new_dummy({Func, Ari}, RetSpec) ->
     {{Func, Ari}, [{arity_2_matcher(Ari), RetSpec}]}.
 
 
 -spec match(Args::[any()], Clauses::[func_clause()]) ->
         {meck_undefined, unchanged} |
-        {meck:ret_spec(), unchanged} |
-        {meck:ret_spec(), NewClauses::[func_clause()]}.
+        {ret_spec(), unchanged} |
+        {ret_spec(), NewClauses::[func_clause()]}.
 match(Args, Clauses) ->
     case find_match(Args, Clauses) of
         not_found ->
@@ -162,8 +171,8 @@ find_match(_Args, []) ->
     not_found.
 
 
--spec next_result(RetSpec::meck:ret_spec(), Stack::[meck:ret_spec()]) ->
-        {ScalarRs::meck:ret_spec(), NewRetSpec::meck:ret_spec() | unchanged}.
+-spec next_result(RetSpec::ret_spec(), Stack::[ret_spec()]) ->
+        {ScalarRs::ret_spec(), NewRetSpec::ret_spec() | unchanged}.
 next_result(RetSpec = {meck_seq, [InnerRs | _Rest]}, Stack) ->
     next_result(InnerRs, [RetSpec | Stack]);
 next_result(RetSpec = {meck_loop, [InnerRs | _Rest], _Loop}, Stack) ->
@@ -172,9 +181,8 @@ next_result(LeafRetSpec, Stack) ->
     {LeafRetSpec, unwind_stack(LeafRetSpec, Stack, false)}.
 
 
--spec unwind_stack(InnerRs::meck:ret_spec(),
-                   Stack::[meck:ret_spec()], Done::boolean()) ->
-        NewRetSpec::meck:ret_spec() | unchanged.
+-spec unwind_stack(InnerRs::ret_spec(), Stack::[ret_spec()], Done::boolean()) ->
+        NewRetSpec::ret_spec() | unchanged.
 unwind_stack(InnerRs, [], true) ->
     InnerRs;
 unwind_stack(_InnerRs, [], false) ->

@@ -175,7 +175,7 @@ exec(Pid, Mod, Func, Args) ->
 
 
 -spec simulate_call(Mod::atom(), Func::atom(), Args::[any()],
-                    meck:ret_spec() | meck_undefined) ->
+                    meck_expect:ret_spec() | meck_undefined) ->
         Result::any().
 simulate_call(_Mod, _Func, _Args, meck_undefined) ->
     erlang:error(function_clause);

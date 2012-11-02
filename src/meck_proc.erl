@@ -75,7 +75,7 @@ start(Mod, Options) ->
 
 
 -spec get_ret_spec(Mod::atom(), Func::atom(), Args::[any()]) ->
-        meck_undefined | meck:ret_spec().
+        meck_expect:ret_spec() | meck_undefined.
 get_ret_spec(Mod, Func, Args) ->
     gen_server(call, Mod, {get_ret_spec, Func, Args}).
 
@@ -380,7 +380,7 @@ check_if_being_reloaded(_S) ->
 
 
 -spec do_get_ret_spec(Expects::dict(), Func::atom(), Args::[any()]) ->
-        {meck:ret_spec() | meck_undefined, NewExpects::dict()}.
+        {meck_expect:ret_spec() | meck_undefined, NewExpects::dict()}.
 do_get_ret_spec(Expects, Func, Args) ->
     FuncAri = {Func, erlang:length(Args)},
     Clauses = dict:fetch(FuncAri, Expects),
