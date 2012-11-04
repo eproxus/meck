@@ -237,9 +237,11 @@ is_mock_exception(Fun) ->
         NewStackTrace::meck_history:stack_trace().
 inject(_Mod, _Func, _Args, []) ->
     [];
-inject(Mod, Func, Args, [{?MODULE, exec, _AriOrArgs, _Loc} = Meck | Stack]) ->
-    [Meck, {Mod, Func, Args} | Stack];
-inject(Mod, Func, Args, [{?MODULE, exec, _AriOrArgs} = Meck | Stack]) ->
-    [Meck, {Mod, Func, Args} | Stack];
+inject(Mod, Func, Args, [{?MODULE, exec, _AriOrArgs, _Loc}|Stack]) ->
+    [{Mod, Func, Args} | Stack];
+inject(Mod, Func, Args, [{?MODULE, exec, _AriOrArgs}|Stack]) ->
+    [{Mod, Func, Args} | Stack];
+inject(Mod, Func, Args, [Call|Stack]) when element(1, Call) == ?MODULE ->
+    inject(Mod, Func, Args, Stack);
 inject(Mod, Func, Args, [H | Stack]) ->
     [H | inject(Mod, Func, Args, Stack)].
