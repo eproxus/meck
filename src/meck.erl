@@ -172,31 +172,33 @@ new(Mod, Options) when is_list(Mod) ->
 %%
 %% An expectation is either of the following:
 %% <dl>
-%% <dt>`StubFun'</dt><dd>a stub function that is executed whenever the function
-%% `Func' is called. The arity of `StubFun' identifies for which particular
-%% `Func' variant an expectation is created for;</dd>
-%% <dt>`ClauseSpecs'</dt><dd>a list of `ArgsSpec'/`RetSpec' pairs. Whenever
-%% the function `Func' is called the arguments are matched against the
-%% `ArgsSpec' in the list. As soon as the first match is found then a value
-%% defined by the corresponding `RetSpec' is returned.</dd>
+%% <dt>`function()'</dt><dd>a stub function that is executed whenever the
+%% function `Func' is called. The arity of `function()' identifies for which
+%% particular `Func' variant an expectation is created for (that is, a function
+%% with arity 2 will generate an expectation for `Func/2').</dd>
+%% <dt>`['{@link func_clause_spec()}`]'</dt><dd>a list of {@link
+%% arg_spec()}/{@link ret_spec()} pairs. Whenever the function `Func' is called
+%% the arguments are matched against the {@link arg_spec()} in the list. As
+%% soon as the first match is found then a value defined by the corresponding
+%% {@link ret_spec()} is returned.</dd>
 %% </dl>
 %%
 %% It affects the validation status of the mocked module(s). If an
 %% expectation is called with the wrong number of arguments or invalid
 %% arguments the mock module(s) is invalidated. It is also invalidated if
 %% an unexpected exception occurs.
--spec expect(Mods, Func, FunOrClauses) -> ok when
+-spec expect(Mods, Func, Expectation) -> ok when
       Mods :: Mod | [Mod],
       Mod :: atom(),
       Func :: atom(),
-      FunOrClauses :: fun() | [func_clause_spec()].
-expect(Mod, Func, FunOrClauses) when is_list(Mod) ->
-    lists:foreach(fun(M) -> expect(M, Func, FunOrClauses) end, Mod),
+      Expectation :: function() | [func_clause_spec()].
+expect(Mod, Func, Expectation) when is_list(Mod) ->
+    lists:foreach(fun(M) -> expect(M, Func, Expectation) end, Mod),
     ok;
 expect(_Mod, _Func, []) ->
     erlang:error(empty_clause_list);
-expect(Mod, Func, FunOrClauses) when is_atom(Mod), is_atom(Func) ->
-    Expect = meck_expect:new(Func, FunOrClauses),
+expect(Mod, Func, Expectation) when is_atom(Mod), is_atom(Func) ->
+    Expect = meck_expect:new(Func, Expectation),
     check_expect_result(meck_proc:set_expect(Mod, Expect)).
 
 
