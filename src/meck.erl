@@ -1,25 +1,29 @@
-%%=============================================================================
-%% Copyright 2011 Adam Lindberg & Erlang Solutions Ltd.
-%%
-%% Licensed under the Apache License, Version 2.0 (the "License");
-%% you may not use this file except in compliance with the License.
-%% You may obtain a copy of the License at
-%%
-%% http://www.apache.org/licenses/LICENSE-2.0
-%%
-%% Unless required by applicable law or agreed to in writing, software
-%% distributed under the License is distributed on an "AS IS" BASIS,
-%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-%% See the License for the specific language governing permissions and
-%% limitations under the License.
-%%=============================================================================
+%%%============================================================================
+%%% Copyright 2011 Adam Lindberg & Erlang Solutions Ltd.
+%%%
+%%% Licensed under the Apache License, Version 2.0 (the "License");
+%%% you may not use this file except in compliance with the License.
+%%% You may obtain a copy of the License at
+%%%
+%%% http://www.apache.org/licenses/LICENSE-2.0
+%%%
+%%% Unless required by applicable law or agreed to in writing, software
+%%% distributed under the License is distributed on an "AS IS" BASIS,
+%%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%%% See the License for the specific language governing permissions and
+%%% limitations under the License.
+%%%============================================================================
 
-%% @author Adam Lindberg <eproxus@gmail.com>
-%% @copyright 2011, Adam Lindberg & Erlang Solutions Ltd
-%% @doc Module mocking library for Erlang.
+%%% @author Adam Lindberg <eproxus@gmail.com>
+%%% @copyright 2011, Adam Lindberg & Erlang Solutions Ltd
+%%% @doc Module mocking library for Erlang.
 
 -module(meck).
--behaviour(gen_server).
+
+%% API
+-export_type([args_spec/0,
+              ret_spec/0,
+              func_clause_spec/0]).
 
 %% Interface exports
 -export([new/1]).
@@ -48,78 +52,62 @@
 -export([val/1]).
 -export([raise/2]).
 
-%% Callback exports
--export([init/1]).
--export([handle_call/3]).
--export([handle_cast/2]).
--export([handle_info/2]).
--export([terminate/2]).
--export([code_change/3]).
--export([exec/5]).
 
-%% Types
-%% @type meck_mfa() = {Mod::atom(), Func::atom(), Args::list(term())}.
+%%%============================================================================
+%%% Types
+%%%============================================================================
+
+-type meck_mfa() :: {Mod::atom(), Func::atom(), Args::[any()]}.
 %% Module, function and arguments that the mock module got called with.
--type meck_mfa() :: {Mod::atom(), Func::atom(), Args::[term()]}.
 
-%% @type history() = [{pid(), meck_mfa(), Result::term()}
-%%                     | {pid(), meck_mfa(), Class:: exit | error | throw,
-%%                        Reason::term(), Stacktrace::list(mfa())}].
-%% History is a list of either successful function calls with a returned
+-type stack_trace() :: [{Mod::atom(), Func::atom(), AriOrArgs::byte()|[any()]} |
+                        {Mod::atom(), Func::atom(), AriOrArgs::byte()|[any()],
+                         Location::[{atom(), any()}]}].
+%% Erlang stack trace.
+
+-type history() :: [{CallerPid::pid(), meck_mfa(), Result::any()} |
+                    {CallerPid::pid(), meck_mfa(), Class::throw|error|exit,
+                     Reason::any(), stack_trace()}].
+%% Represents a list of either successful function calls with a returned
 %% result or function calls that resulted in an exception with a type,
 %% reason and a stack trace. Each tuple begins with the pid of the process
 %% that made the call to the function.
--type history() :: [{pid(), meck_mfa(), Result::term()}
-                    | {pid(), meck_mfa(), Class:: exit | error | throw,
-                       Reason::term(), Stacktrace::[mfa()]}].
 
-%% @type args_pattern() = [term() | '_'].
-%% Used in {@link expect/3} and {@link expect/4} to define an expectation by
-%% an argument pattern. Every list element corresponds to a function argument
+-type args_spec() :: [any() | '_'].
+%% It is used in {@link expect/3} and {@link expect/4} to define an expectation
+%% by an argument pattern. Every list element corresponds to a function argument
 %% at the respective position. '_' is a wildcard that matches any value. The
 %% length of the list defines the arity of the function an expectation is
 %% created for.
--type args_pattern() :: [term() | '_'].
 
-%% @type ret_spec().
-%% Opaque data structure that defines values to be returned by expectations.
-%% Values of `ret_spec' are constructed by {@link seq/1}, {@link loop/1},
+-opaque ret_spec() :: meck_expect:ret_spec().
+%% Opaque data structure that specifies a value or a set of values to be returned
+%% by a mock stub function defined by either {@link expect/3} and {@link expect/4}.
+%% Values of `ret_spec()' are constructed by {@link seq/1}, {@link loop/1},
 %% {@link val/1}, and {@link raise/2} functions. They are used to specify
 %% return values in {@link expect/3} and {@link expect/4} functions, and also
-%% as the parameter of the `stub_all' option of {@link new/2} function.
--opaque ret_spec() :: {meck_val, term()} |
-                      {meck_seq, [term()]} |
-                      {meck_loop, [term()], [term()]} |
-                      {meck_func, fun()} |
-                      {meck_raise, throw | error | exit, term()} |
-                      term().
+%% as a parameter of the `stub_all' option of {@link new/2} function.
+%%
+%% Note that any Erlang term `X' is a valid `ret_spec()' equivalent to
+%% `meck:val(X)'.
 
-%% Records
--record(state, {mod :: atom(),
-                can_expect :: any | [{atom(), non_neg_integer()}],
-                expects :: dict(),
-                valid = true :: boolean(),
-                history = [] :: history() | undefined,
-                original :: term(),
-                was_sticky :: boolean()}).
-
-%% Includes
--include("meck_abstract.hrl").
-
--define(MATCH_SPEC(L), {L, [], ['$_']}).
+-type func_clause_spec() :: {args_spec(), ret_spec()}.
+%% It is used in {@link expect/3} and {@link expect/4} to define a function
+%% clause of complex multi-clause expectations.
 
 
-%%=============================================================================
-%% Interface exports
-%%=============================================================================
+%%%============================================================================
+%%% Interface exports
+%%%============================================================================
 
-%% @spec new(Mod:: atom() | list(atom())) -> ok
 %% @equiv new(Mod, [])
--spec new(Mod:: atom() | [atom()]) -> ok.
+-spec new(Mods) -> ok when
+      Mods :: Mod | [Mod],
+      Mod :: atom().
 new(Mod) when is_atom(Mod) -> new(Mod, []);
 new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 
-%% @spec new(Mod:: atom() | list(atom()), Options::list(term())) -> ok
+
 %% @doc Creates new mocked module(s).
 %%
 %% This replaces the current version (if any) of the modules in `Mod'
@@ -166,9 +154,12 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%       then stubs will return atom `ok'. If used along with `passthrough'
 %%       then `stub_all' is ignored. </dd>
 %% </dl>
--spec new(Mod:: atom() | [atom()], Options::[term()]) -> ok.
+-spec new(Mods, Options) -> ok when
+      Mods :: Mod | [Mod],
+      Mod :: atom(),
+      Options :: [proplists:property()].
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
-    case start(Mod, Options) of
+    case meck_proc:start(Mod, Options) of
         {ok, _Pid} -> ok;
         {error, Reason} -> erlang:error(Reason, [Mod, Options])
     end;
@@ -184,9 +175,9 @@ new(Mod, Options) when is_list(Mod) ->
 %% <dt>`StubFun'</dt><dd>a stub function that is executed whenever the function
 %% `Func' is called. The arity of `StubFun' identifies for which particular
 %% `Func' variant an expectation is created for;</dd>
-%% <dt>`ClauseSpecs'</dt><dd>a list of `ArgsPattern'/`RetSpec' pairs. Whenever
+%% <dt>`ClauseSpecs'</dt><dd>a list of `ArgsSpec'/`RetSpec' pairs. Whenever
 %% the function `Func' is called the arguments are matched against the
-%% `ArgsPattern' in the list. As soon as the first match is found then a value
+%% `ArgsSpec' in the list. As soon as the first match is found then a value
 %% defined by the corresponding `RetSpec' is returned.</dd>
 %% </dl>
 %%
@@ -194,24 +185,19 @@ new(Mod, Options) when is_list(Mod) ->
 %% expectation is called with the wrong number of arguments or invalid
 %% arguments the mock module(s) is invalidated. It is also invalidated if
 %% an unexpected exception occurs.
--spec expect(Mod, Func, Expect) -> ok when
-      Mod :: atom() | [atom()],
+-spec expect(Mods, Func, FunOrClauses) -> ok when
+      Mods :: Mod | [Mod],
+      Mod :: atom(),
       Func :: atom(),
-      Expect :: StubFun | [ClauseSpec],
-      StubFun :: fun(),
-      ClauseSpec :: {args_pattern(), ret_spec()}.
-expect(Mod, Func, StubFun)
-  when is_atom(Mod), is_atom(Func), is_function(StubFun) ->
-    {arity, Arity} = erlang:fun_info(StubFun, arity),
-    Clause = {arity_2_matcher(Arity), {meck_func, StubFun}},
-    check_expect_result(call(Mod, {expect, {Func, Arity}, [Clause]}));
-expect(Mod, Func, ClauseSpecs)
-  when is_atom(Mod), is_atom(Func), is_list(ClauseSpecs) ->
-    {Arity, Clauses} = parse_clause_specs(ClauseSpecs),
-    check_expect_result(call(Mod, {expect, {Func, Arity}, Clauses}));
-expect(Mod, Func, Expect) when is_list(Mod) ->
-    lists:foreach(fun(M) -> expect(M, Func, Expect) end, Mod),
-    ok.
+      FunOrClauses :: fun() | [func_clause_spec()].
+expect(Mod, Func, FunOrClauses) when is_list(Mod) ->
+    lists:foreach(fun(M) -> expect(M, Func, FunOrClauses) end, Mod),
+    ok;
+expect(_Mod, _Func, []) ->
+    erlang:error(empty_clause_list);
+expect(Mod, Func, FunOrClauses) when is_atom(Mod), is_atom(Func) ->
+    Expect = meck_expect:new(Func, FunOrClauses),
+    check_expect_result(meck_proc:set_expect(Mod, Expect)).
 
 
 %% @doc Adds an expectation with the supplied arity and return value.
@@ -220,85 +206,73 @@ expect(Mod, Func, Expect) when is_list(Mod) ->
 %% and always returns `Result'.
 %%
 %% @see expect/3.
--spec expect(Mod, Func, ArgsSpec, RetSpec) -> ok when
-      Mod :: atom() | [atom()],
+-spec expect(Mods, Func, AriOrArgs, RetSpec) -> ok when
+      Mods :: Mod | [Mod],
+      Mod :: atom(),
       Func :: atom(),
-      ArgsSpec :: Arity | args_pattern(),
-      Arity :: non_neg_integer(),
+      AriOrArgs :: byte() | args_spec(),
       RetSpec :: ret_spec().
-expect(Mod, Func, Arity, RetSpec)
-  when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
-    Clause = {arity_2_matcher(Arity), RetSpec},
-    check_expect_result(call(Mod, {expect, {Func, Arity}, [Clause]}));
-expect(Mod, Func, ArgsPattern, RetSpec)
-  when is_atom(Mod), is_atom(Func), is_list(ArgsPattern) ->
-    {Arity, Clause} = parse_clause_spec({ArgsPattern, RetSpec}),
-    check_expect_result(call(Mod, {expect, {Func, Arity}, [Clause]}));
-expect(Mod, Func, ArgsSpec, RetSpec) when is_list(Mod) ->
-    lists:foreach(fun(M) -> expect(M, Func, ArgsSpec, RetSpec) end, Mod),
-    ok.
+expect(Mod, Func, AriOrArgs, RetSpec) when is_list(Mod) ->
+    lists:foreach(fun(M) -> expect(M, Func, AriOrArgs, RetSpec) end, Mod),
+    ok;
+expect(Mod, Func, AriOrArgs, RetSpec) when is_atom(Mod), is_atom(Func) ->
+    Expect = meck_expect:new(Func, AriOrArgs, RetSpec),
+    check_expect_result(meck_proc:set_expect(Mod, Expect)).
 
-%% @spec sequence(Mod:: atom() | list(atom()), Func::atom(),
-%%                Arity::pos_integer(), Sequence::[term()]) -> ok
-%% @doc Adds an expectation which returns a value from `Sequence'
-%% until exhausted.
-%%
-%% This creates an expectation which takes `Arity' number of arguments
-%% and returns one element from `Sequence' at a time. Thus, calls to
-%% this expect will exhaust the list of return values in order until
-%% the last value is reached. That value is then returned for all
-%% subsequent calls.
-%%
+
+%% @equiv expect(Mod, Func, Ari, seq(Sequence))
 %% @deprecated Please use {@link expect/3} or {@link expect/4} along with
 %% {@link ret_spec()} generated by {@link seq/1}.
--spec sequence(Mod:: atom() | [atom()], Func::atom(),
-               Arity::pos_integer(), Sequence::[term()]) -> ok.
-sequence(Mod, Func, Arity, Sequence)
-  when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
-    Clause = {arity_2_matcher(Arity), seq(Sequence)},
-    check_expect_result(call(Mod, {expect, {Func, Arity}, [Clause]}));
-sequence(Mod, Func, Arity, Sequence) when is_list(Mod) ->
-    lists:foreach(fun(M) -> sequence(M, Func, Arity, Sequence) end, Mod),
+-spec sequence(Mods, Func, Ari, Sequence) -> ok when
+      Mods :: Mod | [Mod],
+      Mod :: atom(),
+      Func :: atom(),
+      Ari :: byte(),
+      Sequence :: [any()].
+sequence(Mod, Func, Ari, Sequence)
+  when is_atom(Mod), is_atom(Func), is_integer(Ari), Ari >= 0 ->
+    Expect = meck_expect:new(Func, Ari, seq(Sequence)),
+    check_expect_result(meck_proc:set_expect(Mod, Expect));
+sequence(Mod, Func, Ari, Sequence) when is_list(Mod) ->
+    lists:foreach(fun(M) -> sequence(M, Func, Ari, Sequence) end, Mod),
     ok.
 
-%% @spec loop(Mod:: atom() | list(atom()), Func::atom(),
-%%            Arity::pos_integer(), Loop::[term()]) -> ok
-%% @doc Adds an expectation which returns a value from `Loop'
-%% infinitely.
-%%
-%% This creates an expectation which takes `Arity' number of arguments
-%% and returns one element from `Loop' at a time. Thus, calls to this
-%% expect will return one element at a time from the list and will
-%% restart at the first element when the end is reached.
-%%
+
+%% @equiv expect(Mod, Func, Ari, loop(Loop))
 %% @deprecated Please use {@link expect/3} or {@link expect/4} along with
 %% {@link ret_spec()} generated by {@link loop/1}.
--spec loop(Mod:: atom() | [atom()], Func::atom(),
-           Arity::pos_integer(), Loop::[term()]) -> ok.
-loop(Mod, Func, Arity, Loop)
-  when is_atom(Mod), is_atom(Func), is_integer(Arity), Arity >= 0 ->
-    Clause = {arity_2_matcher(Arity), loop(Loop)},
-    check_expect_result(call(Mod, {expect, {Func, Arity}, [Clause]}));
-loop(Mod, Func, Arity, Loop) when is_list(Mod) ->
-    lists:foreach(fun(M) -> loop(M, Func, Arity, Loop) end, Mod),
+-spec loop(Mods, Func, Ari, Loop) -> ok when
+      Mods :: Mod | [Mod],
+      Mod :: atom(),
+      Func :: atom(),
+      Ari :: byte(),
+      Loop :: [any()].
+loop(Mod, Func, Ari, Loop)
+  when is_atom(Mod), is_atom(Func), is_integer(Ari), Ari >= 0 ->
+    Expect = meck_expect:new(Func, Ari, loop(Loop)),
+    check_expect_result(meck_proc:set_expect(Mod, Expect));
+loop(Mod, Func, Ari, Loop) when is_list(Mod) ->
+    lists:foreach(fun(M) -> loop(M, Func, Ari, Loop) end, Mod),
     ok.
 
-%% @spec delete(Mod:: atom() | list(atom()), Func::atom(),
-%%              Arity::pos_integer()) -> ok
+
 %% @doc Deletes an expectation.
 %%
 %% Deletes the expectation for the function `Func' with the matching
 %% arity `Arity'.
--spec delete(Mod:: atom() | [atom()], Func::atom(), Arity::pos_integer()) ->
-    ok.
-delete(Mod, Func, Arity)
-  when is_atom(Mod), is_atom(Func), Arity >= 0 ->
-    call(Mod, {delete, Func, Arity});
-delete(Mod, Func, Arity) when is_list(Mod) ->
-    lists:foreach(fun(M) -> delete(M, Func, Arity) end, Mod),
+-spec delete(Mods, Func, Ari) -> ok when
+      Mods :: Mod | [Mod],
+      Mod :: atom(),
+      Func :: atom(),
+      Ari :: byte().
+delete(Mod, Func, Ari)
+  when is_atom(Mod), is_atom(Func), Ari >= 0 ->
+    meck_proc:delete_expect(Mod, Func, Ari);
+delete(Mod, Func, Ari) when is_list(Mod) ->
+    lists:foreach(fun(M) -> delete(M, Func, Ari) end, Mod),
     ok.
 
-%% @spec exception(Class:: throw | error | exit, Reason::term()) -> no_return()
+
 %% @doc Throws an expected exception inside an expect fun.
 %%
 %% This exception will get thrown without invalidating the mocked
@@ -306,20 +280,24 @@ delete(Mod, Func, Arity) when is_list(Mod) ->
 %% handle this exception.
 %%
 %% <em>Note: this code should only be used inside an expect fun.</em>
--spec exception(Class:: throw | error | exit, Reason::term()) -> no_return().
+-spec exception(Class, Reason) -> no_return() when
+      Class :: throw | error | exit,
+      Reason :: any().
 exception(Class, Reason) when Class == throw; Class == error; Class == exit ->
-    throw(mock_exception_fun(Class, Reason)).
+    meck_code_gen:throw_exception(Class, Reason).
 
-%% @spec passthrough(Args::list(term())) -> term()
+
 %% @doc Calls the original function (if existing) inside an expectation fun.
 %%
 %% <em>Note: this code should only be used inside an expect fun.</em>
--spec passthrough(Args::[term()]) -> term().
+-spec passthrough(Args) -> Result when
+      Args :: [any()],
+      Result :: any().
 passthrough(Args) when is_list(Args) ->
-    {Mod, Func} = get('$meck_call'),
-    erlang:apply(original_name(Mod), Func, Args).
+    {Mod, Func} = meck_code_gen:get_current_call(),
+    erlang:apply(meck_util:original_name(Mod), Func, Args).
 
-%% @spec validate(Mod:: atom() | list(atom())) -> boolean()
+
 %% @doc Validate the state of the mock module(s).
 %%
 %% The function returns `true' if the mocked module(s) has been used
@@ -329,20 +307,23 @@ passthrough(Args) when is_list(Args) ->
 %% (function clause) or unexpected exceptions.
 %%
 %% Use the {@link history/1} or {@link history/2} function to analyze errors.
--spec validate(Mod:: atom() | [atom()]) -> boolean().
+-spec validate(Mods) -> boolean() when
+      Mods :: Mod | [Mod],
+      Mod :: atom().
 validate(Mod) when is_atom(Mod) ->
-    call(Mod, validate);
+    meck_proc:validate(Mod);
 validate(Mod) when is_list(Mod) ->
     not lists:member(false, [validate(M) || M <- Mod]).
 
-%% @spec history(Mod::atom()) -> history()
+
 %% @doc Return the call history of the mocked module for all processes.
 %%
 %% @equiv history(Mod, '_')
--spec history(Mod::atom()) -> history().
-history(Mod) when is_atom(Mod) -> call(Mod, history).
+-spec history(Mod) -> history() when
+      Mod :: atom().
+history(Mod) when is_atom(Mod) -> meck_history:get_history('_', Mod).
 
-%% @spec history(Mod::atom(), Pid::pid()) -> history()
+
 %% @doc Return the call history of the mocked module for the specified process.
 %%
 %% Returns a list of calls to the mocked module and their results for
@@ -354,38 +335,51 @@ history(Mod) when is_atom(Mod) -> call(Mod, history).
 %% @see called/4
 %% @see num_calls/3
 %% @see num_calls/4
--spec history(Mod::atom(), Pid:: pid() | '_') -> history().
-history(Mod, Pid) when is_atom(Mod), is_pid(Pid) orelse Pid == '_' ->
-    match_history(match_mfa('_', Pid), call(Mod, history)).
+-spec history(Mod, OptCallerPid) -> history() when
+      Mod :: atom(),
+      OptCallerPid :: '_' | pid().
+history(Mod, OptCallerPid)
+  when is_atom(Mod), is_pid(OptCallerPid) orelse OptCallerPid == '_' ->
+    meck_history:get_history(OptCallerPid, Mod).
 
-%% @spec unload() -> list(atom())
+
 %% @doc Unloads all mocked modules from memory.
 %%
 %% The function returns the list of mocked modules that were unloaded
 %% in the process.
--spec unload() -> [atom()].
+-spec unload() -> Unloaded when
+      Unloaded :: [Mod],
+      Mod :: atom().
 unload() -> lists:foldl(fun unload_if_mocked/2, [], registered()).
 
-%% @spec unload(Mod:: atom() | list(atom())) -> ok
+
 %% @doc Unload a mocked module or a list of mocked modules.
 %%
 %% This will purge and delete the module(s) from the Erlang virtual
 %% machine. If the mocked module(s) replaced an existing module, this
 %% module will still be in the Erlang load path and can be loaded
 %% manually or when called.
--spec unload(Mods:: atom() | [atom()]) -> ok.
-unload(Mod) when is_atom(Mod) -> call(Mod, stop), wait_for_exit(Mod);
-unload(Mods) when is_list(Mods) -> lists:foreach(fun unload/1, Mods), ok.
+-spec unload(Mods) -> ok when
+      Mods :: Mod | [Mod],
+      Mod :: atom().
+unload(Mod) when is_atom(Mod) ->
+    meck_proc:stop(Mod),
+    wait_for_exit(Mod);
+unload(Mods) when is_list(Mods) ->
+    lists:foreach(fun unload/1, Mods), ok.
 
-%% @spec called(Mod:: atom(), Fun:: atom(), Args:: list(term())) -> boolean()
+
 %% @doc Returns whether `Mod:Func' has been called with `Args'.
 %%
 %% @equiv called(Mod, Fun, Args, '_')
-called(Mod, Fun, Args) ->
-    has_call({Mod, Fun, Args}, meck:history(Mod)).
+-spec called(OptMod, OptFun, OptArgs) -> boolean() when
+      OptMod :: '_' | atom(),
+      OptFun :: '_' | atom(),
+      OptArgs :: '_' | args_spec().
+called(OptMod, OptFun, OptArgs) ->
+    meck_history:num_calls('_', OptMod, OptFun, OptArgs) > 0.
 
-%% @spec called(Mod:: atom(), Fun:: atom(), Args:: list(term()),
-%%              Pid::pid()) -> boolean()
+
 %% @doc Returns whether `Pid' has called `Mod:Func' with `Args'.
 %%
 %% This will check the history for the module, `Mod', to determine
@@ -396,20 +390,26 @@ called(Mod, Fun, Args) ->
 %% atom: ``'_' ''
 %%
 %% @see called/3
--spec called(Mod::atom(), Fun::atom(), Args::list(), Pid::pid()) -> boolean().
-called(Mod, Fun, Args, Pid) ->
-    has_call({Mod, Fun, Args}, meck:history(Mod, Pid)).
+-spec called(OptMod, OptFun, OptArgs, OptCallerPid) -> boolean() when
+      OptMod :: '_' | atom(),
+      OptFun :: '_' | atom(),
+      OptArgs :: '_' | args_spec(),
+      OptCallerPid :: '_' | pid().
+called(OptMod, OptFun, OptArgs, OptPid) ->
+    meck_history:num_calls(OptPid, OptMod, OptFun, OptArgs) > 0.
 
-%% @spec num_calls(Mod:: atom(), Fun:: atom(), Args:: list(term()))
-%% -> non_neg_integer()
+
 %% @doc Returns the number of times `Mod:Func' has been called with `Args'.
 %%
 %% @equiv num_calls(Mod, Fun, Args, '_')
-num_calls(Mod, Fun, Args) ->
-    num_calls({Mod, Fun, Args}, meck:history(Mod)).
+-spec num_calls(OptMod, OptFun, OptArgs) -> non_neg_integer() when
+      OptMod :: '_' | atom(),
+      OptFun :: '_' | atom(),
+      OptArgs :: '_' | args_spec().
+num_calls(OptMod, OptFun, OptArgs) ->
+    meck_history:num_calls('_', OptMod, OptFun, OptArgs).
 
-%% @spec num_calls(Mod:: atom(), Fun:: atom(), Args:: list(term()),
-%%                 Pid::pid()) -> non_neg_integer()
+
 %% @doc Returns the number of times process `Pid' has called `Mod:Func'
 %%      with `Args'.
 %%
@@ -418,10 +418,13 @@ num_calls(Mod, Fun, Args) ->
 %% arguments, `Args' and returns the result.
 %%
 %% @see num_calls/3
--spec num_calls(Mod::atom(), Fun::atom(), Args::list(), Pid::pid()) ->
-    non_neg_integer().
-num_calls(Mod, Fun, Args, Pid) ->
-    num_calls({Mod, Fun, Args}, meck:history(Mod, Pid)).
+-spec num_calls(OptMod, OptFun, OptArgs, OptCallerPid) -> non_neg_integer() when
+      OptMod :: '_' | atom(),
+      OptFun :: '_' | atom(),
+      OptArgs :: '_' | args_spec(),
+      OptCallerPid :: '_' | pid().
+num_calls(OptMod, OptFun, OptArgs, OptPid) ->
+    meck_history:num_calls(OptPid, OptMod, OptFun, OptArgs).
 
 
 %% @doc Erases the call history for a mocked module or a list of mocked modules.
@@ -429,9 +432,11 @@ num_calls(Mod, Fun, Args, Pid) ->
 %% This function will erase all calls made heretofore from the history of the
 %% specified modules. It is intended to prevent cluttering of test results with
 %% calls to mocked modules made during the test setup phase.
--spec reset(Mod::atom() | [atom()]) -> ok.
+-spec reset(Mods) -> ok when
+      Mods :: Mod | [Mod],
+      Mod :: atom().
 reset(Mod) when is_atom(Mod) ->
-    call(Mod, reset);
+    meck_proc:reset(Mod);
 reset(Mods) when is_list(Mods) ->
     lists:foreach(fun(Mod) -> reset(Mod) end, Mods).
 
@@ -443,7 +448,8 @@ reset(Mods) when is_list(Mods) ->
 %% Calls to an expect, created with {@link ret_spec()} returned by this function,
 %% will return one element at a time from the `Loop' list and will restart at
 %% the first element when the end is reached.
--spec loop(Loop::[term()]) -> ret_spec().
+-spec loop(Loop) -> ret_spec() when
+      Loop :: [ret_spec()].
 loop(L) when is_list(L) -> {meck_loop, L, L}.
 
 
@@ -454,627 +460,62 @@ loop(L) when is_list(L) -> {meck_loop, L, L}.
 %% Calls to an expect, created with {@link ret_spec} returned by this function,
 %% will exhaust the `Sequence' list of return values in order until the last
 %% value is reached. That value is then returned for all subsequent calls.
--spec seq(Sequence::[term()]) -> ret_spec().
+-spec seq(Sequence) -> ret_spec() when
+      Sequence :: [ret_spec()].
 seq(S) when is_list(S) -> {meck_seq, S}.
 
 
 %% @doc Converts a term into {@link ret_spec()} defining an individual value.
 %% It is intended to be in construction of clause specs for the
 %% {@link expect/3} function.
--spec val(Value::term()) -> ret_spec().
+-spec val(Value) -> ret_spec() when
+      Value :: any().
 val(Value) -> {meck_value, Value}.
 
 
 %% @doc Creates a {@link ret_spec()} that defines an exception.
 %%
-%% Calls to an expect, created with {@link ret_spec} returned by this function,
+%% Calls to an expect, created with {@link ret_spec()} returned by this function,
 %% will raise the specified exception.
--spec raise(Class::throw|error|exit, Reason::term) -> ret_spec().
+-spec raise(Class, Reason) -> ret_spec() when
+      Class :: throw | error | exit,
+      Reason :: term.
 raise(throw, Reason) -> {meck_raise, throw, Reason};
 raise(error, Reason) -> {meck_raise, error, Reason};
 raise(exit, Reason) -> {meck_raise, exit, Reason}.
 
 
+%%%============================================================================
+%%% Internal functions
+%%%============================================================================
 
-%%=============================================================================
-%% Callback functions
-%%=============================================================================
-
-%% @hidden
-init([Mod, Options]) ->
-    Exports = normal_exports(Mod),
-    WasSticky = case proplists:get_bool(unstick, Options) of
-                    true -> {module, Mod} = code:ensure_loaded(Mod),
-                            unstick_original(Mod);
-                    _    -> false
-                end,
-    NoPassCover = proplists:get_bool(no_passthrough_cover, Options),
-    Original = backup_original(Mod, NoPassCover),
-    NoHistory = proplists:get_bool(no_history, Options),
-    History = if NoHistory -> undefined; true -> [] end,
-    CanExpect = resolve_can_expect(Exports, Options),
-    Expects = init_expects(Exports, Options),
-    process_flag(trap_exit, true),
-    try
-        _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, Expects)),
-        {ok, #state{mod = Mod,
-                    can_expect = CanExpect,
-                    expects = Expects,
-                    original = Original,
-                    was_sticky = WasSticky,
-                    history = History}}
-    catch
-        exit:{error_loading_module, Mod, sticky_directory} ->
-            {stop, module_is_sticky}
-    end.
-
-%% @hidden
-handle_call({get_expect, FuncAri, Args}, _From, S) ->
-    {Expect, NewExpects} = get_expect(S#state.expects, S#state.mod, FuncAri,
-                                      Args),
-    {reply, Expect, S#state{expects = NewExpects}};
-handle_call({expect, FuncAri = {Func, Ari}, Clauses}, _From,
-            S = #state{mod = Mod, expects = Expects}) ->
-    case validate_expect(Mod, Func, Ari, S#state.can_expect) of
-        ok ->
-            NewExpects = store_expect(Mod, FuncAri, Clauses, Expects),
-            {reply, ok, S#state{expects = NewExpects}};
-        {error, Reason} ->
-            {reply, {error, Reason}, S}
-    end;
-handle_call({delete, Func, Arity}, _From, S) ->
-    NewExpects = delete_expect(S#state.mod, {Func, Arity}, S#state.expects),
-    {reply, ok, S#state{expects = NewExpects}};
-handle_call(history, _From, S = #state{history = undefined}) ->
-    {reply, [], S};
-handle_call(history, _From, S) ->
-    {reply, lists:reverse(S#state.history), S};
-handle_call(reset, _From, S) ->
-    {reply, ok, S#state{history = []}};
-handle_call(invalidate, _From, S) ->
-    {reply, ok, S#state{valid = false}};
-handle_call(validate, _From, S) ->
-    {reply, S#state.valid, S};
-handle_call(stop, _From, S) ->
-    {stop, normal, ok, S}.
-
-%% @hidden
-handle_cast({add_history, _Item}, S = #state{history = undefined}) ->
-    {noreply, S};
-handle_cast({add_history, Item}, S) ->
-    {noreply, S#state{history = [Item| S#state.history]}};
-handle_cast(_Msg, S)  ->
-    {noreply, S}.
-
-%% @hidden
-handle_info(_Info, S) -> {noreply, S}.
-
-%% @hidden
-terminate(_Reason, #state{mod = Mod, original = OriginalState,
-                          was_sticky = WasSticky}) ->
-    export_original_cover(Mod, OriginalState),
-    cleanup(Mod),
-    restore_original(Mod, OriginalState, WasSticky),
-    ok.
-
-%% @hidden
-code_change(_OldVsn, S, _Extra) -> {ok, S}.
-
-%% @hidden
-exec(Pid, Mod, Func, Arity, Args) ->
-    Expect = call(Mod, {get_expect, {Func, Arity}, Args}),
-    try
-        put('$meck_call', {Mod, Func}),
-        Result = call_expect(Mod, Func, Expect, Args),
-        add_history(Pid, Mod, Func, Args, Result),
-        Result
-    catch
-        throw:Fun when is_function(Fun) ->
-            case is_mock_exception(Fun) of
-                true  -> handle_mock_exception(Pid, Mod, Func, Fun, Args);
-                false -> invalidate_and_raise(Pid, Mod, Func, Args, throw, Fun)
-            end;
-        Class:Reason ->
-            invalidate_and_raise(Pid, Mod, Func, Args, Class, Reason)
-    after
-        erase('$meck_call')
-    end.
-
-%%=============================================================================
-%% Internal functions
-%%=============================================================================
-
-%% --- Process functions ------------------------------------------------------
-
-start(Mod, Options) ->
-    case proplists:is_defined(no_link, Options) of
-        true  -> start(start, Mod, Options);
-        false -> start(start_link, Mod, Options)
-    end.
-
-start(Func, Mod, Options) ->
-    SpawnOpt = proplists:get_value(spawn_opt, Options, []),
-    gen_server:Func({local, proc_name(Mod)}, ?MODULE, [Mod, Options],
-                    [{spawn_opt, SpawnOpt}]).
-
-cast(Mod, Msg) -> gen_server(cast, Mod, Msg).
-call(Mod, Msg) -> gen_server(call, Mod, Msg).
-
-gen_server(Func, Mod, Msg) ->
-    Name = proc_name(Mod),
-    try gen_server:Func(Name, Msg)
-    catch exit:_Reason -> erlang:error({not_mocked, Mod}) end.
-
-proc_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck").
-
-original_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck_original").
-
+-spec wait_for_exit(Mod::atom()) -> ok.
 wait_for_exit(Mod) ->
-    MonitorRef = erlang:monitor(process, proc_name(Mod)),
+    MonitorRef = erlang:monitor(process, meck_util:proc_name(Mod)),
     receive {'DOWN', MonitorRef, _Type, _Object, _Info} -> ok end.
 
-unload_if_mocked(P, L) when is_atom(P) ->
-    unload_if_mocked(atom_to_list(P), L);
-unload_if_mocked(P, L) when length(P) > 5 ->
-    case lists:split(length(P) - 5, P) of
+
+-spec unload_if_mocked(Mod::atom() | string(), Unloaded::[atom()]) ->
+        NewUnloaded::[atom()].
+unload_if_mocked(Mod, Unloaded) when is_atom(Mod) ->
+    unload_if_mocked(atom_to_list(Mod), Unloaded);
+unload_if_mocked(ModName, Unloaded) when length(ModName) > 5 ->
+    case lists:split(length(ModName) - 5, ModName) of
         {Name, "_meck"} ->
-            Mocked = list_to_existing_atom(Name),
+            Mocked = erlang:list_to_existing_atom(Name),
             try
                 unload(Mocked)
             catch error:{not_mocked, Mocked} ->
                     ok
             end,
-            [Mocked|L];
+            [Mocked | Unloaded];
         _Else ->
-            L
+            Unloaded
     end;
-unload_if_mocked(_P, L) ->
-    L.
+unload_if_mocked(_P, Unloaded) ->
+    Unloaded.
 
-%% --- Mock handling ----------------------------------------------------------
 
+-spec check_expect_result(ok | {error, Reason::any()}) -> ok.
 check_expect_result(ok) -> ok;
 check_expect_result({error, Reason}) -> erlang:error(Reason).
-
-validate_expect(M, F, A, CanExpect) ->
-    case expect_type(M, F, A) of
-        autogenerated ->
-            {error, {cannot_mock_autogenerated, {M, F, A}}};
-        builtin ->
-            {error, {cannot_mock_builtin, {M, F, A}}};
-        normal ->
-            case CanExpect =:= any orelse lists:member({F, A}, CanExpect) of
-                true -> ok;
-                _    -> {error, {undefined_function, {M, F, A}}}
-            end
-    end.
-
-resolve_can_expect(Exports, Options) ->
-    NonStrict = proplists:get_bool(non_strict, Options),
-    case {Exports, NonStrict} of
-        {_, true}      -> any;
-        {undefined, _} -> erlang:exit(undefined_module);
-        _              -> Exports
-    end.
-
-init_expects(Exports, Options) ->
-    Passthrough = proplists:get_bool(passthrough, Options),
-    StubAll = proplists:is_defined(stub_all, Options),
-    Expects = case Exports of
-                  undefined ->
-                      [];
-                  Exports when Passthrough ->
-                      [passthrough_stub(FuncArity) || FuncArity <- Exports];
-                  Exports when StubAll ->
-                      StubRet = case lists:keyfind(stub_all, 1, Options) of
-                                    {stub_all, RetSpec} -> RetSpec;
-                                    _ -> val(ok)
-                                end,
-                      [void_stub(FuncArity, StubRet) || FuncArity <- Exports];
-                  Exports ->
-                      []
-              end,
-    dict:from_list(Expects).
-
-passthrough_stub({Func, Arity}) ->
-    {{Func, Arity}, [{arity_2_matcher(Arity), passthrough}]}.
-
-void_stub({Func, Arity}, RetSpec) ->
-    {{Func, Arity}, [{arity_2_matcher(Arity), RetSpec}]}.
-
-
-parse_clause_specs(ClauseSpecs) ->
-    parse_clause_specs(ClauseSpecs, undefined, []).
-
-parse_clause_specs([ClauseSpec | Rest], undefined, []) ->
-    {Arity, Clause} = parse_clause_spec(ClauseSpec),
-    parse_clause_specs(Rest, Arity, [Clause]);
-parse_clause_specs([ClauseSpec | Rest], DeducedArity, Clauses) ->
-    {Arity, Clause} = parse_clause_spec(ClauseSpec),
-    case Arity of
-        DeducedArity ->
-            parse_clause_specs(Rest, DeducedArity, [Clause | Clauses]);
-        _ ->
-            erlang:error({invalid_arity, {{expected, DeducedArity},
-                                          {actual, Arity},
-                                          {clause, Clause}}})
-    end;
-parse_clause_specs([], DeducedArity, Clauses) ->
-    {DeducedArity, lists:reverse(Clauses)}.
-
-
-parse_clause_spec({ArgsPattern, RetSpec}) ->
-    Arity = length(ArgsPattern),
-    MatchSpec = ets:match_spec_compile([?MATCH_SPEC(ArgsPattern)]),
-    Clause = {{pattern, ArgsPattern, MatchSpec}, RetSpec},
-    {Arity, Clause}.
-
-
-get_expect(Expects, _Mod, FuncAri, Args) ->
-    case find_match(Args, dict:fetch(FuncAri, Expects)) of
-        not_found ->
-            {meck_undefined, Expects};
-        {ArgsMatcher, RetSpec} ->
-            case next_result(RetSpec, []) of
-                {Result, unchanged} ->
-                    {Result, Expects};
-                {Result, NewRetSpec} ->
-                    NewExpects = update_clause(Expects, FuncAri, ArgsMatcher,
-                                               NewRetSpec),
-                    {Result, NewExpects}
-            end
-    end.
-
-
-next_result(RetSpec = {meck_seq, [InnerRs | _Rest]}, Stack) ->
-    next_result(InnerRs, [RetSpec | Stack]);
-next_result(RetSpec = {meck_loop, [InnerRs | _Rest], _Loop}, Stack) ->
-    next_result(InnerRs, [RetSpec | Stack]);
-next_result(LeafRetSpec, Stack) ->
-    {LeafRetSpec, unwind_stack(LeafRetSpec, Stack, false)}.
-
-
-unwind_stack(InnerRs, [], true) ->
-    InnerRs;
-unwind_stack(_InnerRs, [], false) ->
-    unchanged;
-unwind_stack(InnerRs, [CurrRs = {meck_seq, [InnerRs]} | Stack], Updated) ->
-    unwind_stack(CurrRs, Stack, Updated);
-unwind_stack(InnerRs, [{meck_seq, [InnerRs | Rest]} | Stack], _Updated) ->
-    unwind_stack({meck_seq, Rest}, Stack, true);
-unwind_stack(NewInnerRs, [{meck_seq, [_InnerRs | Rest]} | Stack], _Updated) ->
-    unwind_stack({meck_seq, [NewInnerRs | Rest]}, Stack, true);
-unwind_stack(InnerRs, [{meck_loop, [InnerRs], Loop} | Stack], _Updated) ->
-    unwind_stack({meck_loop, Loop, Loop}, Stack, true);
-unwind_stack(InnerRs, [{meck_loop, [InnerRs | Rest], Loop} | Stack],
-             _Updated) ->
-    unwind_stack({meck_loop, Rest, Loop}, Stack, true);
-unwind_stack(NewInnerRs, [{meck_loop, [_InnerRs | Rest], Loop} | Stack],
-             _Updated) ->
-    unwind_stack({meck_loop, [NewInnerRs | Rest], Loop}, Stack, true).
-
-
-store_expect(Mod, FuncAri, Clauses, Expects) ->
-    NewExpects = dict:store(FuncAri, Clauses, Expects),
-    _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
-    NewExpects.
-
-
-delete_expect(Mod, FuncAri, Expects) ->
-    NewExpects = dict:erase(FuncAri, Expects),
-    _Bin = meck_mod:compile_and_load_forms(to_forms(Mod, NewExpects)),
-    NewExpects.
-
-
-update_clause(Expects, FuncAri, ArgsMatcher, RetSpec) ->
-    dict:update(FuncAri,
-                fun(Clauses) ->
-                        lists:keyreplace(ArgsMatcher, 1, Clauses,
-                                         {ArgsMatcher, RetSpec})
-                end,
-                Expects).
-
-
-find_match(Args, [{ArgsMatcher, RetSpec} | Rest]) ->
-    case ArgsMatcher of
-        {pattern, _ArgsPattern, MatchSpec} ->
-            case ets:match_spec_run([Args], MatchSpec) of
-                [] ->
-                    find_match(Args, Rest);
-                _ ->
-                    {ArgsMatcher, RetSpec}
-            end;
-        {hamcrest, _Matchers} ->
-            throw(unimplemented) % TODO Hamcrest support is comming
-    end;
-find_match(_Args, []) ->
-    not_found.
-
-
-arity_2_matcher(Arity) ->
-    ArgsPattern = lists:duplicate(Arity, '_'),
-    MatchSpec = ets:match_spec_compile([?MATCH_SPEC(ArgsPattern)]),
-    {pattern, ArgsPattern, MatchSpec}.
-
-
-%% --- Code generation --------------------------------------------------------
-
-func(Mod, {Func, Arity}, {anon, Arity, Result}) ->
-   case contains_opaque(Result) of
-       true ->
-            func_exec(Mod, Func, Arity);
-       false ->
-           func_native(Mod, Func, Arity, Result)
-   end;
-func(Mod, {Func, Arity}, _Expect) ->
-    func_exec(Mod, Func, Arity).
-
-func_exec(Mod, Func, Arity) ->
-    Args = args(Arity),
-    ?function(Func, Arity,
-              [?clause(Args,
-                       [?call(?MODULE, exec,
-                              [?call(erlang, self, []),
-                               ?atom(Mod),
-                               ?atom(Func),
-                               ?integer(Arity),
-                               list(Args)])])]).
-
-func_native(Mod, Func, Arity, Result) ->
-    Args = args(Arity),
-    AbsResult = erl_parse:abstract(Result),
-    ?function(
-       Func, Arity,
-       [?clause(
-           Args,
-           [?call(gen_server, cast,
-                  [?atom(proc_name(Mod)),
-                   ?tuple([?atom(add_history),
-                           ?tuple([?call(erlang, self, []),
-                                   ?tuple([?atom(Mod), ?atom(Func),
-                                           list(Args)]),
-                                   AbsResult])])]),
-            AbsResult])]).
-
-contains_opaque(Term) when is_pid(Term); is_port(Term); is_function(Term);
-                           is_reference(Term) ->
-    true;
-contains_opaque(Term) when is_list(Term) ->
-    lists:any(fun contains_opaque/1, Term);
-contains_opaque(Term) when is_tuple(Term) ->
-    lists:any(fun contains_opaque/1, tuple_to_list(Term));
-contains_opaque(_Term) ->
-    false.
-
-
-to_forms(Mod, Expects) ->
-    {Exports, Functions} = functions(Mod, Expects),
-    [?attribute(module, Mod)] ++ attributes(Mod) ++ Exports ++ Functions.
-
-attributes(Mod) ->
-    try
-        [?attribute(Key, Val) || {Key, Val} <-
-            proplists:get_value(attributes, Mod:module_info(), []),
-            Key =/= vsn]
-    catch
-        error:undef -> []
-    end.
-
-functions(Mod, Expects) ->
-    dict:fold(fun(Export, Expect, {Exports, Functions}) ->
-                      {[?attribute(export, [Export])|Exports],
-                       [func(Mod, Export, Expect)|Functions]}
-              end, {[], []}, Expects).
-
-args(0)     -> [];
-args(Arity) -> [?var(var_name(N)) || N <- lists:seq(1, Arity)].
-
-list([])    -> {nil, ?LINE};
-list([H|T]) -> {cons, ?LINE, H, list(T)}.
-
-var_name(A) -> list_to_atom("A"++integer_to_list(A)).
-
-
-%% --- Execution utilities ----------------------------------------------------
-
-is_local_function(Fun) ->
-    {module, Module} = erlang:fun_info(Fun, module),
-    ?MODULE == Module.
-
-handle_mock_exception(Pid, Mod, Func, Fun, Args) ->
-    case Fun() of
-        {exception, Class, Reason} ->
-            % exception created with the mock:exception function,
-            % do not invalidate Mod
-            raise(Pid, Mod, Func, Args, Class, Reason)
-    end.
-
--spec invalidate_and_raise(_, _, _, _, _, _) -> no_return().
-invalidate_and_raise(Pid, Mod, Func, Args, Class, Reason) ->
-    call(Mod, invalidate),
-    raise(Pid, Mod, Func, Args, Class, Reason).
-
-raise(Pid, Mod, Func, Args, Class, Reason) ->
-    Stacktrace = inject(Mod, Func, Args, erlang:get_stacktrace()),
-    add_history(Pid, Mod, Func, Args, Class, Reason, Stacktrace),
-    erlang:raise(Class, Reason, Stacktrace).
-
-mock_exception_fun(Class, Reason) -> fun() -> {exception, Class, Reason} end.
-
-call_expect(_Mod, _Func, meck_undefined, _Args) ->
-    erlang:error(function_clause);
-call_expect(_Mod, _Func, {meck_value, Value}, _Args) ->
-    Value;
-call_expect(_Mod, _Func, {meck_func, Fun}, Args) when is_function(Fun) ->
-    apply(Fun, Args);
-call_expect(_Mod, _Func, {meck_raise, Class, Reason}, _Args) ->
-    exception(Class, Reason);
-call_expect(Mod, Func, passthrough, Args) ->
-    apply(original_name(Mod), Func, Args);
-call_expect(_Mod, _Func, Value, _Args) ->
-    Value.
-
-inject(_Mod, _Func, _Args, []) ->
-    [];
-inject(Mod, Func, Args, [{meck, exec, _Arity} = Meck|Stack]) ->
-    [Meck, {Mod, Func, Args}|Stack];
-inject(Mod, Func, Args, [{meck, exec, _Arity, _Location} = Meck|Stack]) ->
-    [Meck, {Mod, Func, Args}|Stack];
-inject(Mod, Func, Args, [H|Stack]) ->
-    [H|inject(Mod, Func, Args, Stack)].
-
-is_mock_exception(Fun) -> is_local_function(Fun).
-
-%% --- Original module handling -----------------------------------------------
-
-backup_original(Module, NoPassCover) ->
-    Cover = get_cover_state(Module),
-    try
-        Forms = meck_mod:abstract_code(meck_mod:beam_file(Module)),
-        NewName = original_name(Module),
-        CompileOpts = meck_mod:compile_options(meck_mod:beam_file(Module)),
-        Renamed = meck_mod:rename_module(Forms, NewName),
-        Binary = meck_mod:compile_and_load_forms(Renamed, CompileOpts),
-
-        %% At this point we care about `Binary' if and only if we want
-        %% to recompile it to enable cover on the original module code
-        %% so that we can still collect cover stats on functions that
-        %% have not been mocked.  Below are the different values
-        %% passed back along with `Cover'.
-        %%
-        %% `no_passthrough_cover' - there is no coverage on the
-        %% original module OR passthrough coverage has been disabled
-        %% via the `no_passthrough_cover' option
-        %%
-        %% `no_binary' - something went wrong while trying to compile
-        %% the original module in `backup_original'
-        %%
-        %% Binary - a `binary()' of the compiled code for the original
-        %% module that is being mocked, this needs to be passed around
-        %% so that it can be passed to Cover later.  There is no way
-        %% to use the code server to access this binary without first
-        %% saving it to disk.  Instead, it's passed around as state.
-        if (Cover == false) orelse NoPassCover ->
-                Binary2 = no_passthrough_cover;
-           true ->
-                Binary2 = Binary,
-                meck_cover:compile_beam(NewName, Binary2)
-        end,
-        {Cover, Binary2}
-    catch
-        throw:{object_code_not_found, _Module} ->
-            {Cover, no_binary}; % TODO: What to do here?
-        throw:no_abstract_code                 ->
-            {Cover, no_binary} % TODO: What to do here?
-    end.
-
-restore_original(Mod, {false, _}, WasSticky) ->
-    restick_original(Mod, WasSticky),
-    ok;
-restore_original(Mod, OriginalState={{File, Data, Options},_}, WasSticky) ->
-    case filename:extension(File) of
-        ".erl" ->
-            {ok, Mod} = cover:compile_module(File, Options);
-        ".beam" ->
-            cover:compile_beam(File)
-    end,
-    restick_original(Mod, WasSticky),
-    import_original_cover(Mod, OriginalState),
-    ok = cover:import(Data),
-    ok = file:delete(Data),
-    ok.
-
-%% @doc Import the cover data for `<name>_meck_original' but since it
-%% was modified by `export_original_cover' it will count towards
-%% `<name>'.
-import_original_cover(Mod, {_,Bin}) when is_binary(Bin) ->
-    OriginalData = atom_to_list(original_name(Mod)) ++ ".coverdata",
-    ok = cover:import(OriginalData),
-    ok = file:delete(OriginalData);
-import_original_cover(_, _) ->
-    ok.
-
-%% @doc Export the cover data for `<name>_meck_original' and modify
-%% the data so it can be imported under `<name>'.
-export_original_cover(Mod, {_, Bin}) when is_binary(Bin) ->
-    OriginalMod = original_name(Mod),
-    File = atom_to_list(OriginalMod) ++ ".coverdata",
-    ok = cover:export(File, OriginalMod),
-    ok = meck_cover:rename_module(File, Mod);
-export_original_cover(_, _) ->
-    ok.
-
-
-unstick_original(Module) -> unstick_original(Module, code:is_sticky(Module)).
-
-unstick_original(Module, true) -> code:unstick_mod(Module);
-unstick_original(_,_) -> false.
-
-restick_original(Module, true) ->
-    code:stick_mod(Module),
-    {module, Module} = code:ensure_loaded(Module),
-    ok;
-restick_original(_,_) -> ok.
-
-get_cover_state(Module) -> get_cover_state(Module, cover:is_compiled(Module)).
-
-get_cover_state(Module, {file, File}) ->
-    Data = atom_to_list(Module) ++ ".coverdata",
-    ok = cover:export(Data, Module),
-    CompileOptions =
-        try
-            meck_mod:compile_options(meck_mod:beam_file(Module))
-        catch
-            throw:{object_code_not_found, _Module} -> []
-        end,
-    {File, Data, CompileOptions};
-get_cover_state(_Module, _IsCompiled) ->
-    false.
-
-normal_exports(M) ->
-    try
-        [FA || FA = {F, A} <- M:module_info(exports),
-            normal == expect_type(M, F, A)]
-    catch
-        error:undef -> undefined
-    end.
-
-%% Functions we should not create expects for (auto-generated and BIFs)
-expect_type(_, module_info, 0) -> autogenerated;
-expect_type(_, module_info, 1) -> autogenerated;
-expect_type(M, F, A) -> expect_type(erlang:is_builtin(M, F, A)).
-
-expect_type(true)  -> builtin;
-expect_type(false) -> normal.
-
-cleanup(Mod) ->
-    code:purge(Mod),
-    code:delete(Mod),
-    code:purge(original_name(Mod)),
-    code:delete(original_name(Mod)).
-
-%% --- History utilities ------------------------------------------------------
-
-add_history(Pid, Mod, Func, Args, Result) ->
-    add_history(Mod, {Pid, {Mod, Func, Args}, Result}).
-add_history(Pid, Mod, Func, Args, Class, Reason, Stacktrace) ->
-    add_history(Mod, {Pid, {Mod, Func, Args}, Class, Reason, Stacktrace}).
-
-add_history(Mod, Item) ->
-    cast(Mod, {add_history, Item}).
-
-has_call(MFA, History) ->
-    [] =/= match_history(match_mfa(MFA), History).
-
-num_calls(MFA, History) ->
-    length(match_history(match_mfa(MFA), History)).
-
-match_history(MatchSpec, History) ->
-    MS = ets:match_spec_compile(MatchSpec),
-    ets:match_spec_run(History, MS).
-
-match_mfa(MFA) -> match_mfa(MFA, '_').
-
-match_mfa(MFA, Pid) ->
-    [?MATCH_SPEC({Pid, MFA, '_'}),
-     ?MATCH_SPEC({Pid, MFA, '_', '_', '_'})].
