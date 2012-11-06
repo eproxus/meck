@@ -19,8 +19,7 @@
 
 %% API
 -export([to_forms/2,
-         get_current_call/0,
-         throw_exception/2]).
+         get_current_call/0]).
 
 %% Exported to be accessible from generated modules.
 -export([exec/4]).
@@ -155,61 +154,37 @@ var_name(A) -> list_to_atom("A"++integer_to_list(A)).
 -spec exec(CallerPid::pid(), Mod::atom(), Func::atom(), Args::[any()]) ->
         Result::any().
 exec(Pid, Mod, Func, Args) ->
-    RetSpec = meck_proc:get_ret_spec(Mod, Func, Args),
-    try
-        put(?CURRENT_CALL, {Mod, Func}),
-        Result = simulate_call(Mod, Func, Args, RetSpec),
-        meck_proc:add_history(Mod, Pid, Func, Args, Result),
-        Result
-    catch
-        throw:Fun when is_function(Fun) ->
-            case is_mock_exception(Fun) of
-                true  -> handle_mock_exception(Pid, Mod, Func, Fun, Args);
-                false -> invalidate_and_raise(Pid, Mod, Func, Args, throw, Fun)
-            end;
-        Class:Reason ->
-            invalidate_and_raise(Pid, Mod, Func, Args, Class, Reason)
-    after
-        erase('$meck_call')
+    case meck_proc:get_result_spec(Mod, Func, Args) of
+        undefined ->
+            meck_proc:invalidate(Mod),
+            raise(Pid, Mod, Func, Args, error, function_clause);
+        ResultSpec ->
+            put(?CURRENT_CALL, {Mod, Func}),
+            try
+                Result = meck_ret_spec:eval_result(Mod, Func, Args, ResultSpec),
+                meck_proc:add_history(Mod, Pid, Func, Args, Result),
+                Result
+            catch
+                Class:Reason ->
+                    handle_exception(Pid, Mod, Func, Args, Class, Reason)
+            after
+                erase(?CURRENT_CALL)
+            end
     end.
 
 
--spec simulate_call(Mod::atom(), Func::atom(), Args::[any()],
-                    meck_expect:ret_spec() | meck_undefined) ->
-        Result::any().
-simulate_call(_Mod, _Func, _Args, meck_undefined) ->
-    erlang:error(function_clause);
-simulate_call(_Mod, _Func, _Args, {meck_value, Value}) ->
-    Value;
-simulate_call(_Mod, _Func, Args, {meck_func, Fun}) when is_function(Fun) ->
-    apply(Fun, Args);
-simulate_call(_Mod, _Func, _Args, {meck_raise, Class, Reason}) ->
-    throw_exception(Class, Reason);
-simulate_call(Mod, Func, Args, meck_passthrough) ->
-    apply(meck_util:original_name(Mod), Func, Args);
-simulate_call(_Mod, _Func, _Args, Value) ->
-    Value.
-
-
--spec handle_mock_exception(CallerPid::pid(), Mod::atom(), Func::atom(),
-                            Body::fun(), Args::[any()]) ->
+-spec handle_exception(CallerPid::pid(), Mod::atom(), Func::atom(),
+                       Args::[any()], Class:: exit | error | throw,
+                       Reason::any()) ->
         no_return().
-handle_mock_exception(Pid, Mod, Func, Fun, Args) ->
-    case Fun() of
-        {exception, Class, Reason} ->
-            % exception created with the mock:exception function,
-            % do not invalidate Mod
+handle_exception(Pid, Mod, Func, Args, Class, Reason) ->
+    case meck_ret_spec:is_meck_exception(Reason) of
+        {true, MockedClass, MockedReason} ->
+            raise(Pid, Mod, Func, Args, MockedClass, MockedReason);
+        _ ->
+            meck_proc:invalidate(Mod),
             raise(Pid, Mod, Func, Args, Class, Reason)
     end.
-
-
--spec invalidate_and_raise(CallerPid::pid(), Mod::atom(), Func::atom(),
-                           Args::[any()], Class:: exit | error | throw,
-                           Reason::any()) ->
-        no_return().
-invalidate_and_raise(Pid, Mod, Func, Args, Class, Reason) ->
-    meck_proc:invalidate(Mod),
-    raise(Pid, Mod, Func, Args, Class, Reason).
 
 
 -spec raise(CallerPid::pid(), Mod::atom(), Func::atom(), Args::[any()],
@@ -219,17 +194,6 @@ raise(Pid, Mod, Func, Args, Class, Reason) ->
     StackTrace = inject(Mod, Func, Args, erlang:get_stacktrace()),
     meck_proc:add_history(Mod, Pid, Func, Args, {Class, Reason, StackTrace}),
     erlang:raise(Class, Reason, StackTrace).
-
-
--spec throw_exception(Class:: exit | error | throw, Reason::any()) -> fun().
-throw_exception(Class, Reason) ->
-    erlang:throw(fun() -> {exception, Class, Reason} end).
-
-
--spec is_mock_exception(Fun::fun()) -> boolean().
-is_mock_exception(Fun) ->
-    {module, Mod} = erlang:fun_info(Fun, module),
-    ?MODULE == Mod.
 
 
 -spec inject(Mod::atom(), Func::atom(), Args::[any()],
