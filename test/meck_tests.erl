@@ -95,6 +95,7 @@ meck_test_() ->
                            fun ?MODULE:expect_args_pattern_shadow_/1,
                            fun ?MODULE:expect_args_pattern_missing_/1,
                            fun ?MODULE:expect_args_pattern_invalid_/1,
+                           fun ?MODULE:expect_args_matchers_/1,
                            fun ?MODULE:expect_ret_specs_/1
                           ]]}.
 
@@ -716,8 +717,8 @@ expect_args_pattern_shadow_(Mod) ->
 
 expect_args_pattern_missing_(Mod) ->
     %% When
-    meck:expect(Mod, f, [{[1, 1],     a},
-                         {[1, '_'],   b}]),
+    meck:expect(Mod, f, [{[1, 1],   a},
+                         {[1, '_'], b}]),
     %% Then
     ?assertError(function_clause, Mod:f(2, 2)),
     ?assertEqual(a, Mod:f(1, 1)),
@@ -727,9 +728,19 @@ expect_args_pattern_invalid_(Mod) ->
     %% When/Then
     ?assertError({invalid_arity, {{expected, 2},
                                   {actual, 3},
-                                  {clause, {{pattern, [1, 2, 3], _}, _}}}},
+                                  {clause, {[1, 2, 3], b}}}},
                  meck:expect(Mod, f, [{[1, 2],    a},
                                       {[1, 2, 3], b}])).
+
+expect_args_matchers_(Mod) ->
+    %% When
+    meck:expect(Mod, f, [{[1, meck:is(fun(X) -> X == 1 end)],           a},
+                         {[1, meck:is(hamcrest_matchers:less_than(3))], b},
+                         {['_', '_'],                                   c}]),
+    %% Then
+    ?assertEqual(a, Mod:f(1, 1)),
+    ?assertEqual(b, Mod:f(1, 2)),
+    ?assertEqual(c, Mod:f(2, 2)).
 
 expect_ret_specs_(Mod) ->
     %% When
@@ -1112,7 +1123,8 @@ remote_setup() ->
     {Node, meck_test_module}.
 
 remote_teardown({Node, _Mod}) ->
-    ok = slave:stop(Node).
+    ok = slave:stop(Node),
+    ok = net_kernel:stop().
 
 remote_meck_({Node, Mod}) ->
     ?assertEqual(ok, rpc:call(Node, meck, new, [Mod, [no_link, non_strict]])),

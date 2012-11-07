@@ -12,12 +12,19 @@ ifeq ($(ERL),)
 $(error "Erlang must be available on this system")
 endif
 
-.PHONY: all rebuild compile doc clean test dialyzer typer \
+BUILD_PLT_INC=$(shell test -d deps && echo '-r deps')
+DIALYZER_INC=$(shell test -d include && echo '-I include') $(shell test -d deps && echo '-I deps')
+
+.PHONY: all rebuild compile doc clean test dialyzer typer get-deps clean-deps \
 	shell clean-plt clean-doc distclean
 
 all: compile dialyzer test doc
 
-rebuild: clean-doc clean all
+rebuild: distclean get-deps all
+
+get-deps:
+	@$(REBAR) get-deps
+	@$(REBAR) compile
 
 compile:
 	@$(REBAR) skip_deps=true compile
@@ -32,14 +39,14 @@ test:
 	@$(REBAR) skip_deps=true eunit
 
 $(PLTFILE):
-	- dialyzer --build_plt --apps $(APP_DEPS) --output_plt $(PLTFILE)
+	- dialyzer --build_plt --apps $(APP_DEPS) $(BUILD_PLT_INC) --output_plt $(PLTFILE)
 
 dialyzer: compile $(PLTFILE)
-	@dialyzer --fullpath --plt $(PLTFILE) -pa $(CURDIR)/ebin -c src --src | \
+	@dialyzer --fullpath --plt $(PLTFILE) $(DIALYZER_INC) -pa $(CURDIR)/ebin -c src --src | \
 	fgrep -v -f ./dialyzer.ignore-warnings
 
 typer:
-	typer --plt $(PLTFILE) -I include -r src
+	typer --plt $(PLTFILE) $(DIALYZER_INC) -r src
 
 shell:
 	@$(ERL) $(ERLFLAGS)
@@ -50,4 +57,7 @@ clean-plt:
 clean-doc:
 	@cd doc; ls * | grep -v overview.edoc | xargs rm -f
 
-distclean: clean clean-plt clean-doc
+clean-deps:
+	@rm -rvf $(CURDIR)/deps/*
+
+distclean: clean clean-plt clean-doc clean-deps
