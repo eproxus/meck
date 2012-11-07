@@ -51,6 +51,8 @@
 -export([seq/1]).
 -export([val/1]).
 -export([raise/2]).
+-export([passthrough/0]).
+-export([func/1]).
 
 
 %%%============================================================================
@@ -484,6 +486,21 @@ val(Value) -> meck_ret_spec:val(Value).
       Reason :: term.
 raise(Class, Reason) -> meck_ret_spec:exception(Class, Reason).
 
+
+%% @doc Creates a {@link ret_spec()} that makes the original module function be
+%% called.
+%%
+%% Calls to an expect, created with {@link ret_spec()} returned by this function,
+%% will be forwarded to the original function.
+-spec passthrough() -> ret_spec().
+passthrough() -> meck_ret_spec:passthrough().
+
+
+%% @doc Creates a {@link ret_spec()} from a function. Calls to an expect,
+%% created with {@link ret_spec()} returned by this function, will be forwarded
+%% to the specified function.
+-spec func(fun()) -> ret_spec().
+func(Fun) -> meck_ret_spec:func(Fun).
 
 %%%============================================================================
 %%% Internal functions
