@@ -387,12 +387,12 @@ unload(Mods) when is_list(Mods) ->
 %% @doc Returns whether `Mod:Func' has been called with `Args'.
 %%
 %% @equiv called(Mod, Fun, Args, '_')
--spec called(OptMod, OptFun, OptArgs) -> boolean() when
-      OptMod :: '_' | atom(),
+-spec called(Mod, OptFun, OptArgs) -> boolean() when
+      Mod :: atom(),
       OptFun :: '_' | atom(),
       OptArgs :: '_' | args_spec().
-called(OptMod, OptFun, OptArgs) ->
-    meck_history:num_calls('_', OptMod, OptFun, OptArgs) > 0.
+called(Mod, OptFun, OptArgs) ->
+    meck_history:num_calls('_', Mod, OptFun, OptArgs) > 0.
 
 
 %% @doc Returns whether `Pid' has called `Mod:Func' with `Args'.
@@ -405,24 +405,24 @@ called(OptMod, OptFun, OptArgs) ->
 %% atom: ``'_' ''
 %%
 %% @see called/3
--spec called(OptMod, OptFun, OptArgs, OptCallerPid) -> boolean() when
-      OptMod :: '_' | atom(),
+-spec called(Mod, OptFun, OptArgs, OptCallerPid) -> boolean() when
+      Mod :: atom(),
       OptFun :: '_' | atom(),
       OptArgs :: '_' | args_spec(),
       OptCallerPid :: '_' | pid().
-called(OptMod, OptFun, OptArgs, OptPid) ->
-    meck_history:num_calls(OptPid, OptMod, OptFun, OptArgs) > 0.
+called(Mod, OptFun, OptArgs, OptPid) ->
+    meck_history:num_calls(OptPid, Mod, OptFun, OptArgs) > 0.
 
 
 %% @doc Returns the number of times `Mod:Func' has been called with `Args'.
 %%
 %% @equiv num_calls(Mod, Fun, Args, '_')
--spec num_calls(OptMod, OptFun, OptArgs) -> non_neg_integer() when
-      OptMod :: '_' | atom(),
+-spec num_calls(Mod, OptFun, OptArgs) -> non_neg_integer() when
+      Mod :: atom(),
       OptFun :: '_' | atom(),
       OptArgs :: '_' | args_spec().
-num_calls(OptMod, OptFun, OptArgs) ->
-    meck_history:num_calls('_', OptMod, OptFun, OptArgs).
+num_calls(Mod, OptFun, OptArgs) ->
+    meck_history:num_calls('_', Mod, OptFun, OptArgs).
 
 
 %% @doc Returns the number of times process `Pid' has called `Mod:Func'
@@ -433,13 +433,13 @@ num_calls(OptMod, OptFun, OptArgs) ->
 %% arguments, `Args' and returns the result.
 %%
 %% @see num_calls/3
--spec num_calls(OptMod, OptFun, OptArgs, OptCallerPid) -> non_neg_integer() when
-      OptMod :: '_' | atom(),
+-spec num_calls(Mod, OptFun, OptArgs, OptCallerPid) -> non_neg_integer() when
+      Mod :: atom(),
       OptFun :: '_' | atom(),
       OptArgs :: '_' | args_spec(),
       OptCallerPid :: '_' | pid().
-num_calls(OptMod, OptFun, OptArgs, OptPid) ->
-    meck_history:num_calls(OptPid, OptMod, OptFun, OptArgs).
+num_calls(Mod, OptFun, OptArgs, OptPid) ->
+    meck_history:num_calls(OptPid, Mod, OptFun, OptArgs).
 
 
 %% @doc Erases the call history for a mocked module or a list of mocked modules.
