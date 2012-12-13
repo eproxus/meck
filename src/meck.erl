@@ -52,7 +52,7 @@
 -export([val/1]).
 -export([raise/2]).
 -export([passthrough/0]).
--export([func/1]).
+-export([exec/1]).
 
 
 %%%============================================================================
@@ -288,7 +288,7 @@ delete(Mod, Func, Ari) when is_list(Mod) ->
       Class :: throw | error | exit,
       Reason :: any().
 exception(Class, Reason) when Class == throw; Class == error; Class == exit ->
-    erlang:throw(meck_ret_spec:exception(Class, Reason)).
+    erlang:throw(meck_ret_spec:raise(Class, Reason)).
 
 
 %% @doc Calls the original function (if existing) inside an expectation fun.
@@ -484,7 +484,7 @@ val(Value) -> meck_ret_spec:val(Value).
 -spec raise(Class, Reason) -> ret_spec() when
       Class :: throw | error | exit,
       Reason :: term.
-raise(Class, Reason) -> meck_ret_spec:exception(Class, Reason).
+raise(Class, Reason) -> meck_ret_spec:raise(Class, Reason).
 
 
 %% @doc Creates a {@link ret_spec()} that makes the original module function be
@@ -499,8 +499,8 @@ passthrough() -> meck_ret_spec:passthrough().
 %% @doc Creates a {@link ret_spec()} from a function. Calls to an expect,
 %% created with {@link ret_spec()} returned by this function, will be forwarded
 %% to the specified function.
--spec func(fun()) -> ret_spec().
-func(Fun) -> meck_ret_spec:func(Fun).
+-spec exec(fun()) -> ret_spec().
+exec(Fun) -> meck_ret_spec:exec(Fun).
 
 %%%============================================================================
 %%% Internal functions

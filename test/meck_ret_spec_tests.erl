@@ -17,7 +17,6 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
-
 passthrough_test() ->
     %% Given
     meck:new(meck_test_module),
@@ -26,15 +25,44 @@ passthrough_test() ->
     %% Then
     ?assertEqual({1, 3}, meck_test_module:c(1, 3)),
     %% Cleanup
-    meck:unload(meck_test_module).
+    meck:unload().
 
-
-fun_test() ->
+explicit_exec_test() ->
     %% Given
     meck:new(meck_test_module),
     %% When
-    meck:expect(meck_test_module, c, 2, meck:func(fun(A, B) -> {B, A} end)),
+    meck:expect(meck_test_module, c, 2, meck:exec(fun(A, B) -> {B, A} end)),
     %% Then
     ?assertEqual({3, 1}, meck_test_module:c(1, 3)),
     %% Cleanup
-    meck:unload(meck_test_module).
+    meck:unload().
+
+exec_test() ->
+    %% Given
+    meck:new(meck_test_module),
+    %% When
+    meck:expect(meck_test_module, c, 2, fun(A, B) -> {B, A} end),
+    %% Then
+    ?assertEqual({3, 1}, meck_test_module:c(1, 3)),
+    %% Cleanup
+    meck:unload().
+
+deep_exec_test() ->
+    %% Given
+    meck:new(meck_test_module),
+    %% When
+    meck:expect(meck_test_module, c, 2, meck_ret_spec:seq([fun(A, B) -> {B, A} end])),
+    %% Then
+    ?assertEqual({3, 1}, meck_test_module:c(1, 3)),
+    %% Cleanup
+    meck:unload().
+
+invalid_arity_exec_test() ->
+    %% Given
+    meck:new(meck_test_module),
+    %% When
+    meck:expect(meck_test_module, c, 2, meck_ret_spec:seq([fun(A, B) -> {B, A} end])),
+    %% Then
+    ?assertError(undef, meck_test_module:c(1, 2, 3)),
+    %% Cleanup
+    meck:unload().

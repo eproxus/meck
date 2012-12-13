@@ -27,7 +27,6 @@
          new_dummy/2,
          match/2]).
 
-
 %%%============================================================================
 %%% Types
 %%%============================================================================
@@ -44,7 +43,6 @@
 
 -type expect() :: {func_ari(), [func_clause()]}.
 
-
 %%%============================================================================
 %%% API
 %%%============================================================================
@@ -52,12 +50,11 @@
 -spec new(Func::atom(), fun() | meck:func_clause_spec()) -> expect().
 new(Func, StubFun) when is_function(StubFun) ->
     {arity, Arity} = erlang:fun_info(StubFun, arity),
-    Clause = {arity_2_matcher(Arity), meck_ret_spec:func(StubFun)},
+    Clause = {arity_2_matcher(Arity), meck_ret_spec:exec(StubFun)},
     {{Func, Arity}, [Clause]};
 new(Func, ClauseSpecs) when is_list(ClauseSpecs) ->
     {Arity, Clauses} = parse_clause_specs(ClauseSpecs),
     {{Func, Arity}, Clauses}.
-
 
 -spec new(Func::atom(), byte() | meck:args_spec(), meck_ret_spec:ret_spec()) ->
         expect().
@@ -68,16 +65,13 @@ new(Func, ArgsSpec, RetSpec) when is_list(ArgsSpec) ->
     {Ari, Clause} = parse_clause_spec({ArgsSpec, RetSpec}),
     {{Func, Ari}, [Clause]}.
 
-
 -spec new_passthrough(func_ari()) -> expect().
 new_passthrough({Func, Ari}) ->
     {{Func, Ari}, [{arity_2_matcher(Ari), meck_passthrough}]}.
 
-
 -spec new_dummy(func_ari(), meck_ret_spec:ret_spec()) -> expect().
 new_dummy({Func, Ari}, RetSpec) ->
     {{Func, Ari}, [{arity_2_matcher(Ari), RetSpec}]}.
-
 
 -spec match(Args::[any()], Clauses::[func_clause()]) ->
         {undefined, unchanged} |
@@ -98,7 +92,6 @@ match(Args, Clauses) ->
             end
     end.
 
-
 %%%============================================================================
 %%% Internal functions
 %%%============================================================================
@@ -110,12 +103,10 @@ arity_2_matcher(Ari) ->
     MatchSpec = ets:match_spec_compile([MatchSpecItem]),
     {pattern, ArgsPattern, MatchSpec}.
 
-
 -spec parse_clause_specs([meck:func_clause_spec()]) ->
         {Ari::byte(), [func_clause()]}.
 parse_clause_specs(ClauseSpecs) ->
     parse_clause_specs(ClauseSpecs, undefined, []).
-
 
 -spec parse_clause_specs([meck:func_clause_spec()],
                          DeducedAri::byte() | undefined,
@@ -137,7 +128,6 @@ parse_clause_specs([ClauseSpec | Rest], DeducedAri, Clauses) ->
 parse_clause_specs([], DeducedArity, Clauses) ->
     {DeducedArity, lists:reverse(Clauses)}.
 
-
 -spec parse_clause_spec(meck:func_clause_spec()) ->
         {Ari::byte(), func_clause()}.
 parse_clause_spec({ArgsSpec, RetSpec}) ->
@@ -145,7 +135,6 @@ parse_clause_spec({ArgsSpec, RetSpec}) ->
     MatchSpec = ets:match_spec_compile([meck_util:match_spec_item({ArgsSpec})]),
     Clause = {{pattern, ArgsSpec, MatchSpec}, RetSpec},
     {Ari, Clause}.
-
 
 -spec find_match(Args::[any()], Defined::[func_clause()]) ->
         Matching:: func_clause() | not_found.
