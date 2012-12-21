@@ -51,6 +51,8 @@
 -export([seq/1]).
 -export([val/1]).
 -export([raise/2]).
+-export([passthrough/0]).
+-export([exec/1]).
 
 
 %%%============================================================================
@@ -80,7 +82,7 @@
 %% length of the list defines the arity of the function an expectation is
 %% created for.
 
--opaque ret_spec() :: meck_expect:ret_spec().
+-opaque ret_spec() :: meck_ret_spec:ret_spec().
 %% Opaque data structure that specifies a value or a set of values to be returned
 %% by a mock stub function defined by either {@link expect/3} and {@link expect/4}.
 %% Values of `ret_spec()' are constructed by {@link seq/1}, {@link loop/1},
@@ -233,7 +235,7 @@ expect(Mod, Func, AriOrArgs, RetSpec) when is_atom(Mod), is_atom(Func) ->
       Sequence :: [any()].
 sequence(Mod, Func, Ari, Sequence)
   when is_atom(Mod), is_atom(Func), is_integer(Ari), Ari >= 0 ->
-    Expect = meck_expect:new(Func, Ari, seq(Sequence)),
+    Expect = meck_expect:new(Func, Ari, meck_ret_spec:seq(Sequence)),
     check_expect_result(meck_proc:set_expect(Mod, Expect));
 sequence(Mod, Func, Ari, Sequence) when is_list(Mod) ->
     lists:foreach(fun(M) -> sequence(M, Func, Ari, Sequence) end, Mod),
@@ -251,7 +253,7 @@ sequence(Mod, Func, Ari, Sequence) when is_list(Mod) ->
       Loop :: [any()].
 loop(Mod, Func, Ari, Loop)
   when is_atom(Mod), is_atom(Func), is_integer(Ari), Ari >= 0 ->
-    Expect = meck_expect:new(Func, Ari, loop(Loop)),
+    Expect = meck_expect:new(Func, Ari, meck_ret_spec:loop(Loop)),
     check_expect_result(meck_proc:set_expect(Mod, Expect));
 loop(Mod, Func, Ari, Loop) when is_list(Mod) ->
     lists:foreach(fun(M) -> loop(M, Func, Ari, Loop) end, Mod),
@@ -286,7 +288,7 @@ delete(Mod, Func, Ari) when is_list(Mod) ->
       Class :: throw | error | exit,
       Reason :: any().
 exception(Class, Reason) when Class == throw; Class == error; Class == exit ->
-    meck_code_gen:throw_exception(Class, Reason).
+    erlang:throw(meck_ret_spec:raise(Class, Reason)).
 
 
 %% @doc Calls the original function (if existing) inside an expectation fun.
@@ -452,7 +454,7 @@ reset(Mods) when is_list(Mods) ->
 %% the first element when the end is reached.
 -spec loop(Loop) -> ret_spec() when
       Loop :: [ret_spec()].
-loop(L) when is_list(L) -> {meck_loop, L, L}.
+loop(Loop) -> meck_ret_spec:loop(Loop).
 
 
 %% @doc Converts a list of terms into {@link ret_spec()} defining a sequence of
@@ -464,7 +466,7 @@ loop(L) when is_list(L) -> {meck_loop, L, L}.
 %% value is reached. That value is then returned for all subsequent calls.
 -spec seq(Sequence) -> ret_spec() when
       Sequence :: [ret_spec()].
-seq(S) when is_list(S) -> {meck_seq, S}.
+seq(Sequence) -> meck_ret_spec:seq(Sequence).
 
 
 %% @doc Converts a term into {@link ret_spec()} defining an individual value.
@@ -472,7 +474,7 @@ seq(S) when is_list(S) -> {meck_seq, S}.
 %% {@link expect/3} function.
 -spec val(Value) -> ret_spec() when
       Value :: any().
-val(Value) -> {meck_value, Value}.
+val(Value) -> meck_ret_spec:val(Value).
 
 
 %% @doc Creates a {@link ret_spec()} that defines an exception.
@@ -482,10 +484,23 @@ val(Value) -> {meck_value, Value}.
 -spec raise(Class, Reason) -> ret_spec() when
       Class :: throw | error | exit,
       Reason :: term.
-raise(throw, Reason) -> {meck_raise, throw, Reason};
-raise(error, Reason) -> {meck_raise, error, Reason};
-raise(exit, Reason) -> {meck_raise, exit, Reason}.
+raise(Class, Reason) -> meck_ret_spec:raise(Class, Reason).
 
+
+%% @doc Creates a {@link ret_spec()} that makes the original module function be
+%% called.
+%%
+%% Calls to an expect, created with {@link ret_spec()} returned by this function,
+%% will be forwarded to the original function.
+-spec passthrough() -> ret_spec().
+passthrough() -> meck_ret_spec:passthrough().
+
+
+%% @doc Creates a {@link ret_spec()} from a function. Calls to an expect,
+%% created with {@link ret_spec()} returned by this function, will be forwarded
+%% to the specified function.
+-spec exec(fun()) -> ret_spec().
+exec(Fun) -> meck_ret_spec:exec(Fun).
 
 %%%============================================================================
 %%% Internal functions

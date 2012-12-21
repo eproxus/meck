@@ -29,7 +29,7 @@
          stop/1]).
 
 %% To be accessible from generated modules
--export([get_ret_spec/3,
+-export([get_result_spec/3,
          add_history/5,
          invalidate/1]).
 
@@ -74,10 +74,10 @@ start(Mod, Options) ->
                          [Mod, Options], [{spawn_opt, SpawnOpt}]).
 
 
--spec get_ret_spec(Mod::atom(), Func::atom(), Args::[any()]) ->
-        meck_expect:ret_spec() | meck_undefined.
-get_ret_spec(Mod, Func, Args) ->
-    gen_server(call, Mod, {get_ret_spec, Func, Args}).
+-spec get_result_spec(Mod::atom(), Func::atom(), Args::[any()]) ->
+        meck_ret_spec:result_spec() | undefined.
+get_result_spec(Mod, Func, Args) ->
+    gen_server(call, Mod, {get_result_spec, Func, Args}).
 
 
 -spec set_expect(Mod::atom(), meck_expect:expect()) ->
@@ -160,9 +160,9 @@ init([Mod, Options]) ->
 
 
 %% @hidden
-handle_call({get_ret_spec, Func, Args}, _From, S) ->
-    {Expect, NewExpects} = do_get_ret_spec(S#state.expects, Func, Args),
-    {reply, Expect, S#state{expects = NewExpects}};
+handle_call({get_result_spec, Func, Args}, _From, S) ->
+    {ResultSpec, NewExpects} = do_get_result_spec(S#state.expects, Func, Args),
+    {reply, ResultSpec, S#state{expects = NewExpects}};
 handle_call({set_expect, {FuncAri = {Func, Ari}, Clauses}}, From,
             S = #state{mod = Mod, expects = Expects}) ->
     check_if_being_reloaded(S),
@@ -379,19 +379,19 @@ check_if_being_reloaded(_S) ->
     erlang:error(concurrent_reload).
 
 
--spec do_get_ret_spec(Expects::dict(), Func::atom(), Args::[any()]) ->
-        {meck_expect:ret_spec() | meck_undefined, NewExpects::dict()}.
-do_get_ret_spec(Expects, Func, Args) ->
+-spec do_get_result_spec(Expects::dict(), Func::atom(), Args::[any()]) ->
+        {meck_ret_spec:result_spec() | undefined, NewExpects::dict()}.
+do_get_result_spec(Expects, Func, Args) ->
     FuncAri = {Func, erlang:length(Args)},
     Clauses = dict:fetch(FuncAri, Expects),
-    {RetSpec, NewClauses} = meck_expect:match(Args, Clauses),
+    {ResultSpec, NewClauses} = meck_expect:match(Args, Clauses),
     NewExpects = case NewClauses of
                      unchanged ->
                          Expects;
                      _ ->
                          dict:store(FuncAri, NewClauses, Expects)
                  end,
-    {RetSpec, NewExpects}.
+    {ResultSpec, NewExpects}.
 
 
 -spec validate_expect(Mod::atom(), Func::atom(), Ari::byte(),
