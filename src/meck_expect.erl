@@ -17,8 +17,7 @@
 -module(meck_expect).
 
 %% API
--export_type([ret_spec/0,
-              func_ari/0,
+-export_type([func_ari/0,
               func_clause/0,
               expect/0]).
 
@@ -28,18 +27,9 @@
          new_dummy/2,
          match/2]).
 
-
 %%%============================================================================
 %%% Types
 %%%============================================================================
-
--type ret_spec() :: {meck_val, any()} |
-                    {meck_seq, [ret_spec()]} |
-                    {meck_loop, [ret_spec()], [ret_spec()]} |
-                    {meck_func, fun()} |
-                    {meck_raise, throw | error | exit, any()} |
-                    meck_passthrough |
-                    term().
 
 -type pattern_matcher() :: {pattern, meck:args_spec(), ets:comp_match_spec()}.
 
@@ -47,12 +37,11 @@
 
 -type args_matcher() :: pattern_matcher() | hamcrest_matcher().
 
--opaque func_clause() :: {args_matcher(), ret_spec()}.
+-opaque func_clause() :: {args_matcher(), meck_ret_spec:ret_spec()}.
 
 -type func_ari() :: {Func::atom(), Ari::byte()}.
 
 -type expect() :: {func_ari(), [func_clause()]}.
-
 
 %%%============================================================================
 %%% API
@@ -61,14 +50,14 @@
 -spec new(Func::atom(), fun() | meck:func_clause_spec()) -> expect().
 new(Func, StubFun) when is_function(StubFun) ->
     {arity, Arity} = erlang:fun_info(StubFun, arity),
-    Clause = {arity_2_matcher(Arity), {meck_func, StubFun}},
+    Clause = {arity_2_matcher(Arity), meck_ret_spec:exec(StubFun)},
     {{Func, Arity}, [Clause]};
 new(Func, ClauseSpecs) when is_list(ClauseSpecs) ->
     {Arity, Clauses} = parse_clause_specs(ClauseSpecs),
     {{Func, Arity}, Clauses}.
 
-
--spec new(Func::atom(), byte() | meck:args_spec(), ret_spec()) -> expect().
+-spec new(Func::atom(), byte() | meck:args_spec(), meck_ret_spec:ret_spec()) ->
+        expect().
 new(Func, Ari, RetSpec) when is_integer(Ari), Ari >= 0 ->
     Clause = {arity_2_matcher(Ari), RetSpec},
     {{Func, Ari}, [Clause]};
@@ -76,36 +65,32 @@ new(Func, ArgsSpec, RetSpec) when is_list(ArgsSpec) ->
     {Ari, Clause} = parse_clause_spec({ArgsSpec, RetSpec}),
     {{Func, Ari}, [Clause]}.
 
-
 -spec new_passthrough(func_ari()) -> expect().
 new_passthrough({Func, Ari}) ->
     {{Func, Ari}, [{arity_2_matcher(Ari), meck_passthrough}]}.
 
-
--spec new_dummy(func_ari(), ret_spec()) -> expect().
+-spec new_dummy(func_ari(), meck_ret_spec:ret_spec()) -> expect().
 new_dummy({Func, Ari}, RetSpec) ->
     {{Func, Ari}, [{arity_2_matcher(Ari), RetSpec}]}.
 
-
 -spec match(Args::[any()], Clauses::[func_clause()]) ->
-        {meck_undefined, unchanged} |
-        {ret_spec(), unchanged} |
-        {ret_spec(), NewClauses::[func_clause()]}.
+        {undefined, unchanged} |
+        {meck_ret_spec:result_spec(), unchanged} |
+        {meck_ret_spec:result_spec(), NewClauses::[func_clause()]}.
 match(Args, Clauses) ->
     case find_match(Args, Clauses) of
         not_found ->
-            {meck_undefined, unchanged};
+            {undefined, unchanged};
         {ArgsMatcher, RetSpec} ->
-            case next_result(RetSpec, []) of
-                {ScalarRs, unchanged} ->
-                    {ScalarRs, Clauses};
-                {ScalarRs, NewRetSpec} ->
+            case meck_ret_spec:retrieve_result(RetSpec) of
+                {ResultSpec, unchanged} ->
+                    {ResultSpec, Clauses};
+                {ResultSpec, NewRetSpec} ->
                     NewClauses = lists:keyreplace(ArgsMatcher, 1, Clauses,
                                                   {ArgsMatcher, NewRetSpec}),
-                    {ScalarRs, NewClauses}
+                    {ResultSpec, NewClauses}
             end
     end.
-
 
 %%%============================================================================
 %%% Internal functions
@@ -118,12 +103,10 @@ arity_2_matcher(Ari) ->
     MatchSpec = ets:match_spec_compile([MatchSpecItem]),
     {pattern, ArgsPattern, MatchSpec}.
 
-
 -spec parse_clause_specs([meck:func_clause_spec()]) ->
         {Ari::byte(), [func_clause()]}.
 parse_clause_specs(ClauseSpecs) ->
     parse_clause_specs(ClauseSpecs, undefined, []).
-
 
 -spec parse_clause_specs([meck:func_clause_spec()],
                          DeducedAri::byte() | undefined,
@@ -145,7 +128,6 @@ parse_clause_specs([ClauseSpec | Rest], DeducedAri, Clauses) ->
 parse_clause_specs([], DeducedArity, Clauses) ->
     {DeducedArity, lists:reverse(Clauses)}.
 
-
 -spec parse_clause_spec(meck:func_clause_spec()) ->
         {Ari::byte(), func_clause()}.
 parse_clause_spec({ArgsSpec, RetSpec}) ->
@@ -153,7 +135,6 @@ parse_clause_spec({ArgsSpec, RetSpec}) ->
     MatchSpec = ets:match_spec_compile([meck_util:match_spec_item({ArgsSpec})]),
     Clause = {{pattern, ArgsSpec, MatchSpec}, RetSpec},
     {Ari, Clause}.
-
 
 -spec find_match(Args::[any()], Defined::[func_clause()]) ->
         Matching:: func_clause() | not_found.
@@ -169,35 +150,3 @@ find_match(Args, [{ArgsMatcher, RetSpec} | Rest]) ->
     end;
 find_match(_Args, []) ->
     not_found.
-
-
--spec next_result(RetSpec::ret_spec(), Stack::[ret_spec()]) ->
-        {ScalarRs::ret_spec(), NewRetSpec::ret_spec() | unchanged}.
-next_result(RetSpec = {meck_seq, [InnerRs | _Rest]}, Stack) ->
-    next_result(InnerRs, [RetSpec | Stack]);
-next_result(RetSpec = {meck_loop, [InnerRs | _Rest], _Loop}, Stack) ->
-    next_result(InnerRs, [RetSpec | Stack]);
-next_result(LeafRetSpec, Stack) ->
-    {LeafRetSpec, unwind_stack(LeafRetSpec, Stack, false)}.
-
-
--spec unwind_stack(InnerRs::ret_spec(), Stack::[ret_spec()], Done::boolean()) ->
-        NewRetSpec::ret_spec() | unchanged.
-unwind_stack(InnerRs, [], true) ->
-    InnerRs;
-unwind_stack(_InnerRs, [], false) ->
-    unchanged;
-unwind_stack(InnerRs, [CurrRs = {meck_seq, [InnerRs]} | Stack], Updated) ->
-    unwind_stack(CurrRs, Stack, Updated);
-unwind_stack(InnerRs, [{meck_seq, [InnerRs | Rest]} | Stack], _Updated) ->
-    unwind_stack({meck_seq, Rest}, Stack, true);
-unwind_stack(NewInnerRs, [{meck_seq, [_InnerRs | Rest]} | Stack], _Updated) ->
-    unwind_stack({meck_seq, [NewInnerRs | Rest]}, Stack, true);
-unwind_stack(InnerRs, [{meck_loop, [InnerRs], Loop} | Stack], _Updated) ->
-    unwind_stack({meck_loop, Loop, Loop}, Stack, true);
-unwind_stack(InnerRs, [{meck_loop, [InnerRs | Rest], Loop} | Stack],
-             _Updated) ->
-    unwind_stack({meck_loop, Rest, Loop}, Stack, true);
-unwind_stack(NewInnerRs, [{meck_loop, [_InnerRs | Rest], Loop} | Stack],
-             _Updated) ->
-    unwind_stack({meck_loop, [NewInnerRs | Rest], Loop}, Stack, true).
