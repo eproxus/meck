@@ -2,7 +2,7 @@ PLTFILE=$(CURDIR)/.deps.plt
 APP_DEPS=kernel stdlib eunit tools compiler
 ERLFLAGS= -pa $(CURDIR)/.eunit -pa $(CURDIR)/ebin -pa $(CURDIR)/deps/*/ebin
 
-REBAR=$(shell which rebar)
+REBAR="./rebar"
 ifeq ($(REBAR),)
 $(error "Rebar not available on this system")
 endif
@@ -23,20 +23,20 @@ all: compile dialyzer test doc
 rebuild: distclean get-deps all
 
 get-deps:
-	@$(REBAR) get-deps
-	@$(REBAR) compile
+	@$(REBAR) -C test.config get-deps
+	@$(REBAR) -C test.config compile
 
 compile:
-	@$(REBAR) skip_deps=true compile
+	@$(REBAR) -C test.config skip_deps=true compile
 
 doc:
-	@$(REBAR) skip_deps=true doc
+	@$(REBAR) -C test.config skip_deps=true doc
 
 clean:
-	@$(REBAR) skip_deps=true clean
+	@$(REBAR) -C test.config skip_deps=true clean
 
 test:
-	@$(REBAR) skip_deps=true eunit
+	@$(REBAR) -C test.config skip_deps=true eunit
 
 $(PLTFILE):
 	- dialyzer --build_plt --apps $(APP_DEPS) $(BUILD_PLT_INC) --output_plt $(PLTFILE)
