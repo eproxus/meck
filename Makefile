@@ -18,7 +18,7 @@ DIALYZER_INC=$(shell test -d include && echo '-I include') $(shell test -d deps 
 .PHONY: all rebuild compile doc clean test dialyzer typer get-deps clean-deps \
 	shell clean-plt clean-doc distclean
 
-all: compile dialyzer test doc
+all: compile test doc
 
 rebuild: distclean get-deps all
 
