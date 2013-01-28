@@ -49,12 +49,11 @@
 -type faulty_call() :: {CallerPid::pid(), meck_mfa(), Class::exit|error|throw,
                         Reason::term(), stack_trace()}.
 
--type history() :: [successfull_call() | faulty_call()].
+-type history_record() :: successfull_call() | faulty_call().
+-type history() :: [history_record()].
 
 -type opt_pid() :: pid() | '_'.
--type opt_mod() :: Mod::atom() | '_'.
--type opt_func() :: Func::atom() | '_'.
--type opt_args() :: [any() | '_'] | '_'.
+-type opt_func() :: atom() | '_'.
 
 
 %%%============================================================================
@@ -65,30 +64,36 @@
 get_history('_', Mod) ->
     meck_proc:get_history(Mod);
 get_history(CallerPid, Mod) ->
-    filter_history(new_filter(CallerPid, '_', '_', '_'), meck_proc:get_history(Mod)).
+    ArgsMatcher = meck_args_matcher:new('_'),
+    lists:filter(new_filter(CallerPid, '_', ArgsMatcher),
+                 meck_proc:get_history(Mod)).
 
 
--spec num_calls(opt_pid(), opt_mod(), opt_func(), opt_args()) ->
+-spec num_calls(opt_pid(), Mod::atom(), opt_func(),
+                meck_args_matcher:opt_args_spec()) ->
         non_neg_integer().
-num_calls(CallerPid, Mod, Func, Args) ->
-    length(filter_history(new_filter(CallerPid, Mod, Func, Args),
-                          meck_proc:get_history(Mod))).
+num_calls(CallerPid, Mod, OptFunc, OptArgsSpec) ->
+    ArgsMatcher = meck_args_matcher:new(OptArgsSpec),
+    Filter = new_filter(CallerPid, OptFunc, ArgsMatcher),
+    Filtered = lists:filter(Filter, meck_proc:get_history(Mod)),
+    length(Filtered).
 
 
 %%%============================================================================
 %%% Internal functions
 %%%============================================================================
 
--spec filter_history([meck_util:match_spec_item()], history()) ->
-        Selected::history().
-filter_history(Filter, History) ->
-    MS = ets:match_spec_compile(Filter),
-    ets:match_spec_run(History, MS).
-
-
--spec new_filter(opt_pid(), opt_mod(), opt_func(), opt_args()) ->
-        Filter::[meck_util:match_spec_item()].
-new_filter(CallerPid, Mod, Func, Args) ->
-    Mfa = {Mod, Func, Args},
-    [meck_util:match_spec_item({CallerPid, Mfa, '_'}),
-     meck_util:match_spec_item({CallerPid, Mfa, '_', '_', '_'})].
+-spec new_filter(opt_pid(), opt_func(), meck_args_matcher:args_matcher()) ->
+        fun((history_record()) -> boolean()).
+new_filter(TheCallerPid, TheFunc, ArgsMatcher) ->
+    fun({CallerPid, {_Mod, Func, Args}, _Result})
+          when (TheFunc == '_' orelse Func == TheFunc) andalso
+               (TheCallerPid == '_' orelse CallerPid == TheCallerPid) ->
+            meck_args_matcher:match(Args, ArgsMatcher);
+       ({CallerPid, {_Mod, Func, Args}, _Class, _Reason, _StackTrace})
+          when (TheFunc == '_' orelse Func == TheFunc) andalso
+               (TheCallerPid == '_' orelse CallerPid == TheCallerPid) ->
+            meck_args_matcher:match(Args, ArgsMatcher);
+       (_Other) ->
+            false
+    end.

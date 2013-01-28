@@ -163,12 +163,13 @@ init([Mod, Options]) ->
 handle_call({get_result_spec, Func, Args}, _From, S) ->
     {ResultSpec, NewExpects} = do_get_result_spec(S#state.expects, Func, Args),
     {reply, ResultSpec, S#state{expects = NewExpects}};
-handle_call({set_expect, {FuncAri = {Func, Ari}, Clauses}}, From,
+handle_call({set_expect, Expect}, From,
             S = #state{mod = Mod, expects = Expects}) ->
     check_if_being_reloaded(S),
+    FuncAri = {Func, Ari} = meck_expect:func_ari(Expect),
     case validate_expect(Mod, Func, Ari, S#state.can_expect) of
         ok ->
-            {NewExpects, CompilerPid} = store_expect(Mod, FuncAri, Clauses,
+            {NewExpects, CompilerPid} = store_expect(Mod, FuncAri, Expect,
                                                      Expects),
             {noreply, S#state{expects = NewExpects,
                               reload = {CompilerPid, From}}};
@@ -362,7 +363,10 @@ init_expects(Exports, Options) ->
                   Exports ->
                       []
               end,
-    dict:from_list(Expects).
+    lists:foldl(fun(Expect, D) ->
+                        dict:store(meck_expect:func_ari(Expect), Expect, D)
+                end,
+                dict:new(), Expects).
 
 
 -spec gen_server(Method:: call | cast, Mod::atom(), Msg::tuple() | atom()) -> any().
@@ -383,13 +387,13 @@ check_if_being_reloaded(_S) ->
         {meck_ret_spec:result_spec() | undefined, NewExpects::dict()}.
 do_get_result_spec(Expects, Func, Args) ->
     FuncAri = {Func, erlang:length(Args)},
-    Clauses = dict:fetch(FuncAri, Expects),
-    {ResultSpec, NewClauses} = meck_expect:match(Args, Clauses),
-    NewExpects = case NewClauses of
+    Expect = dict:fetch(FuncAri, Expects),
+    {ResultSpec, NewExpect} = meck_expect:fetch_result(Args, Expect),
+    NewExpects = case NewExpect of
                      unchanged ->
                          Expects;
                      _ ->
-                         dict:store(FuncAri, NewClauses, Expects)
+                         dict:store(FuncAri, NewExpect, Expects)
                  end,
     {ResultSpec, NewExpects}.
 
@@ -412,10 +416,10 @@ validate_expect(Mod, Func, Ari, CanExpect) ->
 
 
 -spec store_expect(Mod::atom(), meck_expect:func_ari(),
-                   [meck_expect:func_clause()], Expects::dict()) ->
+                   meck_expect:expect(), Expects::dict()) ->
         {NewExpects::dict(), CompilerPid::pid()}.
-store_expect(Mod, FuncAri, Clauses, Expects) ->
-    NewExpects = dict:store(FuncAri, Clauses, Expects),
+store_expect(Mod, FuncAri, Expect, Expects) ->
+    NewExpects = dict:store(FuncAri, Expect, Expects),
     compile_expects(Mod, NewExpects).
 
 

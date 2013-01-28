@@ -53,7 +53,7 @@
 -export([raise/2]).
 -export([passthrough/0]).
 -export([exec/1]).
-
+-export([is/1]).
 
 %%%============================================================================
 %%% Types
@@ -75,12 +75,23 @@
 %% reason and a stack trace. Each tuple begins with the pid of the process
 %% that made the call to the function.
 
--type args_spec() :: [any() | '_'].
+-opaque matcher() :: meck_matcher:matcher().
+%% Matcher is an entity that is used to check that a particular value meets
+%% some criteria. They are used in defining expectation where Erlang patterns
+%% are not enough. E.g. to check that a numeric value is within bounds.
+%% Instances of `matcher' can be created by {@link is/1} function from either a
+%% predicate function or a hamcrest matcher. (see {@link is/1} for details).
+%% An instance of this type may be specified in any or even all positions of an
+%% {@link arg_spec()}.
+
+-type args_spec() :: [any() | '_' | matcher()].
 %% It is used in {@link expect/3} and {@link expect/4} to define an expectation
-%% by an argument pattern. Every list element corresponds to a function argument
-%% at the respective position. '_' is a wildcard that matches any value. The
-%% length of the list defines the arity of the function an expectation is
-%% created for.
+%% by an argument pattern. The length of the list defines the arity of the
+%% function an expectation is created for. Every list element corresponds to a
+%% function argument at the respective position. '_' is a wildcard that matches
+%% any value. Instead of exact values or '_' wildcards, you can also specify
+%% a {@link matcher()} created by {@link is/1} from a predicate function or a
+%% hamcrest matcher.
 
 -opaque ret_spec() :: meck_ret_spec:ret_spec().
 %% Opaque data structure that specifies a value or a set of values to be returned
@@ -376,12 +387,12 @@ unload(Mods) when is_list(Mods) ->
 %% @doc Returns whether `Mod:Func' has been called with `Args'.
 %%
 %% @equiv called(Mod, Fun, Args, '_')
--spec called(OptMod, OptFun, OptArgs) -> boolean() when
-      OptMod :: '_' | atom(),
+-spec called(Mod, OptFun, OptArgs) -> boolean() when
+      Mod :: atom(),
       OptFun :: '_' | atom(),
       OptArgs :: '_' | args_spec().
-called(OptMod, OptFun, OptArgs) ->
-    meck_history:num_calls('_', OptMod, OptFun, OptArgs) > 0.
+called(Mod, OptFun, OptArgs) ->
+    meck_history:num_calls('_', Mod, OptFun, OptArgs) > 0.
 
 
 %% @doc Returns whether `Pid' has called `Mod:Func' with `Args'.
@@ -394,24 +405,24 @@ called(OptMod, OptFun, OptArgs) ->
 %% atom: ``'_' ''
 %%
 %% @see called/3
--spec called(OptMod, OptFun, OptArgs, OptCallerPid) -> boolean() when
-      OptMod :: '_' | atom(),
+-spec called(Mod, OptFun, OptArgs, OptCallerPid) -> boolean() when
+      Mod :: atom(),
       OptFun :: '_' | atom(),
       OptArgs :: '_' | args_spec(),
       OptCallerPid :: '_' | pid().
-called(OptMod, OptFun, OptArgs, OptPid) ->
-    meck_history:num_calls(OptPid, OptMod, OptFun, OptArgs) > 0.
+called(Mod, OptFun, OptArgs, OptPid) ->
+    meck_history:num_calls(OptPid, Mod, OptFun, OptArgs) > 0.
 
 
 %% @doc Returns the number of times `Mod:Func' has been called with `Args'.
 %%
 %% @equiv num_calls(Mod, Fun, Args, '_')
--spec num_calls(OptMod, OptFun, OptArgs) -> non_neg_integer() when
-      OptMod :: '_' | atom(),
+-spec num_calls(Mod, OptFun, OptArgs) -> non_neg_integer() when
+      Mod :: atom(),
       OptFun :: '_' | atom(),
       OptArgs :: '_' | args_spec().
-num_calls(OptMod, OptFun, OptArgs) ->
-    meck_history:num_calls('_', OptMod, OptFun, OptArgs).
+num_calls(Mod, OptFun, OptArgs) ->
+    meck_history:num_calls('_', Mod, OptFun, OptArgs).
 
 
 %% @doc Returns the number of times process `Pid' has called `Mod:Func'
@@ -422,13 +433,13 @@ num_calls(OptMod, OptFun, OptArgs) ->
 %% arguments, `Args' and returns the result.
 %%
 %% @see num_calls/3
--spec num_calls(OptMod, OptFun, OptArgs, OptCallerPid) -> non_neg_integer() when
-      OptMod :: '_' | atom(),
+-spec num_calls(Mod, OptFun, OptArgs, OptCallerPid) -> non_neg_integer() when
+      Mod :: atom(),
       OptFun :: '_' | atom(),
       OptArgs :: '_' | args_spec(),
       OptCallerPid :: '_' | pid().
-num_calls(OptMod, OptFun, OptArgs, OptPid) ->
-    meck_history:num_calls(OptPid, OptMod, OptFun, OptArgs).
+num_calls(Mod, OptFun, OptArgs, OptPid) ->
+    meck_history:num_calls(OptPid, Mod, OptFun, OptArgs).
 
 
 %% @doc Erases the call history for a mocked module or a list of mocked modules.
@@ -501,6 +512,25 @@ passthrough() -> meck_ret_spec:passthrough().
 %% to the specified function.
 -spec exec(fun()) -> ret_spec().
 exec(Fun) -> meck_ret_spec:exec(Fun).
+
+
+%% @doc creates a {@link matcher/0} instance from either `Predicate' or
+%% `HamcrestMatcher'.
+%% <ul>
+%% <li>`Predicate' - is a single parameter function. If it returns `true' then
+%% the argument passed to it is considered as meeting the matcher criteria,
+%% otherwise as not.</li>
+%% <li>`HamcrestMatcher' - is a matcher created by
+%% <a href="https://github.com/hyperthunk/hamcrest-erlang">Hamcrest-Erlang</a>
+%% library</li>
+%% </ul>
+-spec is(MatcherImpl) -> matcher() when
+      MatcherImpl :: Predicate | HamcrestMatcher,
+      Predicate :: fun((any()) -> any()),
+      HamcrestMatcher :: hamcrest:matchspec().
+is(MatcherImpl) ->
+    meck_matcher:new(MatcherImpl).
+
 
 %%%============================================================================
 %%% Internal functions
