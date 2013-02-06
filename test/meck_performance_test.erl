@@ -9,7 +9,7 @@
 %%=============================================================================
 
 run(N) ->
-    meck:new(test),
+    meck:new(test, [non_strict]),
     io:format("\t\tMin\tMax\tMed\tAvg~n"),
     io:format("expect/3\t~p\t~p\t~p\t~p~n",
               test_avg(meck, expect, [test, normal, fun() -> ok end], N)),
@@ -36,7 +36,7 @@ run(N) ->
               test_avg(test, shortcut_opaque, [], N)),
     meck:unload(test),
 
-    meck:new(test),
+    meck:new(test, [non_strict]),
     meck:expect(test, func, 1, ok),
     [test:func(I) || I <- lists:seq(1, 100)],
     io:format("~n\t\tMin\tMax\tMed\tAvg~n"),
