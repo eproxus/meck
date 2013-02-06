@@ -180,20 +180,22 @@ appears all is correct.
 
 <a name='install'>
 
-Install
--------
+Install & Usage
+---------------
 
-To install meck permanently, use of [Agner][2] is recommended:
+Meck is best used via [rebar][1]. Add the following dependency t
+your `rebar.config` in your project root:
 
-```sh
-agner install meck
+```erlang
+{deps, [
+    {meck, ".*", {git, "https://github.com/eproxus/meck.git"}}
+]}.
 ```
 
 If you want to install your own built version of meck add the ebin
 directory to your Erlang code path or move the meck folder into your
 release folder and make sure that folder is in your `ERL_LIBS`
 environment variable.
-
 
 <a name='contribute'>
 
@@ -203,8 +205,7 @@ Contribute
 Patches are greatly appreciated!
 
 Should you find yourself using meck and have issues, comments or
-feedback please [create an issue here on GitHub.] [3]
+feedback please [create an issue here on GitHub.] [2]
 
   [1]: https://github.com/basho/rebar "Rebar - A build tool for Erlang"
-  [2]: http://erlagner.org/ "Agner - Erlang Package Index & Package Manager"
-  [3]: http://github.com/eproxus/meck/issues "meck issues"
+  [2]: http://github.com/eproxus/meck/issues "meck issues"
