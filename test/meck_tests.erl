@@ -775,7 +775,7 @@ expect_ret_specs_(Mod) ->
 
 undefined_module_test() ->
     %% When/Then
-    ?assertError(undefined_module, meck:new(blah, [no_link])).
+    ?assertError({{undefined_module, blah}, _}, meck:new(blah, [no_link])).
 
 undefined_function_test() ->
     %% Given

@@ -141,7 +141,7 @@ init([Mod, Options]) ->
     Original = backup_original(Mod, NoPassCover),
     NoHistory = proplists:get_bool(no_history, Options),
     History = if NoHistory -> undefined; true -> [] end,
-    CanExpect = resolve_can_expect(Exports, Options),
+    CanExpect = resolve_can_expect(Mod, Exports, Options),
     Expects = init_expects(Exports, Options),
     process_flag(trap_exit, true),
     try
@@ -329,14 +329,15 @@ get_cover_state(Mod) ->
     end.
 
 
--spec resolve_can_expect(Exports::[meck_expect:func_ari()] | undefined,
+-spec resolve_can_expect(Mod::atom(),
+                         Exports::[meck_expect:func_ari()] | undefined,
                          Options::[proplists:property()]) ->
         any | [meck_expect:func_ari()].
-resolve_can_expect(Exports, Options) ->
+resolve_can_expect(Mod, Exports, Options) ->
     NonStrict = proplists:get_bool(non_strict, Options),
     case {Exports, NonStrict} of
         {_, true}      -> any;
-        {undefined, _} -> erlang:exit(undefined_module);
+        {undefined, _} -> erlang:error({undefined_module, Mod});
         _              -> Exports
     end.
 
