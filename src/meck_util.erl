@@ -23,7 +23,6 @@
          original_name/1,
          match_spec_item/1]).
 
-
 %%%============================================================================
 %%% Types
 %%%============================================================================
@@ -37,10 +36,8 @@
 -spec proc_name(Mod::atom()) -> MockMod::atom().
 proc_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck").
 
-
 -spec original_name(Mod::atom()) -> OrigMod::atom().
 original_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck_original").
-
 
 -spec match_spec_item(Pattern::tuple()) -> match_spec_item().
 match_spec_item(Pattern) ->

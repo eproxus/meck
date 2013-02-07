@@ -55,7 +55,6 @@
 -type opt_pid() :: pid() | '_'.
 -type opt_func() :: atom() | '_'.
 
-
 %%%============================================================================
 %%% API
 %%%============================================================================
@@ -68,7 +67,6 @@ get_history(CallerPid, Mod) ->
     lists:filter(new_filter(CallerPid, '_', ArgsMatcher),
                  meck_proc:get_history(Mod)).
 
-
 -spec num_calls(opt_pid(), Mod::atom(), opt_func(),
                 meck_args_matcher:opt_args_spec()) ->
         non_neg_integer().
@@ -77,7 +75,6 @@ num_calls(CallerPid, Mod, OptFunc, OptArgsSpec) ->
     Filter = new_filter(CallerPid, OptFunc, ArgsMatcher),
     Filtered = lists:filter(Filter, meck_proc:get_history(Mod)),
     length(Filtered).
-
 
 %%%============================================================================
 %%% Internal functions

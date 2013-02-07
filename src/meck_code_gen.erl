@@ -24,33 +24,24 @@
 %% Exported to be accessible from generated modules.
 -export([exec/4]).
 
-
 %%%============================================================================
 %%% Definitions
 %%%============================================================================
 
 -define(CURRENT_CALL, '$meck_call').
-
 -define(call(Module, Function, Arguments),
         {call, ?LINE,
          {remote, ?LINE, ?atom(Module), ?atom(Function)},
          Arguments}).
 
 -define(atom(Atom), {atom, ?LINE, Atom}).
-
 -define(integer(Integer), {integer, ?LINE, Integer}).
-
 -define(var(Name), {var, ?LINE, Name}).
-
 -define(attribute(Attribute, Args), {attribute, ?LINE, Attribute, Args}).
-
 -define(function(Name, Arity, Clauses),
         {function, ?LINE, Name, Arity, Clauses}).
-
 -define(clause(Arguments, Body), {clause, ?LINE, Arguments, [], Body}).
-
 -define(tuple(Elements), {tuple, ?LINE, Elements}).
-
 
 %%%============================================================================
 %%% API
@@ -60,11 +51,9 @@ to_forms(Mod, Expects) ->
     {Exports, Functions} = functions(Mod, Expects),
     [?attribute(module, Mod)] ++ attributes(Mod) ++ Exports ++ Functions.
 
-
 -spec get_current_call() -> {Mod::atom(), Func::atom()}.
 get_current_call() ->
     get(?CURRENT_CALL).
-
 
 %%%============================================================================
 %%% Internal functions
@@ -79,7 +68,6 @@ attributes(Mod) ->
         error:undef -> []
     end.
 
-
 functions(Mod, Expects) ->
     dict:fold(fun(Export, Expect, {Exports, Functions}) ->
         {[?attribute(export, [Export]) | Exports],
@@ -87,7 +75,6 @@ functions(Mod, Expects) ->
               end,
               {[], []},
               Expects).
-
 
 func(Mod, {Func, Arity}, {anon, Arity, Result}) ->
     case contains_opaque(Result) of
@@ -99,7 +86,6 @@ func(Mod, {Func, Arity}, {anon, Arity, Result}) ->
 func(Mod, {Func, Arity}, _Expect) ->
     func_exec(Mod, Func, Arity).
 
-
 func_exec(Mod, Func, Arity) ->
     Args = args(Arity),
     ?function(Func, Arity,
@@ -109,7 +95,6 @@ func_exec(Mod, Func, Arity) ->
                                ?atom(Mod),
                                ?atom(Func),
                                list(Args)])])]).
-
 
 func_native(Mod, Func, Arity, Result) ->
     Args = args(Arity),
@@ -127,7 +112,6 @@ func_native(Mod, Func, Arity, Result) ->
                                             AbsResult])])]),
                      AbsResult])]).
 
-
 contains_opaque(Term) when is_pid(Term); is_port(Term); is_function(Term);
     is_reference(Term) ->
     true;
@@ -138,17 +122,13 @@ contains_opaque(Term) when is_tuple(Term) ->
 contains_opaque(_Term) ->
     false.
 
-
 args(0)     -> [];
 args(Arity) -> [?var(var_name(N)) || N <- lists:seq(1, Arity)].
-
 
 list([])    -> {nil, ?LINE};
 list([H|T]) -> {cons, ?LINE, H, list(T)}.
 
-
 var_name(A) -> list_to_atom("A"++integer_to_list(A)).
-
 
 %% @hidden
 -spec exec(CallerPid::pid(), Mod::atom(), Func::atom(), Args::[any()]) ->
@@ -172,7 +152,6 @@ exec(Pid, Mod, Func, Args) ->
             end
     end.
 
-
 -spec handle_exception(CallerPid::pid(), Mod::atom(), Func::atom(),
                        Args::[any()], Class:: exit | error | throw,
                        Reason::any()) ->
@@ -186,7 +165,6 @@ handle_exception(Pid, Mod, Func, Args, Class, Reason) ->
             raise(Pid, Mod, Func, Args, Class, Reason)
     end.
 
-
 -spec raise(CallerPid::pid(), Mod::atom(), Func::atom(), Args::[any()],
             Class:: exit | error | throw, Reason::any()) ->
         no_return().
@@ -194,7 +172,6 @@ raise(Pid, Mod, Func, Args, Class, Reason) ->
     StackTrace = inject(Mod, Func, Args, erlang:get_stacktrace()),
     meck_proc:add_history(Mod, Pid, Func, Args, {Class, Reason, StackTrace}),
     erlang:raise(Class, Reason, StackTrace).
-
 
 -spec inject(Mod::atom(), Func::atom(), Args::[any()],
              meck_history:stack_trace()) ->
