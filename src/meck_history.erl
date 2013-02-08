@@ -27,7 +27,8 @@
               history/0]).
 
 -export([get_history/2,
-         num_calls/4]).
+         num_calls/4,
+         capture/6]).
 
 %%%============================================================================
 %%% Types
@@ -76,6 +77,22 @@ num_calls(CallerPid, Mod, OptFunc, OptArgsSpec) ->
     Filtered = lists:filter(Filter, meck_proc:get_history(Mod)),
     length(Filtered).
 
+-spec capture(Occur::pos_integer(), opt_pid(), Mod::atom(), Func::atom(),
+              meck_args_matcher:opt_args_spec(), ArgNum::pos_integer()) ->
+        {ok, ArgValue::any()} | not_found.
+capture(Occur, OptCallerPid, Mod, Func, OptArgsSpec, ArgNum) ->
+    ArgsMatcher = meck_args_matcher:new(OptArgsSpec),
+    Filter = new_filter(OptCallerPid, Func, ArgsMatcher),
+    Filtered = lists:filter(Filter, meck_proc:get_history(Mod)),
+    case nth_record(Occur, Filtered) of
+        not_found ->
+            not_found;
+        {_CallerPid, {_Mod, _Func, Args}, _Result} ->
+            {ok, lists:nth(ArgNum, Args)};
+        {_CallerPid, {_Mod, Func, Args}, _Class, _Reason, _Trace} ->
+            {ok, lists:nth(ArgNum, Args)}
+    end.
+
 %%%============================================================================
 %%% Internal functions
 %%%============================================================================
@@ -93,4 +110,21 @@ new_filter(TheCallerPid, TheFunc, ArgsMatcher) ->
             meck_args_matcher:match(Args, ArgsMatcher);
        (_Other) ->
             false
+    end.
+
+-spec nth_record(Occur::pos_integer(), history()) -> history_record() |
+                                                     not_found.
+nth_record(Occur, History) ->
+    try
+        case Occur of
+            first ->
+                lists:nth(1, History);
+            last ->
+                lists:last(History);
+            _Else ->
+                lists:nth(Occur, History)
+        end
+    catch
+        error:_Reason ->
+            not_found
     end.

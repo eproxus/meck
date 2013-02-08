@@ -46,6 +46,8 @@
 -export([num_calls/3]).
 -export([num_calls/4]).
 -export([reset/1]).
+-export([capture/5]).
+-export([capture/6]).
 
 %% Syntactic sugar
 -export([loop/1]).
@@ -517,6 +519,55 @@ exec(Fun) -> meck_ret_spec:exec(Fun).
       HamcrestMatcher :: hamcrest:matchspec().
 is(MatcherImpl) ->
     meck_matcher:new(MatcherImpl).
+
+%% @doc Returns the value of an argument as it was passed to a particular
+%% function call made by a particular process.
+%%
+%% It retrieves the value of argument at `ArgNum' position as it was passed
+%% to function call `Mod:Func' with arguments that match `OptArgsSpec' made by
+%% process `CallerPid' that occurred `Occur''th according to the call history.
+%%
+%% Atoms `first' and `last' can be used in place of the occurrence number to
+%% retrieve the argument value passed when the function was called the first
+%% or the last time respectively.
+%%
+%% If an occurrence of a function call irrespective of the calling process needs
+%% to be captured then `_' might be passed as `OptCallerPid', but it is better
+%% to use {@link capture/3} instead.
+-spec capture(Occur, Mod, Func, OptArgsSpec, ArgNum, OptCallerPid) ->
+        {ok, ArgValue} | not_found when
+      Occur :: first | last | pos_integer(),
+      Mod :: atom(),
+      Func :: atom(),
+      OptArgsSpec :: '_' | args_spec(),
+      ArgNum :: pos_integer(),
+      OptCallerPid :: '_' | pid(),
+      ArgValue :: any().
+capture(Occur, Mod, Func, OptArgsSpec, ArgNum, OptCallerPid) ->
+    meck_history:capture(Occur, OptCallerPid, Mod, Func, OptArgsSpec, ArgNum).
+
+%% @doc Returns the value of an argument as it was passed to a particular
+%% function call.
+%%
+%% It retrieves the value of argument at `ArgNum' position as it was passed
+%% to function call `Mod:Func' with arguments that match `OptArgsSpec' that
+%% occurred `Occur''th according to the call history.
+%%
+%% Atoms `first' and `last' can be used in place of the occurrence number to
+%% retrieve the argument value passed when the function was called the first
+%% or the last time respectively.
+%%
+%% @equiv capture(Occur, '_', Mod, Func, OptArgsSpec, ArgNum)
+-spec capture(Occur, Mod, Func, OptArgsSpec, ArgNum) ->
+        {ok, ArgValue} | not_found when
+      Occur :: first | last | pos_integer(),
+      Mod::atom(),
+      Func::atom(),
+      OptArgsSpec :: args_spec(),
+      ArgNum :: pos_integer(),
+      ArgValue :: any().
+capture(Occur, Mod, Func, OptArgsSpec, ArgNum) ->
+    meck_history:capture(Occur, '_', Mod, Func, OptArgsSpec, ArgNum).
 
 %%%============================================================================
 %%% Internal functions
