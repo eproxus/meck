@@ -209,7 +209,6 @@ stacktrace_function_clause_(Mod) ->
                 end, Stacktrace))
     end.
 
-
 call_undef_(Mod) ->
     ok = meck:expect(Mod, test, fun(hest, 1) -> apa end),
     ?assertError(undef, Mod:test(hest)).
@@ -770,12 +769,11 @@ expect_ret_specs_(Mod) ->
     ?assertEqual(e, Mod:f(1, 2)),
     ?assertEqual(c, Mod:f(1, 1)).
 
-
 %% --- Tests with own setup ----------------------------------------------------
 
 undefined_module_test() ->
     %% When/Then
-    ?assertError(undefined_module, meck:new(blah, [no_link])).
+    ?assertError({{undefined_module, blah}, _}, meck:new(blah, [no_link])).
 
 undefined_function_test() ->
     %% Given
