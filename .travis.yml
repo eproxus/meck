@@ -7,6 +7,6 @@ otp_release:
   - R14B04
   - R14B03
   - R14B02
-before_install: "sh test_permissions.sh"
+before_install: "sh change_permissions.sh"
 before_script: "make get-deps"
 script: "make all"
