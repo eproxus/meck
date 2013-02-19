@@ -85,14 +85,26 @@
 %% An instance of this type may be specified in any or even all positions of an
 %% {@link arg_spec()}.
 
--type args_spec() :: [any() | '_' | matcher()].
-%% It is used in {@link expect/3} and {@link expect/4} to define an expectation
-%% by an argument pattern. The length of the list defines the arity of the
-%% function an expectation is created for. Every list element corresponds to a
-%% function argument at the respective position. '_' is a wildcard that matches
-%% any value. Instead of exact values or '_' wildcards, you can also specify
-%% a {@link matcher()} created by {@link is/1} from a predicate function or a
-%% hamcrest matcher.
+-type args_spec() :: [any() | '_' | matcher()] | non_neg_integer().
+%% Argument specification is used to specify argument patterns throughout Meck.
+%% In particular it is used in definition of expectation clauses by
+%% {@link expect/3}, {@link expect/4}, and by history digging functions
+%% {@link num_called/3}, {@link called/3} to specify what arguments of a
+%% function call of interest should look like.
+%%
+%% An argument specification can be given as a argument pattern list or
+%% as a non-negative integer that represents function clause/call arity.
+%%
+%% If an argument specification is given as an argument pattern, then every
+%% pattern element corresponds to a function argument at the respective
+%% position. '_' is a wildcard that matches any value. In fact you can specify
+%% atom wildcard '_' at any level in the value structure.
+%% (E.g.: {1, [blah, {'_', "bar", 2} | '_'], 3}). It is also possible to use a
+%% {@link matcher()} created by {@link is/1} in-place of a value pattern.
+%%
+%% If an argument specification is given by an arity, then it is equivalent to
+%% a pattern based argument specification that consists solely of wildcards,
+%% and has the length of arity (e.g.: 3 is equivalent to ['_', '_', '_']).
 
 -opaque ret_spec() :: meck_ret_spec:ret_spec().
 %% Opaque data structure that specifies a value or a set of values to be returned
@@ -214,21 +226,20 @@ expect(Mod, Func, Expectation) when is_atom(Mod), is_atom(Func) ->
 
 %% @doc Adds an expectation with the supplied arity and return value.
 %%
-%% This creates an expectation which takes `Arity' number of functions
-%% and always returns `Result'.
+%% This creates an expectation that has the only clause {`ArgsSpec', `RetSpec'}.
 %%
-%% @see expect/3.
--spec expect(Mods, Func, AriOrArgs, RetSpec) -> ok when
+%% @equiv expect(Mod, Func, [{ArgsSpec, RetSpec}])
+-spec expect(Mods, Func, ArgsSpec, RetSpec) -> ok when
       Mods :: Mod | [Mod],
       Mod :: atom(),
       Func :: atom(),
-      AriOrArgs :: byte() | args_spec(),
+      ArgsSpec :: args_spec(),
       RetSpec :: ret_spec().
-expect(Mod, Func, AriOrArgs, RetSpec) when is_list(Mod) ->
-    lists:foreach(fun(M) -> expect(M, Func, AriOrArgs, RetSpec) end, Mod),
+expect(Mod, Func, ArgsSpec, RetSpec) when is_list(Mod) ->
+    lists:foreach(fun(M) -> expect(M, Func, ArgsSpec, RetSpec) end, Mod),
     ok;
-expect(Mod, Func, AriOrArgs, RetSpec) when is_atom(Mod), is_atom(Func) ->
-    Expect = meck_expect:new(Func, AriOrArgs, RetSpec),
+expect(Mod, Func, ArgsSpec, RetSpec) when is_atom(Mod), is_atom(Func) ->
+    Expect = meck_expect:new(Func, ArgsSpec, RetSpec),
     check_expect_result(meck_proc:set_expect(Mod, Expect)).
 
 %% @equiv expect(Mod, Func, Ari, seq(Sequence))
@@ -373,12 +384,12 @@ unload(Mods) when is_list(Mods) ->
 %% @doc Returns whether `Mod:Func' has been called with `Args'.
 %%
 %% @equiv called(Mod, Fun, Args, '_')
--spec called(Mod, OptFun, OptArgs) -> boolean() when
+-spec called(Mod, OptFun, OptArgsSpec) -> boolean() when
       Mod :: atom(),
       OptFun :: '_' | atom(),
-      OptArgs :: '_' | args_spec().
-called(Mod, OptFun, OptArgs) ->
-    meck_history:num_calls('_', Mod, OptFun, OptArgs) > 0.
+      OptArgsSpec :: '_' | args_spec().
+called(Mod, OptFun, OptArgsSpec) ->
+    meck_history:num_calls('_', Mod, OptFun, OptArgsSpec) > 0.
 
 %% @doc Returns whether `Pid' has called `Mod:Func' with `Args'.
 %%
@@ -390,23 +401,23 @@ called(Mod, OptFun, OptArgs) ->
 %% atom: ``'_' ''
 %%
 %% @see called/3
--spec called(Mod, OptFun, OptArgs, OptCallerPid) -> boolean() when
+-spec called(Mod, OptFun, OptArgsSpec, OptCallerPid) -> boolean() when
       Mod :: atom(),
       OptFun :: '_' | atom(),
-      OptArgs :: '_' | args_spec(),
+      OptArgsSpec :: '_' | args_spec(),
       OptCallerPid :: '_' | pid().
-called(Mod, OptFun, OptArgs, OptPid) ->
-    meck_history:num_calls(OptPid, Mod, OptFun, OptArgs) > 0.
+called(Mod, OptFun, OptArgsSpec, OptPid) ->
+    meck_history:num_calls(OptPid, Mod, OptFun, OptArgsSpec) > 0.
 
 %% @doc Returns the number of times `Mod:Func' has been called with `Args'.
 %%
 %% @equiv num_calls(Mod, Fun, Args, '_')
--spec num_calls(Mod, OptFun, OptArgs) -> non_neg_integer() when
+-spec num_calls(Mod, OptFun, OptArgsSpec) -> non_neg_integer() when
       Mod :: atom(),
       OptFun :: '_' | atom(),
-      OptArgs :: '_' | args_spec().
-num_calls(Mod, OptFun, OptArgs) ->
-    meck_history:num_calls('_', Mod, OptFun, OptArgs).
+      OptArgsSpec :: '_' | args_spec().
+num_calls(Mod, OptFun, OptArgsSpec) ->
+    meck_history:num_calls('_', Mod, OptFun, OptArgsSpec).
 
 %% @doc Returns the number of times process `Pid' has called `Mod:Func'
 %%      with `Args'.
@@ -416,13 +427,14 @@ num_calls(Mod, OptFun, OptArgs) ->
 %% arguments, `Args' and returns the result.
 %%
 %% @see num_calls/3
--spec num_calls(Mod, OptFun, OptArgs, OptCallerPid) -> non_neg_integer() when
+-spec num_calls(Mod, OptFun, OptArgsSpec, OptCallerPid) ->
+        non_neg_integer() when
       Mod :: atom(),
       OptFun :: '_' | atom(),
-      OptArgs :: '_' | args_spec(),
+      OptArgsSpec :: '_' | args_spec(),
       OptCallerPid :: '_' | pid().
-num_calls(Mod, OptFun, OptArgs, OptPid) ->
-    meck_history:num_calls(OptPid, Mod, OptFun, OptArgs).
+num_calls(Mod, OptFun, OptArgsSpec, OptPid) ->
+    meck_history:num_calls(OptPid, Mod, OptFun, OptArgsSpec).
 
 %% @doc Erases the call history for a mocked module or a list of mocked modules.
 %%
