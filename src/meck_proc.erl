@@ -424,10 +424,11 @@ compile_expects(Mod, Expects) ->
     %% If the recompilation is made by the server that executes a module
     %% no module that is called from meck_code:compile_and_load_forms/2
     %% can be mocked by meck.
-    CompilerPid = spawn_link(fun() ->
-                                     Forms = meck_code_gen:to_forms(Mod, Expects),
-                                     meck_code:compile_and_load_forms(Forms)
-                             end),
+    CompilerPid =
+        erlang:spawn_link(fun() ->
+                                  Forms = meck_code_gen:to_forms(Mod, Expects),
+                                  meck_code:compile_and_load_forms(Forms)
+                          end),
     {Expects, CompilerPid}.
 
 restore_original(Mod, {false, _}, WasSticky) ->
