@@ -101,7 +101,7 @@ parse_clause_specs([ClauseSpec | Rest]) ->
     {Ari, Clause} = parse_clause_spec(ClauseSpec),
     parse_clause_specs(Rest, Ari, [Clause]).
 
--spec parse_clause_specs([meck:func_clause_spec()],
+-spec parse_clause_specs([func_clause_spec()],
                          FirstClauseAri::byte(),
                          Clauses::[func_clause()]) ->
         {Ari::byte(), [func_clause()]}.
@@ -118,7 +118,7 @@ parse_clause_specs([ClauseSpec | Rest], FirstClauseAri, Clauses) ->
 parse_clause_specs([], FirstClauseAri, Clauses) ->
     {FirstClauseAri, lists:reverse(Clauses)}.
 
--spec parse_clause_spec(meck:func_clause_spec()) ->
+-spec parse_clause_spec(func_clause_spec()) ->
         {Ari::byte(), func_clause()}.
 parse_clause_spec({ArgsSpec, RetSpec}) ->
     ArgsMatcher = meck_args_matcher:new(ArgsSpec),
