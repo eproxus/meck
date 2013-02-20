@@ -1241,6 +1241,72 @@ meck_implicit_new_test()->
     ?assertMatch(foo, meck_test_module:c(1, 1)),
     meck:unload().
 
+wait_already_called_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    test:foo(1, 2),
+    %% Then
+    ?assertMatch(ok, meck:wait(2, test, foo, [1, '_'], 100)),
+    %% Clean
+    meck:unload().
+
+wait_not_called_zero_timeout_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    test:foo(1, 2),
+    %% Then
+    ?assertError(timeout, meck:wait(3, test, foo, [1, '_'], 0)),
+    %% Clean
+    meck:unload().
+
+wait_not_called_another_proc_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2), % Called, but not by the expected proc.
+    Pid = erlang:spawn(fun() ->
+                              timer:sleep(50),
+                              test:foo(2, 2) % Unexpected first argument
+                       end),
+    %% Then
+    ?assertError(timeout, meck:wait(1, test, foo, [1, '_'], Pid, 0)),
+    %% Clean
+    meck:unload().
+
+wait_called_another_proc_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    Pid = erlang:spawn(fun() ->
+                              timer:sleep(50),
+                              test:foo(1, 2),
+                              test:foo(2, 2), % Unexpected first argument
+                              test:foo(1, 2)
+                       end),
+    %% Then
+    ?assertMatch(ok, meck:wait(2, test, foo, [1, '_'], Pid, 500)),
+    %% Clean
+    meck:unload().
+
+wait_timeout_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    %% Then
+    ?assertError(timeout, meck:wait(2, test, foo, [1, '_'], '_', 10)),
+    %% Clean
+    meck:unload().
+
 %%=============================================================================
 %% Internal Functions
 %%=============================================================================
