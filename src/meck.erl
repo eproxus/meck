@@ -21,7 +21,8 @@
 -module(meck).
 
 %% API
--export_type([args_spec/0,
+-export_type([matcher/0,
+              args_spec/0,
               ret_spec/0,
               func_clause_spec/0]).
 
