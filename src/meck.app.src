@@ -5,5 +5,4 @@
   {modules, []},
   {registered, []},
   {applications, [kernel, stdlib]},
-  {build_dependencies, []},
   {env, []}]}.
