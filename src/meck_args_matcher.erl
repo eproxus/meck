@@ -28,9 +28,9 @@
 %%% Definitions
 %%%============================================================================
 
--record(args_matcher, {args_pattern :: opt_args_spec(),
+-record(args_matcher, {opt_args_pattern :: opt_args_pattern(),
                        comp_match_spec :: ets:comp_match_spec(),
-                       has_matchers = false :: boolean()}).
+                       has_matchers :: boolean()}).
 
 %%%============================================================================
 %%% Types
@@ -38,6 +38,7 @@
 
 -type opt_args_spec() :: args_spec() | '_'.
 -type args_spec() :: args_pattern() | non_neg_integer().
+-type opt_args_pattern() :: args_pattern() | '_'.
 -type args_pattern() :: [any() | '_' | meck_matcher:matcher()].
 
 -opaque args_matcher() :: #args_matcher{}.
@@ -50,12 +51,16 @@
 new('_') ->
     MatchSpecItem = meck_util:match_spec_item({'_'}),
     CompMatchSpec = ets:match_spec_compile([MatchSpecItem]),
-    #args_matcher{args_pattern = '_', comp_match_spec = CompMatchSpec};
+    #args_matcher{opt_args_pattern = '_',
+                  comp_match_spec = CompMatchSpec,
+                  has_matchers = false};
 new(Arity) when is_number(Arity) ->
     ArgsPattern = lists:duplicate(Arity, '_'),
     MatchSpecItem = meck_util:match_spec_item({ArgsPattern}),
     CompMatchSpec = ets:match_spec_compile([MatchSpecItem]),
-    #args_matcher{args_pattern = ArgsPattern, comp_match_spec = CompMatchSpec};
+    #args_matcher{opt_args_pattern = ArgsPattern,
+                  comp_match_spec = CompMatchSpec,
+                  has_matchers = false};
 new(ArgsPattern) when is_list(ArgsPattern) ->
     {HasMatchers, Pattern} = case strip_off_matchers(ArgsPattern) of
                                  unchanged ->
@@ -65,23 +70,23 @@ new(ArgsPattern) when is_list(ArgsPattern) ->
                              end,
     MatchSpecItem = meck_util:match_spec_item({Pattern}),
     CompMatchSpec = ets:match_spec_compile([MatchSpecItem]),
-    #args_matcher{args_pattern = ArgsPattern,
+    #args_matcher{opt_args_pattern = ArgsPattern,
                   comp_match_spec = CompMatchSpec,
                   has_matchers = HasMatchers}.
 
 -spec arity(args_matcher()) -> Arity::non_neg_integer().
-arity(#args_matcher{args_pattern = ArgsPattern}) ->
+arity(#args_matcher{opt_args_pattern = ArgsPattern}) ->
     erlang:length(ArgsPattern).
 
 -spec match(Args::any(), args_matcher()) -> boolean().
-match(Args, #args_matcher{args_pattern = ArgsPattern,
+match(Args, #args_matcher{opt_args_pattern = OptArgsPattern,
                           comp_match_spec = CompMatchSpec,
                           has_matchers = HasMatchers}) ->
     case ets:match_spec_run([{Args}], CompMatchSpec) of
         [] ->
             false;
-        _Matches when HasMatchers ->
-            check_by_matchers(Args, ArgsPattern);
+        _Matches when HasMatchers andalso erlang:is_list(OptArgsPattern) ->
+            check_by_matchers(Args, OptArgsPattern);
         _Matches ->
             true
     end.
