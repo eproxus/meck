@@ -51,10 +51,10 @@ capture_different_positions_test() ->
     test:bar(1007, 2007, 3007),
     test:foo(1008, 2008, 3008),
     %% When/Then
-    ?assertMatch({ok, 2003}, meck:capture(first, test, foo, ['_', '_', '_'], 2)),
-    ?assertMatch({ok, 2008}, meck:capture(last, test, foo, ['_', '_', '_'], 2)),
-    ?assertMatch({ok, 2006}, meck:capture(3, test, foo, ['_', '_', '_'], 2)),
-    ?assertMatch(not_found, meck:capture(5, test, foo, ['_', '_', '_'], 2)),
+    ?assertMatch(2003, meck:capture(first, test, foo, ['_', '_', '_'], 2)),
+    ?assertMatch(2008, meck:capture(last, test, foo, ['_', '_', '_'], 2)),
+    ?assertMatch(2006, meck:capture(3, test, foo, ['_', '_', '_'], 2)),
+    ?assertError(not_found, meck:capture(5, test, foo, ['_', '_', '_'], 2)),
     %% Clean
     meck:unload().
 
@@ -74,10 +74,10 @@ capture_different_args_specs_test() ->
     test:bar(1007, 2007, 3007),
     test:foo(1008, 2008, 3008),
     %% When/Then
-    ?assertMatch({ok, 2001}, meck:capture(first, test, foo, '_', 2)),
-    ?assertMatch({ok, 2003}, meck:capture(first, test, foo, 3, 2)),
-    ?assertMatch({ok, 2005}, meck:capture(first, test, foo, ['_', '_'], 2)),
-    ?assertMatch({ok, 2006}, meck:capture(first, test, foo, [1006, '_', '_'], 2)),
-    ?assertMatch({ok, 2008}, meck:capture(first, test, foo, ['_', '_', meck:is(hamcrest_matchers:greater_than(3006))], 2)),
+    ?assertMatch(2001, meck:capture(first, test, foo, '_', 2)),
+    ?assertMatch(2003, meck:capture(first, test, foo, 3, 2)),
+    ?assertMatch(2005, meck:capture(first, test, foo, ['_', '_'], 2)),
+    ?assertMatch(2006, meck:capture(first, test, foo, [1006, '_', '_'], 2)),
+    ?assertMatch(2008, meck:capture(first, test, foo, ['_', '_', meck:is(hamcrest_matchers:greater_than(3006))], 2)),
     %% Clean
     meck:unload().

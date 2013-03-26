@@ -79,18 +79,18 @@ num_calls(CallerPid, Mod, OptFunc, OptArgsSpec) ->
 
 -spec capture(Occur::pos_integer(), opt_pid(), Mod::atom(), Func::atom(),
               meck_args_matcher:opt_args_spec(), ArgNum::pos_integer()) ->
-        {ok, ArgValue::any()} | not_found.
+        ArgValue::any().
 capture(Occur, OptCallerPid, Mod, Func, OptArgsSpec, ArgNum) ->
     ArgsMatcher = meck_args_matcher:new(OptArgsSpec),
     Filter = new_filter(OptCallerPid, Func, ArgsMatcher),
     Filtered = lists:filter(Filter, meck_proc:get_history(Mod)),
     case nth_record(Occur, Filtered) of
         not_found ->
-            not_found;
+            erlang:error(not_found);
         {_CallerPid, {_Mod, _Func, Args}, _Result} ->
-            {ok, lists:nth(ArgNum, Args)};
+            lists:nth(ArgNum, Args);
         {_CallerPid, {_Mod, Func, Args}, _Class, _Reason, _Trace} ->
-            {ok, lists:nth(ArgNum, Args)}
+            lists:nth(ArgNum, Args)
     end.
 
 %%%============================================================================

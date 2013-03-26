@@ -521,7 +521,8 @@ is(MatcherImpl) ->
     meck_matcher:new(MatcherImpl).
 
 %% @doc Returns the value of an argument as it was passed to a particular
-%% function call made by a particular process.
+%% function call made by a particular process. It fails with `not_found' error
+%% if a function call of interest has never been made.
 %%
 %% It retrieves the value of argument at `ArgNum' position as it was passed
 %% to function call `Mod:Func' with arguments that match `OptArgsSpec' made by
@@ -534,8 +535,7 @@ is(MatcherImpl) ->
 %% If an occurrence of a function call irrespective of the calling process needs
 %% to be captured then `_' might be passed as `OptCallerPid', but it is better
 %% to use {@link capture/3} instead.
--spec capture(Occur, Mod, Func, OptArgsSpec, ArgNum, OptCallerPid) ->
-        {ok, ArgValue} | not_found when
+-spec capture(Occur, Mod, Func, OptArgsSpec, ArgNum, OptCallerPid) -> ArgValue when
       Occur :: first | last | pos_integer(),
       Mod :: atom(),
       Func :: atom(),
@@ -547,7 +547,8 @@ capture(Occur, Mod, Func, OptArgsSpec, ArgNum, OptCallerPid) ->
     meck_history:capture(Occur, OptCallerPid, Mod, Func, OptArgsSpec, ArgNum).
 
 %% @doc Returns the value of an argument as it was passed to a particular
-%% function call.
+%% function call, It fails with `not_found' error if a function call of
+%% interest has never been made.
 %%
 %% It retrieves the value of argument at `ArgNum' position as it was passed
 %% to function call `Mod:Func' with arguments that match `OptArgsSpec' that
@@ -558,8 +559,7 @@ capture(Occur, Mod, Func, OptArgsSpec, ArgNum, OptCallerPid) ->
 %% or the last time respectively.
 %%
 %% @equiv capture(Occur, '_', Mod, Func, OptArgsSpec, ArgNum)
--spec capture(Occur, Mod, Func, OptArgsSpec, ArgNum) ->
-        {ok, ArgValue} | not_found when
+-spec capture(Occur, Mod, Func, OptArgsSpec, ArgNum) -> ArgValue when
       Occur :: first | last | pos_integer(),
       Mod::atom(),
       Func::atom(),
