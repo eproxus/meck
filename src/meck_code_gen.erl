@@ -122,15 +122,15 @@ contains_opaque(Term) when is_tuple(Term) ->
 contains_opaque(_Term) ->
     false.
 
-lists_any(Pred, Improper) when not is_list(Improper) ->
-    lists_any(Pred, [Improper]);
-%% copied from lists.erl
+%% based on lists.erl but accepts improper lists.
+lists_any(Pred, []) when is_function(Pred, 1) -> false;
 lists_any(Pred, [Hd|Tail]) ->
     case Pred(Hd) of
-	true -> true;
-	false -> lists_any(Pred, Tail)
+        true -> true;
+        false -> lists_any(Pred, Tail)
     end;
-lists_any(Pred, []) when is_function(Pred, 1) -> false.
+lists_any(Pred, Improper) ->
+    Pred(Improper).
 
 args(0)     -> [];
 args(Arity) -> [?var(var_name(N)) || N <- lists:seq(1, Arity)].
