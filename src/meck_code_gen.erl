@@ -116,11 +116,21 @@ contains_opaque(Term) when is_pid(Term); is_port(Term); is_function(Term);
     is_reference(Term) ->
     true;
 contains_opaque(Term) when is_list(Term) ->
-    lists:any(fun contains_opaque/1, Term);
+    lists_any(fun contains_opaque/1, Term);
 contains_opaque(Term) when is_tuple(Term) ->
-    lists:any(fun contains_opaque/1, tuple_to_list(Term));
+    lists_any(fun contains_opaque/1, tuple_to_list(Term));
 contains_opaque(_Term) ->
     false.
+
+%% based on lists.erl but accepts improper lists.
+lists_any(Pred, []) when is_function(Pred, 1) -> false;
+lists_any(Pred, [Hd|Tail]) ->
+    case Pred(Hd) of
+        true -> true;
+        false -> lists_any(Pred, Tail)
+    end;
+lists_any(Pred, Improper) ->
+    Pred(Improper).
 
 args(0)     -> [];
 args(Arity) -> [?var(var_name(N)) || N <- lists:seq(1, Arity)].
