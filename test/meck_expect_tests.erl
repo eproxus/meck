@@ -97,3 +97,11 @@ expect_with_matchers_masked_clause_test() ->
     %% Then
     V2001 = meck_ret_spec:val(2001),
     ?assertMatch({V2001, _}, meck_expect:fetch_result([1003, 1003], E)).
+
+expect_with_arity_test() ->
+    %% When
+    E = meck_expect:new(foo, [{2, 2001}]),
+    %% Then
+    V2001 = meck_ret_spec:val(2001),
+    ?assertMatch({V2001, _}, meck_expect:fetch_result([1, 2], E)),
+    ?assertMatch({undefined, _}, meck_expect:fetch_result([1, 2, 3], E)).

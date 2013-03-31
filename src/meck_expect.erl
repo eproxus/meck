@@ -54,13 +54,10 @@ new(Func, ClauseSpecs) when is_list(ClauseSpecs) ->
     {{Func, Arity}, Clauses}.
 
 -spec new(Func::atom(),
-          byte() | meck_args_matcher:args_spec(),
+          meck_args_matcher:args_spec(),
           meck_ret_spec:ret_spec()) ->
         expect().
-new(Func, Ari, RetSpec) when is_integer(Ari), Ari >= 0 ->
-    Clause = {meck_args_matcher:new(Ari), RetSpec},
-    {{Func, Ari}, [Clause]};
-new(Func, ArgsSpec, RetSpec) when is_list(ArgsSpec) ->
+new(Func, ArgsSpec, RetSpec) ->
     {Ari, Clause} = parse_clause_spec({ArgsSpec, RetSpec}),
     {{Func, Ari}, [Clause]}.
 
@@ -104,7 +101,7 @@ parse_clause_specs([ClauseSpec | Rest]) ->
     {Ari, Clause} = parse_clause_spec(ClauseSpec),
     parse_clause_specs(Rest, Ari, [Clause]).
 
--spec parse_clause_specs([meck:func_clause_spec()],
+-spec parse_clause_specs([func_clause_spec()],
                          FirstClauseAri::byte(),
                          Clauses::[func_clause()]) ->
         {Ari::byte(), [func_clause()]}.
@@ -121,11 +118,11 @@ parse_clause_specs([ClauseSpec | Rest], FirstClauseAri, Clauses) ->
 parse_clause_specs([], FirstClauseAri, Clauses) ->
     {FirstClauseAri, lists:reverse(Clauses)}.
 
--spec parse_clause_spec(meck:func_clause_spec()) ->
+-spec parse_clause_spec(func_clause_spec()) ->
         {Ari::byte(), func_clause()}.
 parse_clause_spec({ArgsSpec, RetSpec}) ->
-    Ari = length(ArgsSpec),
     ArgsMatcher = meck_args_matcher:new(ArgsSpec),
+    Ari = meck_args_matcher:arity(ArgsMatcher),
     Clause = {ArgsMatcher, RetSpec},
     {Ari, Clause}.
 
