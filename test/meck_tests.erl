@@ -30,6 +30,7 @@ meck_test_() ->
                            fun ?MODULE:expect_/1,
                            fun ?MODULE:exports_/1,
                            fun ?MODULE:call_return_value_/1,
+                           fun ?MODULE:call_return_value_improper_list_/1,
                            fun ?MODULE:call_argument_/1,
                            fun ?MODULE:call_undef_/1,
                            fun ?MODULE:call_function_clause_/1,
@@ -144,6 +145,12 @@ exports_(Mod) ->
 call_return_value_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> apa end),
     ?assertEqual(apa, Mod:test()),
+    ?assertEqual(true, meck:validate(Mod)).
+
+call_return_value_improper_list_(Mod) ->
+    Dict = dict:store(hest, apa, dict:new()),
+    ok = meck:expect(Mod, test, 0, Dict),
+    ?assertEqual(Dict, Mod:test()),
     ?assertEqual(true, meck:validate(Mod)).
 
 call_argument_(Mod) ->
