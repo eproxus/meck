@@ -93,6 +93,7 @@ meck_test_() ->
                            fun ?MODULE:expect_loop_in_seq_/1,
                            fun ?MODULE:expect_args_exception_/1,
                            fun ?MODULE:expect_arity_exception_/1,
+                           fun ?MODULE:expect_arity_clause_/1,
                            fun ?MODULE:loop_multi_/1,
                            fun ?MODULE:expect_args_pattern_override_/1,
                            fun ?MODULE:expect_args_pattern_shadow_/1,
@@ -701,6 +702,13 @@ expect_arity_exception_(Mod) ->
     meck:expect(Mod, f, 1, meck:raise(error, a)),
     %% When/Then
     ?assertError(a, Mod:f(1001)).
+
+expect_arity_clause_(Mod) ->
+    %% Given
+    meck:expect(Mod, foo, [{2, blah}]),
+    %% When/Then
+    ?assertMatch(blah, Mod:foo(1, 2)),
+    ?assertError(_, Mod:foo(1, 2, 3)).
 
 loop_multi_(Mod) ->
     meck:new(mymod2, [non_strict]),

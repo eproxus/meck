@@ -21,60 +21,72 @@
 
 %% API
 -export([new/1,
+         arity/1,
          match/2]).
 
 %%%============================================================================
 %%% Definitions
 %%%============================================================================
 
--record(args_matcher, {args_spec :: opt_args_spec(),
+-record(args_matcher, {opt_args_pattern :: opt_args_pattern(),
                        comp_match_spec :: ets:comp_match_spec(),
-                       has_matchers = false :: boolean()}).
+                       has_matchers :: boolean()}).
 
 %%%============================================================================
 %%% Types
 %%%============================================================================
 
--type args_spec() :: [any()].
 -type opt_args_spec() :: args_spec() | '_'.
+-type args_spec() :: args_pattern() | non_neg_integer().
+-type opt_args_pattern() :: args_pattern() | '_'.
+-type args_pattern() :: [any() | '_' | meck_matcher:matcher()].
+
 -opaque args_matcher() :: #args_matcher{}.
 
 %%%============================================================================
 %%% API
 %%%============================================================================
 
--spec new(byte() | opt_args_spec()) -> args_matcher().
-new(ArgsSpec = '_') ->
-    MatchSpecItem = meck_util:match_spec_item({ArgsSpec}),
+-spec new(opt_args_spec()) -> args_matcher().
+new('_') ->
+    MatchSpecItem = meck_util:match_spec_item({'_'}),
     CompMatchSpec = ets:match_spec_compile([MatchSpecItem]),
-    #args_matcher{args_spec = ArgsSpec, comp_match_spec = CompMatchSpec};
-new(Ari) when is_number(Ari) ->
-    ArgsSpec = lists:duplicate(Ari, '_'),
-    MatchSpecItem = meck_util:match_spec_item({ArgsSpec}),
+    #args_matcher{opt_args_pattern = '_',
+                  comp_match_spec = CompMatchSpec,
+                  has_matchers = false};
+new(Arity) when is_number(Arity) ->
+    ArgsPattern = lists:duplicate(Arity, '_'),
+    MatchSpecItem = meck_util:match_spec_item({ArgsPattern}),
     CompMatchSpec = ets:match_spec_compile([MatchSpecItem]),
-    #args_matcher{args_spec = ArgsSpec, comp_match_spec = CompMatchSpec};
-new(ArgsSpec) when is_list(ArgsSpec) ->
-    {HasMatchers, Pattern} = case strip_off_matchers(ArgsSpec) of
+    #args_matcher{opt_args_pattern = ArgsPattern,
+                  comp_match_spec = CompMatchSpec,
+                  has_matchers = false};
+new(ArgsPattern) when is_list(ArgsPattern) ->
+    {HasMatchers, Pattern} = case strip_off_matchers(ArgsPattern) of
                                  unchanged ->
-                                     {false, ArgsSpec};
+                                     {false, ArgsPattern};
                                  StrippedArgsSpec ->
                                      {true, StrippedArgsSpec}
                              end,
     MatchSpecItem = meck_util:match_spec_item({Pattern}),
     CompMatchSpec = ets:match_spec_compile([MatchSpecItem]),
-    #args_matcher{args_spec = ArgsSpec,
+    #args_matcher{opt_args_pattern = ArgsPattern,
                   comp_match_spec = CompMatchSpec,
                   has_matchers = HasMatchers}.
 
+-spec arity(args_matcher()) -> Arity::non_neg_integer().
+arity(#args_matcher{opt_args_pattern = ArgsPattern}) ->
+    erlang:length(ArgsPattern).
+
 -spec match(Args::any(), args_matcher()) -> boolean().
-match(Args, #args_matcher{args_spec = ArgsSpec,
+match(Args, #args_matcher{opt_args_pattern = OptArgsPattern,
                           comp_match_spec = CompMatchSpec,
                           has_matchers = HasMatchers}) ->
     case ets:match_spec_run([{Args}], CompMatchSpec) of
         [] ->
             false;
-        _Matches when HasMatchers ->
-            check_by_matchers(Args, ArgsSpec);
+        _Matches when HasMatchers andalso erlang:is_list(OptArgsPattern) ->
+            check_by_matchers(Args, OptArgsPattern);
         _Matches ->
             true
     end.
@@ -83,19 +95,19 @@ match(Args, #args_matcher{args_spec = ArgsSpec,
 %%% Internal functions
 %%%============================================================================
 
--spec strip_off_matchers(args_spec()) ->
-    NewArgsSpec::args_spec() | unchanged.
-strip_off_matchers(ArgsSpec) ->
-    strip_off_matchers(ArgsSpec, [], false).
+-spec strip_off_matchers(args_pattern()) ->
+        NewArgsPattern::args_pattern() | unchanged.
+strip_off_matchers(ArgsPattern) ->
+    strip_off_matchers(ArgsPattern, [], false).
 
--spec strip_off_matchers(args_spec(), Stripped::[any() | '_'], boolean()) ->
-    NewArgsSpec::args_spec() | unchanged.
-strip_off_matchers([ArgSpec | Rest], Stripped, HasMatchers) ->
-    case meck_matcher:is_matcher(ArgSpec) of
+-spec strip_off_matchers(args_pattern(), Stripped::[any() | '_'], boolean()) ->
+        NewArgsPattern::args_pattern() | unchanged.
+strip_off_matchers([ArgPattern | Rest], Stripped, HasMatchers) ->
+    case meck_matcher:is_matcher(ArgPattern) of
         true ->
             strip_off_matchers(Rest, ['_' | Stripped], true);
         _ ->
-            strip_off_matchers(Rest, [ArgSpec | Stripped], HasMatchers)
+            strip_off_matchers(Rest, [ArgPattern | Stripped], HasMatchers)
     end;
 strip_off_matchers([], Stripped, true) ->
     lists:reverse(Stripped);
