@@ -1235,6 +1235,12 @@ meck_module_attributes_test() ->
                                     meck_test_module:module_info()))),
     ?assertEqual(ok, meck:unload(meck_test_module)).
 
+meck_implicit_new_test()->
+    meck:expect(meck_test_module, c, [{[1, 1], foo},
+                                      {['_', '_'], bar}]),
+    ?assertMatch(foo, meck_test_module:c(1, 1)),
+    meck:unload().
+
 %%=============================================================================
 %% Internal Functions
 %%=============================================================================

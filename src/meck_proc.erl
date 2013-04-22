@@ -77,9 +77,23 @@ get_result_spec(Mod, Func, Args) ->
     gen_server(call, Mod, {get_result_spec, Func, Args}).
 
 -spec set_expect(Mod::atom(), meck_expect:expect()) ->
-        ok | {error, Reason :: any()}.
+        ok | {error, Reason::any()}.
 set_expect(Mod, Expect) ->
-    gen_server(call, Mod, {set_expect, Expect}).
+    Proc = meck_util:proc_name(Mod),
+    try
+        gen_server:call(Proc, {set_expect, Expect})
+    catch
+        exit:{noproc, _Details} ->
+            Props = [Mod, [passthrow]],
+            case gen_server:start({local, Proc}, ?MODULE, Props, []) of
+                {ok, Pid} ->
+                    Result = gen_server:call(Proc, {set_expect, Expect}),
+                    true = erlang:link(Pid),
+                    Result;
+                {error, {{undefined_module, Mod}, _StackTrace}} ->
+                    erlang:error({not_mocked, Mod})
+            end
+    end.
 
 -spec delete_expect(Mod::atom(), Func::atom(), Ari::byte()) -> ok.
 delete_expect(Mod, Func, Ari) ->
