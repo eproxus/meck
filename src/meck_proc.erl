@@ -68,8 +68,11 @@ start(Mod, Options) ->
                     false -> start_link
                 end,
     SpawnOpt = proplists:get_value(spawn_opt, Options, []),
-    gen_server:StartFunc({local, meck_util:proc_name(Mod)}, ?MODULE,
-                         [Mod, Options], [{spawn_opt, SpawnOpt}]).
+    case gen_server:StartFunc({local, meck_util:proc_name(Mod)}, ?MODULE,
+                              [Mod, Options], [{spawn_opt, SpawnOpt}]) of
+        {ok, _Pid}      -> ok;
+        {error, Reason} -> erlang:error(Reason, [Mod, Options])
+    end.
 
 -spec get_result_spec(Mod::atom(), Func::atom(), Args::[any()]) ->
         meck_ret_spec:result_spec() | undefined.

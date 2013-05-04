@@ -185,10 +185,7 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
       Mod :: atom(),
       Options :: [proplists:property()].
 new(Mod, Options) when is_atom(Mod), is_list(Options) ->
-    case meck_proc:start(Mod, Options) of
-        {ok, _Pid} -> ok;
-        {error, Reason} -> erlang:error(Reason, [Mod, Options])
-    end;
+    meck_proc:start(Mod, Options);
 new(Mod, Options) when is_list(Mod) ->
     lists:foreach(fun(M) -> new(M, Options) end, Mod),
     ok.
