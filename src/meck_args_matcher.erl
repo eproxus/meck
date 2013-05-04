@@ -15,14 +15,14 @@
 %%% @private
 -module(meck_args_matcher).
 
--export_type([args_spec/0,
-              opt_args_spec/0,
-              args_matcher/0]).
+-export_type([args_spec/0]).
+-export_type([opt_args_spec/0]).
+-export_type([args_matcher/0]).
 
 %% API
--export([new/1,
-         arity/1,
-         match/2]).
+-export([new/1]).
+-export([arity/1]).
+-export([match/2]).
 
 %%%============================================================================
 %%% Definitions

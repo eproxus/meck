@@ -18,8 +18,8 @@
 -module(meck_code_gen).
 
 %% API
--export([to_forms/2,
-         get_current_call/0]).
+-export([to_forms/2]).
+-export([get_current_call/0]).
 
 %% Exported to be accessible from generated modules.
 -export([exec/4]).

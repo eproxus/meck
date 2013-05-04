@@ -18,17 +18,17 @@
 -module(meck_history).
 
 %% API
--export_type([stack_trace_rec_r14b/0,
-              stack_trace_rec_r15b/0,
-              stack_trace/0,
-              meck_mfa/0,
-              successfull_call/0,
-              faulty_call/0,
-              history/0]).
+-export_type([stack_trace_rec_r14b/0]).
+-export_type([stack_trace_rec_r15b/0]).
+-export_type([stack_trace/0]).
+-export_type([meck_mfa/0]).
+-export_type([successfull_call/0]).
+-export_type([faulty_call/0]).
+-export_type([history/0]).
 
--export([get_history/2,
-         num_calls/4,
-         capture/6]).
+-export([get_history/2]).
+-export([num_calls/4]).
+-export([capture/6]).
 
 %%%============================================================================
 %%% Types

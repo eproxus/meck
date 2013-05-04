@@ -17,15 +17,15 @@
 -module(meck_expect).
 
 %% API
--export_type([func_ari/0,
-              expect/0]).
+-export_type([func_ari/0]).
+-export_type([expect/0]).
 
--export([new/2,
-         new/3,
-         new_passthrough/1,
-         new_dummy/2,
-         func_ari/1,
-         fetch_result/2]).
+-export([new/2]).
+-export([new/3]).
+-export([new_passthrough/1]).
+-export([new_dummy/2]).
+-export([func_ari/1]).
+-export([fetch_result/2]).
 
 %%%============================================================================
 %%% Types

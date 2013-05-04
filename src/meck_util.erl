@@ -19,9 +19,9 @@
 %% API
 -export_type([match_spec_item/0]).
 
--export([proc_name/1,
-         original_name/1,
-         match_spec_item/1]).
+-export([proc_name/1]).
+-export([original_name/1]).
+-export([match_spec_item/1]).
 
 %%%============================================================================
 %%% Types

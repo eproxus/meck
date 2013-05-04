@@ -23,9 +23,9 @@
 -export_type([matcher/0]).
 
 %% API
--export([new/1,
-         is_matcher/1,
-         match_ignore/2]).
+-export([new/1]).
+-export([is_matcher/1]).
+-export([match_ignore/2]).
 
 %%%============================================================================
 %%% Definitions

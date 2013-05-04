@@ -16,19 +16,19 @@
 %%% @doc Provides expectation processing functions.
 -module(meck_ret_spec).
 
--export_type([result_spec/0,
-              ret_spec/0]).
+-export_type([result_spec/0]).
+-export_type([ret_spec/0]).
 
 %% API
--export([passthrough/0,
-         val/1,
-         exec/1,
-         seq/1,
-         loop/1,
-         raise/2,
-         is_meck_exception/1,
-         retrieve_result/1,
-         eval_result/4]).
+-export([passthrough/0]).
+-export([val/1]).
+-export([exec/1]).
+-export([seq/1]).
+-export([loop/1]).
+-export([raise/2]).
+-export([is_meck_exception/1]).
+-export([retrieve_result/1]).
+-export([eval_result/4]).
 
 %%%============================================================================
 %%% Types
