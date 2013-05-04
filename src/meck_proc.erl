@@ -87,8 +87,8 @@ set_expect(Mod, Expect) ->
         gen_server:call(Proc, {set_expect, Expect})
     catch
         exit:{noproc, _Details} ->
-            Props = [Mod, [passthrow]],
-            case gen_server:start({local, Proc}, ?MODULE, Props, []) of
+            Options = [Mod, [passthrough]],
+            case gen_server:start({local, Proc}, ?MODULE, Options, []) of
                 {ok, Pid} ->
                     Result = gen_server:call(Proc, {set_expect, Expect}),
                     true = erlang:link(Pid),
