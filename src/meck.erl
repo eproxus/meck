@@ -452,7 +452,7 @@ num_calls(Mod, OptFun, OptArgsSpec, OptPid) ->
       Mod :: atom(),
       OptFunc :: '_' | atom(),
       OptArgsSpec :: '_' | args_spec(),
-      Timeout :: timeout().
+      Timeout :: non_neg_integer().
 wait(Mod, OptFunc, OptArgsSpec, Timeout) ->
     wait(1, Mod, OptFunc, OptArgsSpec, '_', Timeout).
 
@@ -471,7 +471,7 @@ wait(Mod, OptFunc, OptArgsSpec, Timeout) ->
       Mod :: atom(),
       OptFunc :: '_' | atom(),
       OptArgsSpec :: '_' | args_spec(),
-      Timeout :: timeout().
+      Timeout :: non_neg_integer().
 wait(Times, Mod, OptFunc, OptArgsSpec, Timeout) ->
     wait(Times, Mod, OptFunc, OptArgsSpec, '_', Timeout).
 
@@ -489,8 +489,12 @@ wait(Times, Mod, OptFunc, OptArgsSpec, Timeout) ->
       OptFunc :: '_' | atom(),
       OptArgsSpec :: '_' | args_spec(),
       OptCallerPid :: '_' | pid(),
-      Timeout :: timeout().
-wait(Times, Mod, OptFunc, OptArgsSpec, OptCallerPid, Timeout) ->
+      Timeout :: non_neg_integer().
+wait(0, _Mod, _OptFunc, _OptArgsSpec, _OptCallerPid, _Timeout) ->
+    ok;
+wait(Times, Mod, OptFunc, OptArgsSpec, OptCallerPid, Timeout)
+  when is_integer(Times) andalso Times > 0 andalso
+       is_integer(Timeout) andalso Timeout >= 0 ->
     ArgsMatcher = meck_args_matcher:new(OptArgsSpec),
     meck_proc:wait(Mod, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout).
 

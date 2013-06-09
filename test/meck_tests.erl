@@ -21,6 +21,20 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("hamcrest/include/hamcrest.hrl").
 
+
+-define(assertTerminated(MonitorRef, Reason, Timeout),
+        (fun() ->
+                receive
+                    {'DOWN', MonitorRef, process, _Pid, Reason} ->
+                         ok;
+                    {'DOWN', MonitorRef, process, _Pid, AnotherReason} ->
+                        erlang:error({dead_for_another_reason, AnotherReason})
+                after
+                    Timeout ->
+                        erlang:error(still_alive)
+                end
+         end)()).
+
 meck_test_() ->
     {foreach, fun setup/0, fun teardown/1,
      [{with, [T]} || T <- [fun ?MODULE:new_/1,
@@ -1241,6 +1255,14 @@ meck_implicit_new_test()->
     ?assertMatch(foo, meck_test_module:c(1, 1)),
     meck:unload().
 
+wait_for_zero_calls_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    %% When/Then
+    ?assertMatch(ok, meck:wait(0, test, foo, [1, '_'], 100)),
+    %% Clean
+    meck:unload().
+
 wait_already_called_test() ->
     %% Given
     meck:new(test, [non_strict]),
@@ -1272,11 +1294,10 @@ wait_not_called_another_proc_test() ->
     %% When
     test:foo(1, 2), % Called, but not by the expected proc.
     Pid = erlang:spawn(fun() ->
-                              timer:sleep(50),
                               test:foo(2, 2) % Unexpected first argument
                        end),
     %% Then
-    ?assertError(timeout, meck:wait(1, test, foo, [1, '_'], Pid, 0)),
+    ?assertError(timeout, meck:wait(1, test, foo, [1, '_'], Pid, 100)),
     %% Clean
     meck:unload().
 
@@ -1304,6 +1325,75 @@ wait_timeout_test() ->
     test:foo(1, 2),
     %% Then
     ?assertError(timeout, meck:wait(2, test, foo, [1, '_'], '_', 10)),
+    %% Clean
+    meck:unload().
+
+wait_for_the_same_pattern_on_different_processes_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    Pid1 = erlang:spawn(fun() ->
+                               ?assertMatch(ok,
+                                            meck:wait(2, test, foo,
+                                                      [1, 2], 100))
+                         end),
+    MonitorRef1 = erlang:monitor(process, Pid1),
+    Pid2 = erlang:spawn(fun() ->
+                               ?assertMatch(ok,
+                                            meck:wait(3, test, foo,
+                                                      [1, 2], 100))
+                        end),
+    MonitorRef2 = erlang:monitor(process, Pid2),
+    %% When
+    timer:sleep(50),
+    test:foo(1, 2),
+    test:foo(1, 2),
+    %% Then
+    ?assertTerminated(MonitorRef1, normal, 300),
+    ?assertTerminated(MonitorRef2, {timeout, _}, 300),
+    %% Clean
+    meck:unload().
+
+wait_for_different_patterns_on_different_processes_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 1, ok),
+    meck:expect(test, bar, 2, ok),
+    Pid1 = erlang:spawn(fun() ->
+                               ?assertMatch(ok,
+                                            meck:wait(2, test, foo,
+                                                      [1], 100))
+                        end),
+    MonitorRef1 = erlang:monitor(process, Pid1),
+    Pid2 = erlang:spawn(fun() ->
+                               ?assertMatch(ok,
+                                            meck:wait(3, test, bar,
+                                                      [1, 2], 100))
+                        end),
+    MonitorRef2 = erlang:monitor(process, Pid2),
+    %% When
+    timer:sleep(50),
+    test:bar(1, 2),
+    test:foo(1),
+    test:bar(1, 2),
+    test:bar(1, 2),
+    %% Then
+    ?assertTerminated(MonitorRef1, {timeout, _}, 300),
+    ?assertTerminated(MonitorRef2, normal, 300),
+    %% Clean
+    meck:unload().
+
+wait_purge_expired_tracker_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    ?assertError(timeout, meck:wait(1, test, foo, [1, '_'], 1)),
+    %% When
+    timer:sleep(50),
+    % Makes expired tracker be purged. There is no way to check that from the
+    % code only in the coverage report. But at least we exercise this code path
+    % here.
+    test:foo(1, 2),
     %% Clean
     meck:unload().
 
