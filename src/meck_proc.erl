@@ -24,6 +24,7 @@
 -export([set_expect/2]).
 -export([delete_expect/3]).
 -export([get_history/1]).
+-export([wait/6]).
 -export([reset/1]).
 -export([validate/1]).
 -export([stop/1]).
@@ -53,7 +54,21 @@
                 original :: term(),
                 was_sticky = false :: boolean(),
                 reload :: {Compiler::pid(), {From::pid(), Tag::any()}} |
-                undefined}).
+                          undefined,
+                trackers = [] :: [tracker()]}).
+
+-record(tracker, {opt_func :: '_' | atom(),
+                  args_matcher :: meck_args_matcher:args_matcher(),
+                  opt_caller_pid :: '_' | pid(),
+                  countdown :: non_neg_integer(),
+                  reply_to :: {Caller::pid(), Tag::any()},
+                  expire_at :: erlang:timestamp()}).
+
+%%%============================================================================
+%%% Types
+%%%============================================================================
+
+-type tracker() :: #tracker{}.
 
 %%%============================================================================
 %%% API
@@ -113,6 +128,36 @@ add_history(Mod, CallerPid, Func, Args, Result) ->
 -spec get_history(Mod::atom()) -> meck_history:history().
 get_history(Mod) ->
     gen_server(call, Mod, get_history).
+
+-spec wait(Mod::atom(),
+           Times::non_neg_integer(),
+           OptFunc::'_' | atom(),
+           meck_args_matcher:args_matcher(),
+           OptCallerPid::'_' | pid(),
+           Timeout::non_neg_integer()) ->
+        ok.
+wait(Mod, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout) ->
+    EffectiveTimeout = case Timeout of
+                           0 ->
+                               infinity;
+                           _Else ->
+                               Timeout
+                       end,
+    Name = meck_util:proc_name(Mod),
+    try gen_server:call(Name, {wait, Times, OptFunc, ArgsMatcher, OptCallerPid,
+                               Timeout},
+                        EffectiveTimeout)
+    of
+        ok ->
+            ok;
+        {error, timeout} ->
+            erlang:error(timeout)
+    catch
+        exit:{timeout, _Details} ->
+            erlang:error(timeout);
+        exit:_Reason ->
+            erlang:error({not_mocked, Mod})
+    end.
 
 -spec reset(Mod::atom()) -> ok.
 reset(Mod) ->
@@ -190,6 +235,22 @@ handle_call(get_history, _From, S = #state{history = undefined}) ->
     {reply, [], S};
 handle_call(get_history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
+handle_call({wait, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout}, From,
+            S = #state{history = History, trackers = Trackers}) ->
+    case times_called(OptFunc, ArgsMatcher, OptCallerPid, History) of
+        CalledSoFar when CalledSoFar >= Times ->
+            {reply, ok, S};
+        _CalledSoFar when Timeout =:= 0 ->
+            {reply, {error, timeout}, S};
+        CalledSoFar ->
+            Tracker = #tracker{opt_func = OptFunc,
+                               args_matcher = ArgsMatcher,
+                               opt_caller_pid = OptCallerPid,
+                               countdown = Times - CalledSoFar,
+                               reply_to = From,
+                               expire_at = timeout_to_timestamp(Timeout)},
+            {noreply, S#state{trackers = [Tracker | Trackers]}}
+    end;
 handle_call(reset, _From, S) ->
     {reply, ok, S#state{history = []}};
 handle_call(invalidate, _From, S) ->
@@ -200,12 +261,18 @@ handle_call(stop, _From, S) ->
     {stop, normal, ok, S}.
 
 %% @hidden
-handle_cast({add_history, _Item}, S = #state{history = undefined}) ->
-    {noreply, S};
-handle_cast({add_history, Item}, S = #state{reload = Reload}) ->
+handle_cast({add_history, HistoryRecord}, S = #state{history = undefined,
+                                                     trackers = Trackers}) ->
+    UpdTracker = update_trackers(HistoryRecord, Trackers),
+    {noreply, S#state{trackers = UpdTracker}};
+handle_cast({add_history, HistoryRecord}, S = #state{history = History,
+                                                     trackers = Trackers,
+                                                     reload = Reload}) ->
     case Reload of
         undefined ->
-            {noreply, S#state{history = [Item | S#state.history]}};
+            UpdTrackers = update_trackers(HistoryRecord, Trackers),
+            {noreply, S#state{history = [HistoryRecord | History],
+                              trackers = UpdTrackers}};
         _ ->
             % Skip Item if the mocked module compiler is running.
             {noreply, S}
@@ -424,10 +491,11 @@ compile_expects(Mod, Expects) ->
     %% If the recompilation is made by the server that executes a module
     %% no module that is called from meck_code:compile_and_load_forms/2
     %% can be mocked by meck.
-    CompilerPid = spawn_link(fun() ->
-                                     Forms = meck_code_gen:to_forms(Mod, Expects),
-                                     meck_code:compile_and_load_forms(Forms)
-                             end),
+    CompilerPid =
+        erlang:spawn_link(fun() ->
+                                  Forms = meck_code_gen:to_forms(Mod, Expects),
+                                  meck_code:compile_and_load_forms(Forms)
+                          end),
     {Expects, CompilerPid}.
 
 restore_original(Mod, {false, _}, WasSticky) ->
@@ -483,3 +551,91 @@ cleanup(Mod) ->
     code:delete(Mod),
     code:purge(meck_util:original_name(Mod)),
     code:delete(meck_util:original_name(Mod)).
+
+-spec times_called(OptFunc::'_' | atom(),
+                   meck_args_matcher:args_matcher(),
+                   OptCallerPid::'_' | pid(),
+                   meck_history:history()) ->
+        non_neg_integer().
+times_called(OptFunc, ArgsMatcher, OptCallerPid, History) ->
+    Filter = meck_history:new_filter(OptCallerPid, OptFunc, ArgsMatcher),
+    lists:foldl(fun(HistoryRec, Acc) ->
+                        case Filter(HistoryRec) of
+                            true ->
+                                Acc + 1;
+                            _Else ->
+                                Acc
+                        end
+                end, 0, History).
+
+-spec update_trackers(meck_history:history_record(), [tracker()]) ->
+        UpdTracker::[tracker()].
+update_trackers(HistoryRecord, Trackers) ->
+    update_trackers(HistoryRecord, Trackers, []).
+
+-spec update_trackers(meck_history:history_record(),
+                      Trackers::[tracker()],
+                      CheckedSoFar::[tracker()]) ->
+        UpdTrackers::[tracker()].
+update_trackers(_HistoryRecord, [], UpdatedSoFar) ->
+    UpdatedSoFar;
+update_trackers(HistoryRecord, [Tracker | Rest], UpdatedSoFar) ->
+    CallerPid = erlang:element(1, HistoryRecord),
+    {_Mod, Func, Args} = erlang:element(2, HistoryRecord),
+    case update_tracker(Func, Args, CallerPid, Tracker) of
+        expired ->
+            update_trackers(HistoryRecord, Rest, UpdatedSoFar);
+        UpdTracker ->
+            update_trackers(HistoryRecord, Rest, [UpdTracker | UpdatedSoFar])
+    end.
+
+
+-spec update_tracker(Func::atom(), Args::[any()], Caller::pid(), tracker()) ->
+        expired |
+        (UpdTracker::tracker()).
+update_tracker(Func, Args, CallerPid,
+               #tracker{opt_func = OptFunc,
+                        args_matcher = ArgsMatcher,
+                        opt_caller_pid = OptCallerPid,
+                        countdown = Countdown,
+                        reply_to = ReplyTo,
+                        expire_at = ExpireAt} = Tracker)
+  when (OptFunc =:= '_' orelse Func =:= OptFunc) andalso
+       (OptCallerPid =:= '_' orelse CallerPid =:= OptCallerPid) ->
+    case meck_args_matcher:match(Args, ArgsMatcher) of
+        false ->
+            Tracker;
+        true ->
+            case is_expired(ExpireAt) of
+                true ->
+                    expired;
+                false when Countdown == 1 ->
+                    gen_server:reply(ReplyTo, ok),
+                    expired;
+                false ->
+                    Tracker#tracker{countdown = Countdown - 1}
+            end
+    end;
+update_tracker(_Func, _Args, _CallerPid, Tracker) ->
+    Tracker.
+
+-spec timeout_to_timestamp(Timeout::non_neg_integer()) -> erlang:timestamp().
+timeout_to_timestamp(Timeout) ->
+    {MacroSecs, Secs, MicroSecs} = os:timestamp(),
+    MicroSecs2 = MicroSecs + Timeout * 1000,
+    UpdMicroSecs = MicroSecs2 rem 1000000,
+    Secs2 = Secs + MicroSecs2 div 1000000,
+    UpdSecs = Secs2 rem 1000000,
+    UpdMacroSecs = MacroSecs + Secs2 div 1000000,
+    {UpdMacroSecs, UpdSecs, UpdMicroSecs}.
+
+-spec is_expired(erlang:timestamp()) -> boolean().
+is_expired({MacroSecs, Secs, MicroSecs}) ->
+    {NowMacroSecs, NowSecs, NowMicroSecs} = os:timestamp(),
+    ((NowMacroSecs > MacroSecs) orelse
+     (NowMacroSecs == MacroSecs andalso NowSecs > Secs) orelse
+     (NowMacroSecs == MacroSecs andalso NowSecs == Secs andalso
+      NowMicroSecs > MicroSecs)).
+
+
+
