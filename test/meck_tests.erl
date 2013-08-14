@@ -758,12 +758,18 @@ remote_meck_test_() ->
 
 remote_setup() ->
     [] = os:cmd("epmd -daemon"),
-    Hostname = "localhost",
+    case node() of
+      'nonode@nohost' ->
+        Hostname = "localhost";
+      _ ->
+        Hostname = test_server_sup:hoststr()
+    end,
     Myself = list_to_atom("meck_eunit_test@" ++ Hostname),
     net_kernel:start([Myself, shortnames]),
     {ok, Node} = slave:start_link(list_to_atom(Hostname), meck_remote_test,
                                   "-pa test"),
     {Mod, Bin, File} = code:get_object_code(meck),
+    true = rpc:call(Node, code, add_path, [filename:dirname(File)]),
     {module, Mod} = rpc:call(Node, code, load_binary, [Mod, File, Bin]),
     {module, meck_test_module} =
         rpc:call(Node, code, load_file, [meck_test_module]),
