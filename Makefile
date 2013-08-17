@@ -35,7 +35,7 @@ doc:
 clean:
 	@$(REBAR) -C test.config skip_deps=true clean
 
-test:
+test: get-deps
 	@$(REBAR) -C test.config skip_deps=true eunit
 
 $(PLTFILE):
