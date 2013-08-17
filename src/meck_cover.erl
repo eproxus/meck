@@ -1,4 +1,4 @@
-%%==============================================================================
+%%=============================================================================
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -10,8 +10,9 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%==============================================================================
+%%=============================================================================
 
+%% @private
 %% @doc Module containing functions needed by meck to integrate with cover.
 
 -module(meck_cover).
@@ -20,9 +21,9 @@
 -export([compile_beam/2]).
 -export([rename_module/2]).
 
-%%==============================================================================
+%%=============================================================================
 %% Interface exports
-%%==============================================================================
+%%=============================================================================
 
 %% @doc Enabled cover on `<name>_meck_original'.
 compile_beam(OriginalMod, Bin) ->
@@ -36,9 +37,9 @@ rename_module(File, Name) ->
     write_terms(File, NewTerms),
     ok.
 
-%%==============================================================================
+%%=============================================================================
 %% Internal functions
-%%==============================================================================
+%%=============================================================================
 
 %% @private
 %%
@@ -56,11 +57,11 @@ alter_cover() ->
         true ->
             ok;
         false ->
-            Beam = meck_mod:beam_file(cover),
-            AbsCode = meck_mod:abstract_code(Beam),
+            Beam = meck_code:beam_file(cover),
+            AbsCode = meck_code:abstract_code(Beam),
             Exports = [{compile_beam, 2}, {get_term, 1}, {write, 2}],
-            AbsCode2 = meck_mod:add_exports(Exports, AbsCode),
-            _Bin = meck_mod:compile_and_load_forms(AbsCode2),
+            AbsCode2 = meck_code:add_exports(Exports, AbsCode),
+            _Bin = meck_code:compile_and_load_forms(AbsCode2),
             ok
     end.
 
@@ -107,4 +108,3 @@ write_terms(File, Terms) ->
 
 write_term(Fd) ->
     fun(Term) -> cover:write(Term, Fd) end.
-

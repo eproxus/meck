@@ -1,4 +1,4 @@
-%%==============================================================================
+%%=============================================================================
 %% Copyright 2010 Erlang Solutions Ltd.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,13 +12,28 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%==============================================================================
+%%=============================================================================
 
 -module(meck_tests).
 
 -compile(export_all).
 
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("hamcrest/include/hamcrest.hrl").
+
+
+-define(assertTerminated(MonitorRef, Reason, Timeout),
+        (fun() ->
+                receive
+                    {'DOWN', MonitorRef, process, _Pid, Reason} ->
+                         ok;
+                    {'DOWN', MonitorRef, process, _Pid, AnotherReason} ->
+                        erlang:error({dead_for_another_reason, AnotherReason})
+                after
+                    Timeout ->
+                        erlang:error(still_alive)
+                end
+         end)()).
 
 meck_test_() ->
     {foreach, fun setup/0, fun teardown/1,
@@ -29,6 +44,7 @@ meck_test_() ->
                            fun ?MODULE:expect_/1,
                            fun ?MODULE:exports_/1,
                            fun ?MODULE:call_return_value_/1,
+                           fun ?MODULE:call_return_value_improper_list_/1,
                            fun ?MODULE:call_argument_/1,
                            fun ?MODULE:call_undef_/1,
                            fun ?MODULE:call_function_clause_/1,
@@ -52,6 +68,7 @@ meck_test_() ->
                            fun ?MODULE:history_meck_exit_/1,
                            fun ?MODULE:history_meck_error_/1,
                            fun ?MODULE:history_by_pid_/1,
+                           fun ?MODULE:reset_/1,
                            fun ?MODULE:shortcut_expect_/1,
                            fun ?MODULE:shortcut_expect_negative_arity_/1,
                            fun ?MODULE:shortcut_call_return_value_/1,
@@ -66,6 +83,7 @@ meck_test_() ->
                            fun ?MODULE:called_true_one_arg_/1,
                            fun ?MODULE:called_false_few_args_/1,
                            fun ?MODULE:called_true_few_args_/1,
+                           fun ?MODULE:called_few_args_matchers_/1,
                            fun ?MODULE:called_false_error_/1,
                            fun ?MODULE:called_true_error_/1,
                            fun ?MODULE:called_with_pid_no_args_/1,
@@ -74,9 +92,29 @@ meck_test_() ->
                            fun ?MODULE:num_calls_with_pid_no_args_/1,
                            fun ?MODULE:called_wildcard_/1,
                            fun ?MODULE:sequence_/1,
+                           fun ?MODULE:expect_args_sequence_/1,
+                           fun ?MODULE:expect_arity_sequence_/1,
+                           fun ?MODULE:expect_complex_sequence_/1,
                            fun ?MODULE:sequence_multi_/1,
                            fun ?MODULE:loop_/1,
-                           fun ?MODULE:loop_multi_/1
+                           fun ?MODULE:expect_empty_clause_list_/1,
+                           fun ?MODULE:expect_args_value_/1,
+                           fun ?MODULE:expect_args_invalid_call_/1,
+                           fun ?MODULE:expect_arity_value_/1,
+                           fun ?MODULE:expect_args_loop_/1,
+                           fun ?MODULE:expect_arity_loop_/1,
+                           fun ?MODULE:expect_complex_loop_/1,
+                           fun ?MODULE:expect_loop_in_seq_/1,
+                           fun ?MODULE:expect_args_exception_/1,
+                           fun ?MODULE:expect_arity_exception_/1,
+                           fun ?MODULE:expect_arity_clause_/1,
+                           fun ?MODULE:loop_multi_/1,
+                           fun ?MODULE:expect_args_pattern_override_/1,
+                           fun ?MODULE:expect_args_pattern_shadow_/1,
+                           fun ?MODULE:expect_args_pattern_missing_/1,
+                           fun ?MODULE:expect_args_pattern_invalid_/1,
+                           fun ?MODULE:expect_args_matchers_/1,
+                           fun ?MODULE:expect_ret_specs_/1
                           ]]}.
 
 setup() ->
@@ -84,13 +122,13 @@ setup() ->
     % dbg:tracer(),
     % dbg:p(all, call),
     % dbg:tpl(meck, []),
-    ok = meck:new(mymod),
+    ok = meck:new(mymod, [non_strict]),
     mymod.
 
 teardown(Module) ->
     catch meck:unload(Module).
 
-%% --- Tests using setup and teardown ------------------------------------------
+%% --- Tests using setup and teardown -----------------------------------------
 
 new_(Mod) ->
     Info = Mod:module_info(),
@@ -124,6 +162,12 @@ call_return_value_(Mod) ->
     ?assertEqual(apa, Mod:test()),
     ?assertEqual(true, meck:validate(Mod)).
 
+call_return_value_improper_list_(Mod) ->
+    Dict = dict:store(hest, apa, dict:new()),
+    ok = meck:expect(Mod, test, 0, Dict),
+    ?assertEqual(Dict, Mod:test()),
+    ?assertEqual(true, meck:validate(Mod)).
+
 call_argument_(Mod) ->
     ok = meck:expect(Mod, test, fun(hest, 1) -> apa end),
     ?assertEqual(apa, Mod:test(hest, 1)),
@@ -147,7 +191,7 @@ validate_expected_error_(Mod) ->
     ?assertEqual(true, meck:validate(Mod)).
 
 validate_chained_(Mod) ->
-    ok = meck:new(mymod2),
+    ok = meck:new(mymod2, [non_strict]),
     ok = meck:expect(mymod2, test, fun() ->
                                       meck:exception(error, test_error)
                               end),
@@ -180,12 +224,12 @@ stacktrace_function_clause_(Mod) ->
     catch
         error:function_clause ->
             Stacktrace = erlang:get_stacktrace(),
-            ?assert(lists:any(fun({M, test, [error]}) when M == Mod     -> true;
-                                 ({M, test, [error], []}) when M == Mod -> true;
-                                 (_)                                    -> false
-                              end, Stacktrace))
+            ?assert(lists:any(
+                fun ({M, test, [error]}) when M == Mod     -> true;
+                    ({M, test, [error], []}) when M == Mod -> true;
+                    (_)                                    -> false
+                end, Stacktrace))
     end.
-
 
 call_undef_(Mod) ->
     ok = meck:expect(Mod, test, fun(hest, 1) -> apa end),
@@ -207,7 +251,9 @@ change_func_(Mod) ->
 
 call_original_undef_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> meck:passthrough([]) end),
-    ?assertError(undef, Mod:test()).
+    ?assertError(undef, Mod:test()),
+    ?assert(not meck:validate(Mod)),
+    ?assertEqual(undefined, get('$meck_call')).
 
 history_empty_(Mod) ->
     ?assertEqual([], meck:history(Mod)).
@@ -249,7 +295,8 @@ history_error_(Mod) ->
                  meck:history(Mod)).
 
 history_error_args_(Mod) ->
-    ok = meck:expect(Mod, test, fun() -> erlang:error(test_error, [fake_args]) end),
+    ok = meck:expect(Mod, test,
+                     fun() -> erlang:error(test_error, [fake_args]) end),
     catch Mod:test(),
     History = meck:history(Mod),
     ?assertMatch([{_Pid, {Mod, test, []}, error, test_error, _Stacktrace}],
@@ -260,7 +307,8 @@ history_error_args_(Mod) ->
                          (_) -> false end, Stacktrace)).
 
 history_meck_throw_(Mod) ->
-    ok = meck:expect(Mod, test, fun() -> meck:exception(throw, test_exception) end),
+    ok = meck:expect(Mod, test,
+                     fun() -> meck:exception(throw, test_exception) end),
     catch Mod:test(),
     ?assertMatch([{_Pid, {Mod, test, []}, throw, test_exception, _Stacktrace}],
                  meck:history(Mod)).
@@ -279,7 +327,8 @@ history_meck_exit_(Mod) ->
                  meck:history(Mod)).
 
 history_meck_error_(Mod) ->
-    ok = meck:expect(Mod, test, fun() -> meck:exception(error, test_error) end),
+    ok = meck:expect(Mod, test,
+                     fun() -> meck:exception(error, test_error) end),
     catch Mod:test(),
     ?assertMatch([{_Pid, {Mod, test, []}, error, test_error, _Stacktrace}],
                  meck:history(Mod)).
@@ -299,8 +348,21 @@ history_by_pid_(Mod) ->
     receive {Pid, done} -> ok end,
     ?assertEqual([{Pid, {Mod, test1, []}, ok}], meck:history(Mod, Pid)),
     ?assertEqual([{TestPid, {Mod, test1, []}, ok},
-                  {TestPid, {Mod, test2, []}, ok}], meck:history(Mod, TestPid)),
+                  {TestPid, {Mod, test2, []}, ok}],
+                 meck:history(Mod, TestPid)),
     ?assertEqual(meck:history(Mod), meck:history(Mod, '_')).
+
+reset_(Mod) ->
+    % Given
+    meck:expect(Mod, test1, fun() -> ok end),
+    meck:expect(Mod, test2, fun() -> ok end),
+    Mod:test1(),
+    Mod:test2(),
+    % When
+    meck:reset(Mod),
+    Mod:test1(),
+    % Then
+    ?assertMatch([{_Pid, {Mod, test1, []}, ok}], meck:history(Mod)).
 
 shortcut_expect_(Mod) ->
     ok = meck:expect(Mod, test, 0, ok),
@@ -327,8 +389,9 @@ shortcut_re_add_(Mod) ->
     ?assertEqual(true, meck:validate(Mod)).
 
 shortcut_opaque_(Mod) ->
-    ok = meck:expect(Mod, test, 0, {test, [a, self()]}),
-    ?assertMatch({test, [a, P]} when P == self(), Mod:test()).
+    Ref = make_ref(),
+    ok = meck:expect(Mod, test, 0, {test, [a, self()], Ref}),
+    ?assertMatch({test, [a, P], Ref} when P == self(), Mod:test()).
 
 delete_(Mod) ->
     ok = meck:expect(Mod, test, 2, ok),
@@ -382,6 +445,14 @@ called_true_few_args_(Mod) ->
     ok = meck:expect(Mod, test, length(Args), ok),
     ok = apply(Mod, test, Args),
     assert_called(Mod, test, Args, true),
+    ok.
+
+called_few_args_matchers_(Mod) ->
+    Args = [one, 2, {three, 3}, "four"],
+    ok = meck:expect(Mod, test, length(Args), ok),
+    ok = apply(Mod, test, Args),
+    assert_called(Mod, test, ['_', meck:is(equal_to(2)), {'_', 3}, "four"], true),
+    assert_called(Mod, test, ['_', meck:is(equal_to(3)), {'_', 3}, "four"], false),
     ok.
 
 called_false_error_(Mod) ->
@@ -469,7 +540,7 @@ sequence_(Mod) ->
     ?assert(meck:validate(Mod)).
 
 sequence_multi_(Mod) ->
-    meck:new(mymod2),
+    meck:new(mymod2, [non_strict]),
     Mods = [Mod, mymod2],
     Sequence = [a, b, c, d, e],
     ?assertEqual(ok, meck:sequence(Mods, s, 2, Sequence)),
@@ -483,14 +554,178 @@ sequence_multi_(Mod) ->
                  [mymod2:s(a, b) || _ <- lists:seq(1, 5)]),
     ?assert(meck:validate(Mods)).
 
+expect_empty_clause_list_(Mod) ->
+    ?assertError(empty_clause_list, meck:expect(Mod, dummy, [])).
+
+expect_args_value_(Mod) ->
+    %% When
+    meck:expect(Mod, val, [1001], meck:val(a)),
+    %% Then
+    ?assertEqual(a, Mod:val(1001)),
+    ?assertEqual(a, Mod:val(1001)).
+
+expect_args_invalid_call_(Mod) ->
+    %% When
+    meck:expect(Mod, val, [1001], meck:val(a)),
+    %% Then
+    ?assertError(function_clause, Mod:val(1002)).
+
+expect_arity_value_(Mod) ->
+    %% When
+    meck:expect(Mod, val, 1, meck:val(a)),
+    %% Then
+    ?assertEqual(a, Mod:val(1001)),
+    ?assertEqual(a, Mod:val(1001)).
+
+expect_args_sequence_(Mod) ->
+    %% When
+    meck:expect(Mod, seq, [1001], meck:seq([a, b, c])),
+    %% Then
+    ?assertEqual(a, Mod:seq(1001)),
+    ?assertEqual(b, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)).
+
+expect_arity_sequence_(Mod) ->
+    %% When
+    meck:expect(Mod, seq, 1, meck:seq([a, b, c])),
+    %% Then
+    ?assertEqual(a, Mod:seq(1001)),
+    ?assertEqual(b, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)).
+
+expect_complex_sequence_(Mod) ->
+    %% When
+    meck:expect(Mod, seq, 1, meck:seq([meck:val(a),
+                                       meck:seq([b, c]),
+                                       meck:seq([meck:raise(error, d),
+                                                 meck:seq([e, f, g]),
+                                                 h,
+                                                 meck:val(i)])])),
+    %% Then
+    ?assertEqual(a, Mod:seq(1001)),
+    ?assertEqual(b, Mod:seq(1001)),
+    ?assertEqual(c, Mod:seq(1001)),
+    ?assertException(error, d, Mod:seq(1001)),
+    ?assertEqual(e, Mod:seq(1001)),
+    ?assertEqual(f, Mod:seq(1001)),
+    ?assertEqual(g, Mod:seq(1001)),
+    ?assertEqual(h, Mod:seq(1001)),
+    ?assertEqual(i, Mod:seq(1001)),
+    ?assertEqual(i, Mod:seq(1001)),
+    ?assertEqual(i, Mod:seq(1001)).
+
 loop_(Mod) ->
     Loop = [a, b, c, d, e],
     ?assertEqual(ok, meck:loop(Mod, l, 2, Loop)),
     [?assertEqual(V, Mod:l(a, b)) || _ <- lists:seq(1, length(Loop)), V <- Loop],
     ?assert(meck:validate(Mod)).
 
+expect_args_loop_(Mod) ->
+    %% When
+    meck:expect(Mod, loop, [1001], meck:loop([a, b, c])),
+    %% Then
+    ?assertEqual(a, Mod:loop(1001)),
+    ?assertEqual(b, Mod:loop(1001)),
+    ?assertEqual(c, Mod:loop(1001)),
+    ?assertEqual(a, Mod:loop(1001)),
+    ?assertEqual(b, Mod:loop(1001)),
+    ?assertEqual(c, Mod:loop(1001)),
+    ?assertEqual(a, Mod:loop(1001)).
+
+expect_arity_loop_(Mod) ->
+    %% When
+    meck:expect(Mod, loop, 1, meck:loop([a, b, c])),
+    %% Then
+    ?assertEqual(a, Mod:loop(1001)),
+    ?assertEqual(b, Mod:loop(1001)),
+    ?assertEqual(c, Mod:loop(1001)),
+    ?assertEqual(a, Mod:loop(1001)),
+    ?assertEqual(b, Mod:loop(1001)),
+    ?assertEqual(c, Mod:loop(1001)),
+    ?assertEqual(a, Mod:loop(1001)).
+
+expect_complex_loop_(Mod) ->
+    %% When
+    meck:expect(Mod, loop, 1, meck:loop([meck:val(a),
+                                         meck:seq([b, c]),
+                                         meck:seq([meck:raise(error, d),
+                                                   meck:seq([e, f, g]),
+                                                   h,
+                                                   meck:val(i)])])),
+    %% Then
+    ?assertEqual(a, Mod:loop(1001)),
+    ?assertEqual(b, Mod:loop(1001)),
+    ?assertEqual(c, Mod:loop(1001)),
+    ?assertException(error, d, Mod:loop(1001)),
+    ?assertEqual(e, Mod:loop(1001)),
+    ?assertEqual(f, Mod:loop(1001)),
+    ?assertEqual(g, Mod:loop(1001)),
+    ?assertEqual(h, Mod:loop(1001)),
+    ?assertEqual(i, Mod:loop(1001)),
+    %% The second round
+    ?assertEqual(a, Mod:loop(1001)),
+    ?assertEqual(b, Mod:loop(1001)),
+    ?assertEqual(c, Mod:loop(1001)),
+    ?assertException(error, d, Mod:loop(1001)),
+    ?assertEqual(e, Mod:loop(1001)),
+    ?assertEqual(f, Mod:loop(1001)),
+    ?assertEqual(g, Mod:loop(1001)),
+    ?assertEqual(h, Mod:loop(1001)),
+    ?assertEqual(i, Mod:loop(1001)),
+    %% The third round
+    ?assertEqual(a, Mod:loop(1001)).
+
+expect_loop_in_seq_(Mod) ->
+    %% When
+    meck:expect(Mod, seq, 1, meck:seq([meck:val(a),
+                                       meck:loop([b,
+                                                  meck:raise(throw, c),
+                                                  d]),
+                                       meck:val(e), % Never returned
+                                       meck:raise(exit, f)])),
+    %% Then
+    ?assertEqual(a, Mod:seq(1001)),
+    ?assertEqual(b, Mod:seq(1001)),
+    ?assertException(throw, c, Mod:seq(1001)),
+    ?assertEqual(d, Mod:seq(1001)),
+    %% The second round
+    ?assertEqual(b, Mod:seq(1001)),
+    ?assertException(throw, c, Mod:seq(1001)),
+    ?assertEqual(d, Mod:seq(1001)),
+    %% The third round
+    ?assertEqual(b, Mod:seq(1001)).
+
+expect_args_exception_(Mod) ->
+    %% Given
+    meck:expect(Mod, f, [{[1001], meck:raise(error, a)},
+                         {[1002], meck:raise(throw, b)},
+                         {[1003], meck:raise(exit, c)},
+                         {[1004], meck:val(d)}]),
+    %% When/Then
+    ?assertException(error, a, Mod:f(1001)),
+    ?assertException(throw, b, Mod:f(1002)),
+    ?assertException(exit, c, Mod:f(1003)),
+    ?assertMatch(d, Mod:f(1004)).
+
+expect_arity_exception_(Mod) ->
+    %% Given
+    meck:expect(Mod, f, 1, meck:raise(error, a)),
+    %% When/Then
+    ?assertError(a, Mod:f(1001)).
+
+expect_arity_clause_(Mod) ->
+    %% Given
+    meck:expect(Mod, foo, [{2, blah}]),
+    %% When/Then
+    ?assertMatch(blah, Mod:foo(1, 2)),
+    ?assertError(_, Mod:foo(1, 2, 3)).
+
 loop_multi_(Mod) ->
-    meck:new(mymod2),
+    meck:new(mymod2, [non_strict]),
     Mods = [Mod, mymod2],
     Loop = [a, b, c, d, e],
     ?assertEqual(ok, meck:loop(Mods, l, 2, Loop)),
@@ -498,7 +733,85 @@ loop_multi_(Mod) ->
      || M <- Mods],
     ?assert(meck:validate(Mods)).
 
+expect_args_pattern_override_(Mod) ->
+    %% When
+    meck:expect(Mod, f, [{[1, 1],     a},
+                         {[1, '_'],   b},
+                         {['_', '_'], c}]),
+    %% Then
+    ?assertEqual(a, Mod:f(1, 1)),
+    ?assertEqual(b, Mod:f(1, 2)),
+    ?assertEqual(c, Mod:f(2, 2)).
+
+expect_args_pattern_shadow_(Mod) ->
+    %% When
+    meck:expect(Mod, f, [{[1, 1],     a},
+                         {['_', '_'], c},
+                         {[1, '_'],   b}]),
+    %% Then
+    ?assertEqual(a, Mod:f(1, 1)),
+    ?assertEqual(c, Mod:f(1, 2)),
+    ?assertEqual(c, Mod:f(2, 2)).
+
+expect_args_pattern_missing_(Mod) ->
+    %% When
+    meck:expect(Mod, f, [{[1, 1],   a},
+                         {[1, '_'], b}]),
+    %% Then
+    ?assertError(function_clause, Mod:f(2, 2)),
+    ?assertEqual(a, Mod:f(1, 1)),
+    ?assertEqual(b, Mod:f(1, 2)).
+
+expect_args_pattern_invalid_(Mod) ->
+    %% When/Then
+    ?assertError({invalid_arity, {{expected, 2},
+                                  {actual, 3},
+                                  {clause, {[1, 2, 3], b}}}},
+                 meck:expect(Mod, f, [{[1, 2],    a},
+                                      {[1, 2, 3], b}])).
+
+expect_args_matchers_(Mod) ->
+    %% When
+    meck:expect(Mod, f, [{[1, meck:is(fun(X) -> X == 1 end)], a},
+                         {[1, meck:is(less_than(3))],         b},
+                         {['_', '_'],                         c}]),
+    %% Then
+    ?assertEqual(a, Mod:f(1, 1)),
+    ?assertEqual(b, Mod:f(1, 2)),
+    ?assertEqual(c, Mod:f(2, 2)).
+
+expect_ret_specs_(Mod) ->
+    %% When
+    meck:expect(Mod, f, [{[1, 1],     meck:seq([a, b, c])},
+                         {[1, '_'],   meck:loop([d, e])},
+                         {['_', '_'], meck:val(f)}]),
+    %% Then
+    ?assertEqual(d, Mod:f(1, 2)),
+    ?assertEqual(f, Mod:f(2, 2)),
+    ?assertEqual(e, Mod:f(1, 2)),
+    ?assertEqual(a, Mod:f(1, 1)),
+    ?assertEqual(d, Mod:f(1, 2)),
+    ?assertEqual(b, Mod:f(1, 1)),
+    ?assertEqual(c, Mod:f(1, 1)),
+    ?assertEqual(f, Mod:f(2, 2)),
+    ?assertEqual(c, Mod:f(1, 1)),
+    ?assertEqual(e, Mod:f(1, 2)),
+    ?assertEqual(c, Mod:f(1, 1)).
+
 %% --- Tests with own setup ----------------------------------------------------
+
+undefined_module_test() ->
+    %% When/Then
+    ?assertError({{undefined_module, blah}, _}, meck:new(blah, [no_link])).
+
+undefined_function_test() ->
+    %% Given
+    meck:new(meck_test_module),
+    %% When/Then
+    meck:expect(meck_test_module, b, 0, ok),
+    ?assertError({undefined_function, {meck_test_module, b, 1}},
+                 meck:expect(meck_test_module, b, 1, ok)),
+    meck:unload(meck_test_module).
 
 call_original_test() ->
     false = code:purge(meck_test_module),
@@ -518,7 +831,7 @@ unload_renamed_original_test() ->
 
 unload_all_test() ->
     Mods = [test_a, test_b, test_c, test_d, test_e],
-    ok = meck:new(Mods),
+    ok = meck:new(Mods, [non_strict]),
     ?assertEqual(lists:sort(Mods), lists:sort(meck:unload())),
     [?assertEqual(false, code:is_loaded(M)) || M <- Mods].
 
@@ -537,7 +850,7 @@ original_has_no_object_code_test() ->
     ok = meck:unload(meck_on_disk).
 
 passthrough_nonexisting_module_test() ->
-    ok = meck:new(mymod, [passthrough]),
+    ok = meck:new(mymod, [passthrough, non_strict]),
     ok = meck:expect(mymod, test, fun() -> ok end),
     ?assertEqual(ok, mymod:test()),
     ok = meck:unload(mymod).
@@ -563,6 +876,62 @@ passthrough_different_arg_test() ->
 passthrough_bif_test() ->
     ?assertEqual(ok, meck:new(file, [unstick, passthrough])),
     ?assertEqual(ok, meck:unload(file)).
+
+stub_all_test() ->
+    ok = meck:new(meck_test_module, [{stub_all, meck:seq([a, b])}]),
+    ok = meck:expect(meck_test_module, a, [], c),
+    ?assertEqual(c, meck_test_module:a()),
+    ?assertEqual(a, meck_test_module:b()),
+    ?assertEqual(b, meck_test_module:b()),
+    ?assertEqual(b, meck_test_module:b()),
+    ?assertEqual(a, meck_test_module:c(1, 2)),
+    ?assertEqual(b, meck_test_module:c(1, 2)),
+    ?assertEqual(b, meck_test_module:c(1, 2)),
+    ok = meck:unload(meck_test_module).
+
+stub_all_default_test() ->
+    ok = meck:new(meck_test_module, [stub_all]),
+    ?assertEqual(ok, meck_test_module:c(1, 2)),
+    ok = meck:unload(meck_test_module).
+
+stub_all_undefined_test() ->
+    ok = meck:new(meck_test_module, [{stub_all, undefined}]),
+    ?assertEqual(undefined, meck_test_module:c(1, 2)),
+    ok = meck:unload(meck_test_module).
+
+stub_all_true_test() ->
+    ok = meck:new(meck_test_module, [{stub_all, true}]),
+    ?assertEqual(true, meck_test_module:c(1, 2)),
+    ok = meck:unload(meck_test_module).
+
+stub_all_overridden_by_passthrough_test() ->
+    ok = meck:new(meck_test_module, [stub_all, passthrough]),
+    ?assertEqual(a, meck_test_module:a()),
+    ok = meck:unload(meck_test_module).
+
+mock_file_existing_test() ->
+    %% Given
+    ExistingFile = atom_to_list(?MODULE) ++ ".erl",
+    {ok, ExistsInfo} = file:read_file_info(ExistingFile),
+    meck:new(file, [unstick, passthrough]),
+    %% When
+    meck:expect(file, read_file_info, fun(Path) -> meck:passthrough([Path]) end),
+    %% Then
+    ?assertEqual({ok, ExistsInfo}, file:read_file_info(ExistingFile)),
+    %% Cleanup
+    meck:unload(file).
+
+mock_file_missing_test() ->
+    %% Given
+    MissingFile = "blah.erl",
+    {error, enoent} = file:read_file_info(MissingFile),
+    meck:new(file, [unstick, passthrough]),
+    %% When
+    meck:expect(file, read_file_info, 1, {ok, no_info}),
+    %% Then
+    ?assertEqual({ok, no_info}, file:read_file_info(MissingFile)),
+    %% Cleanup
+    meck:unload(file).
 
 cover_test() ->
     {ok, _} = cover:compile("../test/meck_test_module.erl"),
@@ -623,9 +992,9 @@ cover_options_fail_({_OldPath, Src, Module}) ->
     CompilerOptions = [{i, "../test/include"}, {d, 'TEST', true},
                        {outdir, "../test"}, debug_info],
     {ok, _} = compile:file(Src, CompilerOptions),
-    ?assertEqual(CompilerOptions, meck_mod:compile_options(Module)),
+    ?assertEqual(CompilerOptions, meck_code:compile_options(Module)),
     {ok, _} = cover:compile_beam(Module),
-    ?assertEqual([], meck_mod:compile_options(Module)),
+    ?assertEqual([], meck_code:compile_options(Module)),
     a      = Module:a(),
     b      = Module:b(),
     {1, 2} = Module:c(1, 2),
@@ -667,7 +1036,7 @@ cover_passthrough_test() ->
 
 % @doc The mocked module is unloaded if the meck process crashes.
 unload_when_crashed_test() ->
-    ok = meck:new(mymod),
+    ok = meck:new(mymod, [non_strict]),
     ?assertMatch({file, _}, code:is_loaded(mymod)),
     SaltedName = mymod_meck,
     Pid = whereis(SaltedName),
@@ -680,13 +1049,14 @@ unload_when_crashed_test() ->
 
 % @doc The mocked module is unloaded if the meck process crashes.
 unlink_test() ->
-    ok = meck:new(mymod, [no_link]),
+    ok = meck:new(mymod, [no_link, non_strict]),
     SaltedName = mymod_meck,
     {links, Links} = process_info(whereis(SaltedName), links),
     ?assert(not lists:member(self(), Links)),
     ok = meck:unload(mymod).
 
-%% @doc Exception is thrown when you run expect on a non-existing (and not yet mocked) module.
+%% @doc Exception is thrown when you run expect on a non-existing (and not yet
+%% mocked) module.
 expect_without_new_test() ->
     ?assertError({not_mocked, othermod},
                  meck:expect(othermod, test, fun() -> ok end)).
@@ -703,7 +1073,7 @@ history_passthrough_test() ->
 
 multi_test() ->
     Mods = [mod1, mod2, mod3],
-    ok = meck:new(Mods),
+    ok = meck:new(Mods, [non_strict]),
     ok = meck:expect(Mods, test, fun() -> ok end),
     ok = meck:expect(Mods, test2, 0, ok),
     [?assertEqual(ok, M:test()) || M <- Mods],
@@ -712,7 +1082,7 @@ multi_test() ->
 
 multi_invalid_test() ->
     Mods = [mod1, mod2, mod3],
-    ok = meck:new(Mods),
+    ok = meck:new(Mods, [non_strict]),
     ok = meck:expect(Mods, test, fun(1) -> ok end),
     ?assertError(function_clause, mod2:test(2)),
     ?assert(not meck:validate(Mods)),
@@ -720,7 +1090,7 @@ multi_invalid_test() ->
 
 multi_option_test() ->
     Mods = [mod1, mod2, mod3],
-    ok = meck:new(Mods, [passthrough]),
+    ok = meck:new(Mods, [passthrough, non_strict]),
     ok = meck:expect(Mods, test, fun() -> ok end),
     [?assertEqual(ok, M:test()) || M <- Mods],
     ?assert(meck:validate(Mods)),
@@ -728,7 +1098,7 @@ multi_option_test() ->
 
 multi_shortcut_test() ->
     Mods = [mod1, mod2, mod3],
-    ok = meck:new(Mods),
+    ok = meck:new(Mods, [non_strict]),
     ok = meck:expect(Mods, test, 0, ok),
     [?assertEqual(ok, M:test()) || M <- Mods],
     ?assert(meck:validate(Mods)),
@@ -736,20 +1106,40 @@ multi_shortcut_test() ->
 
 multi_delete_test() ->
     Mods = [mod1, mod2, mod3],
-    ok = meck:new(Mods),
+    ok = meck:new(Mods, [non_strict]),
     ok = meck:expect(Mods, test, 0, ok),
     ?assertEqual(ok, meck:delete(Mods, test, 0)),
     [?assertError(undef, M:test()) || M <- Mods],
     ?assert(meck:validate(Mods)),
     ok = meck:unload(Mods).
 
+multi_reset_test() ->
+    % Given
+    Mods = [mod1, mod2, mod3],
+    meck:new(Mods, [non_strict]),
+    meck:expect(Mods, test1, 0, ok),
+    meck:expect(Mods, test2, 0, ok),
+    mod1:test1(),
+    mod1:test2(),
+    mod2:test1(),
+    mod3:test2(),
+    % When
+    meck:reset(Mods),
+    mod1:test1(),
+    mod1:test1(),
+    % Then
+    ?assertMatch([{_Pid, {mod1, test1, []}, ok},
+                  {_Pid, {mod1, test1, []}, ok}], meck:history(mod1)),
+    ?assertMatch([], meck:history(mod2)),
+    ?assertMatch([], meck:history(mod3)).
+
 handle_cast_unmodified_state_test() ->
     S = dummy_state,
-    ?assertEqual({noreply, S}, meck:handle_cast(dummy_msg, S)).
+    ?assertEqual({noreply, S}, meck_proc:handle_cast(dummy_msg, S)).
 
 code_change_unmodified_state_test() ->
     S = dummy_state,
-    ?assertEqual({ok, S}, meck:code_change(old_version, S, [])).
+    ?assertEqual({ok, S}, meck_proc:code_change(old_version, S, [])).
 
 remote_meck_test_() ->
     {foreach, fun remote_setup/0, fun remote_teardown/1,
@@ -770,10 +1160,11 @@ remote_setup() ->
     {Node, meck_test_module}.
 
 remote_teardown({Node, _Mod}) ->
-    ok = slave:stop(Node).
+    ok = slave:stop(Node),
+    ok = net_kernel:stop().
 
 remote_meck_({Node, Mod}) ->
-    ?assertEqual(ok, rpc:call(Node, meck, new, [Mod, [no_link]])),
+    ?assertEqual(ok, rpc:call(Node, meck, new, [Mod, [no_link, non_strict]])),
     ?assertEqual(ok, rpc:call(Node, meck, expect, [Mod, test, 0, true])),
     ?assertEqual(true, rpc:call(Node, Mod, test, [])).
 
@@ -851,35 +1242,164 @@ cannot_expect_bif_or_autogenerated_test() ->
                  meck:expect(unicode, module_info, 0, doh)),
     ?assertEqual(ok, meck:unload(unicode)).
 
-meck_parametrized_module_test() ->
-    ?assertEqual(ok, meck:new(meck_test_parametrized_module)),
-    ?assertEqual(ok, meck:expect(meck_test_parametrized_module, new,
-                                 fun(V1, V2) ->
-                                     {meck_test_parametrized_module, V1, V2}
-                                 end)),
-    ?assertEqual(ok, meck:expect(meck_test_parametrized_module, which, 1, mecked)),
-    Object = meck_test_parametrized_module:new(var1, var2),
-    ?assertEqual(mecked, Object:which()),
-    ?assertEqual(ok, meck:unload(meck_test_parametrized_module)).
+meck_module_attributes_test() ->
+    ?assertEqual(ok, meck:new(meck_test_module)),
+    ?assertEqual([foobar], proplists:get_value(tag,
+                                proplists:get_value(attributes,
+                                    meck_test_module:module_info()))),
+    ?assertEqual(ok, meck:unload(meck_test_module)).
 
-meck_parametrized_module_passthrough_test() ->
-    ?assertEqual(ok, meck:new(meck_test_parametrized_module, [passthrough])),
-    ?assertEqual(ok, meck:expect(meck_test_parametrized_module, new,
-                                 fun(V1, V2) ->
-                                     {meck_test_parametrized_module, V1, V2}
-                                 end)),
-    ?assertEqual(ok, meck:expect(meck_test_parametrized_module, var2,
-                                 fun({_, _Var1, Var2} = _This) ->
-                                     {mecked, Var2}
-                                 end)),
-    Object = meck_test_parametrized_module:new(var1, var2),
-    ?assertEqual({original, var1}, Object:var1()),
-    ?assertEqual({mecked, var2}, Object:var2()),
-    ?assertEqual(ok, meck:unload(meck_test_parametrized_module)).
+meck_implicit_new_test()->
+    meck:expect(meck_test_module, c, [{[1, 1], foo},
+                                      {['_', '_'], bar}]),
+    ?assertMatch(foo, meck_test_module:c(1, 1)),
+    meck:unload().
 
-%%==============================================================================
+wait_for_zero_calls_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    %% When/Then
+    ?assertMatch(ok, meck:wait(0, test, foo, [1, '_'], 100)),
+    %% Clean
+    meck:unload().
+
+wait_already_called_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    test:foo(1, 2),
+    %% Then
+    ?assertMatch(ok, meck:wait(2, test, foo, [1, '_'], 100)),
+    %% Clean
+    meck:unload().
+
+wait_not_called_zero_timeout_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    test:foo(1, 2),
+    %% Then
+    ?assertError(timeout, meck:wait(3, test, foo, [1, '_'], 0)),
+    %% Clean
+    meck:unload().
+
+wait_not_called_another_proc_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2), % Called, but not by the expected proc.
+    Pid = erlang:spawn(fun() ->
+                              test:foo(2, 2) % Unexpected first argument
+                       end),
+    %% Then
+    ?assertError(timeout, meck:wait(1, test, foo, [1, '_'], Pid, 100)),
+    %% Clean
+    meck:unload().
+
+wait_called_another_proc_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    Pid = erlang:spawn(fun() ->
+                              timer:sleep(50),
+                              test:foo(1, 2),
+                              test:foo(2, 2), % Unexpected first argument
+                              test:foo(1, 2)
+                       end),
+    %% Then
+    ?assertMatch(ok, meck:wait(2, test, foo, [1, '_'], Pid, 500)),
+    %% Clean
+    meck:unload().
+
+wait_timeout_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    %% Then
+    ?assertError(timeout, meck:wait(2, test, foo, [1, '_'], '_', 10)),
+    %% Clean
+    meck:unload().
+
+wait_for_the_same_pattern_on_different_processes_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    Pid1 = erlang:spawn(fun() ->
+                               ?assertMatch(ok,
+                                            meck:wait(2, test, foo,
+                                                      [1, 2], 100))
+                         end),
+    MonitorRef1 = erlang:monitor(process, Pid1),
+    Pid2 = erlang:spawn(fun() ->
+                               ?assertMatch(ok,
+                                            meck:wait(3, test, foo,
+                                                      [1, 2], 100))
+                        end),
+    MonitorRef2 = erlang:monitor(process, Pid2),
+    %% When
+    timer:sleep(50),
+    test:foo(1, 2),
+    test:foo(1, 2),
+    %% Then
+    ?assertTerminated(MonitorRef1, normal, 300),
+    ?assertTerminated(MonitorRef2, {timeout, _}, 300),
+    %% Clean
+    meck:unload().
+
+wait_for_different_patterns_on_different_processes_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 1, ok),
+    meck:expect(test, bar, 2, ok),
+    Pid1 = erlang:spawn(fun() ->
+                               ?assertMatch(ok,
+                                            meck:wait(2, test, foo,
+                                                      [1], 100))
+                        end),
+    MonitorRef1 = erlang:monitor(process, Pid1),
+    Pid2 = erlang:spawn(fun() ->
+                               ?assertMatch(ok,
+                                            meck:wait(3, test, bar,
+                                                      [1, 2], 100))
+                        end),
+    MonitorRef2 = erlang:monitor(process, Pid2),
+    %% When
+    timer:sleep(50),
+    test:bar(1, 2),
+    test:foo(1),
+    test:bar(1, 2),
+    test:bar(1, 2),
+    %% Then
+    ?assertTerminated(MonitorRef1, {timeout, _}, 300),
+    ?assertTerminated(MonitorRef2, normal, 300),
+    %% Clean
+    meck:unload().
+
+wait_purge_expired_tracker_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    ?assertError(timeout, meck:wait(1, test, foo, [1, '_'], 1)),
+    %% When
+    timer:sleep(50),
+    % Makes expired tracker be purged. There is no way to check that from the
+    % code only in the coverage report. But at least we exercise this code path
+    % here.
+    test:foo(1, 2),
+    %% Clean
+    meck:unload().
+
+%%=============================================================================
 %% Internal Functions
-%%==============================================================================
+%%=============================================================================
 
 assert_called(Mod, Function, Args, WasCalled) ->
     ?assertEqual(WasCalled, meck:called(Mod, Function, Args)),

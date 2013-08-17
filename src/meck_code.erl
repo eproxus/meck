@@ -1,4 +1,4 @@
-%%==============================================================================
+%%=============================================================================
 %% Copyright 2011 Adam Lindberg & Erlang Solutions Ltd.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,14 +12,14 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%==============================================================================
+%%=============================================================================
 
 %% @hidden
 %% @author Adam Lindberg <eproxus@gmail.com>
 %% @copyright 2011, Adam Lindberg & Erlang Solutions Ltd
 %% @doc Module wrangling helper functions.
 
--module(meck_mod).
+-module(meck_code).
 
 %% Interface exports
 -export([abstract_code/1]).
@@ -35,9 +35,9 @@
 -type compile_options() :: [term()].
 -type export() :: {atom(), byte()}.
 
-%%==============================================================================
+%%=============================================================================
 %% Interface exports
-%%==============================================================================
+%%=============================================================================
 
 -spec abstract_code(binary()) -> erlang_form().
 abstract_code(BeamFile) ->
@@ -100,9 +100,9 @@ rename_module([{attribute, Line, module, OldAttribute}|T], NewName) ->
 rename_module([H|T], NewName) ->
     [H|rename_module(T, NewName)].
 
-%%==============================================================================
+%%=============================================================================
 %% Internal functions
-%%==============================================================================
+%%=============================================================================
 
 load_binary(Name, Binary) ->
     case code:load_binary(Name, "", Binary) of
