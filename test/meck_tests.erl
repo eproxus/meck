@@ -1149,10 +1149,8 @@ remote_meck_test_() ->
 remote_setup() ->
     [] = os:cmd("epmd -daemon"),
     case node() of
-      'nonode@nohost' ->
-        Hostname = "localhost";
-      _ ->
-        Hostname = test_server_sup:hoststr()
+      'nonode@nohost' -> Hostname = "localhost";
+      _               -> Hostname = test_server_sup:hoststr()
     end,
     Myself = list_to_atom("meck_eunit_test@" ++ Hostname),
     net_kernel:start([Myself, shortnames]),
