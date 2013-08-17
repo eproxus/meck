@@ -48,6 +48,9 @@
 -export([reset/1]).
 -export([capture/5]).
 -export([capture/6]).
+-export([wait/4]).
+-export([wait/5]).
+-export([wait/6]).
 
 %% Syntactic sugar
 -export([loop/1]).
@@ -434,6 +437,66 @@ num_calls(Mod, OptFun, OptArgsSpec) ->
       OptCallerPid :: '_' | pid().
 num_calls(Mod, OptFun, OptArgsSpec, OptPid) ->
     meck_history:num_calls(OptPid, Mod, OptFun, OptArgsSpec).
+
+%% @doc Blocks until either function `Mod:Func' is called at least once with
+%% arguments matching `OptArgsSpec', or `Timeout' has elapsed. In the latter
+%% case the call fails with `error:timeout'.
+%%
+%% The number of calls is counted starting from the most resent call to
+%% {@link reset/1} on the mock or from the mock creation, whichever occurred
+%% latter. If a matching call has already occurred, then the function returns
+%% `ok' immediately.
+%%
+%% @equiv wait(1, Mod, OptFunc, OptArgsSpec, '_', Timeout)
+-spec wait(Mod, OptFunc, OptArgsSpec, Timeout) -> ok when
+      Mod :: atom(),
+      OptFunc :: '_' | atom(),
+      OptArgsSpec :: '_' | args_spec(),
+      Timeout :: non_neg_integer().
+wait(Mod, OptFunc, OptArgsSpec, Timeout) ->
+    wait(1, Mod, OptFunc, OptArgsSpec, '_', Timeout).
+
+%% @doc Blocks until either function `Mod:Func' is called at least `Times' with
+%% arguments matching `OptArgsSpec', or `Timeout' has elapsed. In the latter
+%% case the call fails with `error:timeout'.
+%%
+%% The number of calls is counted starting from the most resent call to
+%% {@link reset/1} on the mock or from the mock creation, whichever occurred
+%% latter. If `Times' number of matching calls has already occurred, then the
+%% function returns `ok' immediately.
+%%
+%% @equiv wait(Times, Mod, OptFunc, OptArgsSpec, '_', Timeout)
+-spec wait(Times, Mod, OptFunc, OptArgsSpec, Timeout) -> ok when
+      Times :: pos_integer(),
+      Mod :: atom(),
+      OptFunc :: '_' | atom(),
+      OptArgsSpec :: '_' | args_spec(),
+      Timeout :: non_neg_integer().
+wait(Times, Mod, OptFunc, OptArgsSpec, Timeout) ->
+    wait(Times, Mod, OptFunc, OptArgsSpec, '_', Timeout).
+
+%% @doc Blocks until either function `Mod:Func' is called at least `Times' with
+%% arguments matching `OptArgsSpec' by process `OptCallerPid', or `Timeout' has
+%% elapsed. In the latter case the call fails with `error:timeout'.
+%%
+%% The number of calls is counted starting from the most resent call to
+%% {@link reset/1} on the mock or from the mock creation, whichever occurred
+%% latter. If `Times' number of matching call has already occurred, then the
+%% function returns `ok' immediately.
+-spec wait(Times, Mod, OptFunc, OptArgsSpec, OptCallerPid, Timeout) -> ok when
+      Times :: pos_integer(),
+      Mod :: atom(),
+      OptFunc :: '_' | atom(),
+      OptArgsSpec :: '_' | args_spec(),
+      OptCallerPid :: '_' | pid(),
+      Timeout :: non_neg_integer().
+wait(0, _Mod, _OptFunc, _OptArgsSpec, _OptCallerPid, _Timeout) ->
+    ok;
+wait(Times, Mod, OptFunc, OptArgsSpec, OptCallerPid, Timeout)
+  when is_integer(Times) andalso Times > 0 andalso
+       is_integer(Timeout) andalso Timeout >= 0 ->
+    ArgsMatcher = meck_args_matcher:new(OptArgsSpec),
+    meck_proc:wait(Mod, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout).
 
 %% @doc Erases the call history for a mocked module or a list of mocked modules.
 %%
