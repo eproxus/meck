@@ -1,3 +1,6 @@
+NOTE: This branch is discontinued. Please base all future work on the [master](https://github.com/eproxus/meck) branch.
+---------
+
 [![Build Status](https://secure.travis-ci.org/eproxus/meck.png)](http://travis-ci.org/eproxus/meck)
 
   * [Introduction](#introduction)
