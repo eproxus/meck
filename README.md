@@ -1,47 +1,37 @@
 [![Build Status](https://secure.travis-ci.org/eproxus/meck.png)](http://travis-ci.org/eproxus/meck)
 
-  * [Introduction](#introduction)
-  * [Features](#features)
-  * [Examples](#examples)
-  * [Build](#build)
-  * [Install](#install)
-  * [Contribute](#contribute) - Read if you're planning to submit patches
-
-meck
+Meck
 ====
+
 A mocking library for Erlang.
-
-
-<a name='introduction'>
-
-Introduction
-------------
-
-With meck you can easily mock modules in Erlang. You can also perform
-some basic validations on the mocked modules, such as making sure no
-unexpected exceptions occurred or looking at the call history.
-
 
 <a name='features'>
 
 Features
 --------
 
-  * Automatic renaming and restoration of original modules
-  * Automatic backup and restore of cover data
-  * Changing return values using sequences and loops of static values
-  * Pass through: use functions from the original module
-  * Mock is linked to the creating process (disable with `no_link`)
-  * Complete call history showing calls, results and exceptions
-  * Mocking of sticky modules (using the option `unstick`)
+See what's new in [0.8 Release Notes][1].
+
+  * Dynamic return values using sequences and loops of static values
+  * Compact definition of mock arguments, clauses and return values
+  * Pass through: call functions in the original module
+  * Complete call history showing calls, return values and exceptions
+  * Mock validation, will invalidate mocks that were not called correctly
   * Throwing of expected exceptions that keeps the module valid
+  * Throws an error when mocking a module that doesn't exist or has been
+    renamed (disable with option `non_strict`)
+  * Support for [Hamcrest][2] matchers
+  * Automatic backup and restore of cover data
+  * Mock is linked to the creating process and will unload automatically
+    when a crash occurs (disable with option `no_link`)
+  * Mocking of sticky modules (using the option `unstick`)
 
 
 <a name='examples'>
 
 Examples
 --------
-Here's an example of using meck in the Erlang shell:
+Here's an example of using Meck in the Erlang shell:
 
 ```erl
 Eshell V5.8.4  (abort with ^G)
@@ -59,7 +49,7 @@ ok
 ** exception error: undefined function dog:bark/0
 ```
 
-Exceptions can be anticipated by meck (resulting in validation still
+Exceptions can be anticipated by Meck (resulting in validation still
 passing). This is intended to be used to test code that can and should
 handle certain exceptions indeed does take care of them:
 
@@ -105,7 +95,7 @@ ok
 false
 ```
 
-Here's an example of using meck inside an EUnit test case:
+Here's an example of using Meck inside an EUnit test case:
 
 ```erlang
 my_test() ->
@@ -155,17 +145,11 @@ ok
 Build
 -----
 
-meck requires [rebar][1] to build. To build meck, go to the meck
+Meck requires `make` and [rebar][1] to build. To build Meck and run tests, go to the Meck
 directory and simply type:
 
 ```sh
-rebar compile
-```
-
-To make sure meck works on your platform, run the tests:
-
-```sh
-rebar eunit
+make
 ```
 
 Two things might seem alarming when running the tests:
@@ -183,14 +167,18 @@ appears all is correct.
 Install
 -------
 
-To install meck permanently, use of [Agner][2] is recommended:
+Meck is best used via [rebar][3]. Add the following dependency t
+your `rebar.config` in your project root:
 
-```sh
-agner install meck
+```erlang
+{deps, [
+ {meck, ".*",
+  {git, "https://github.com/eproxus/meck.git", {tag, "0.8"}}}
+ ]}.
 ```
 
-If you want to install your own built version of meck add the ebin
-directory to your Erlang code path or move the meck folder into your
+If you want to install your own built version of Meck add the ebin
+directory to your Erlang code path or move the Meck folder into your
 release folder and make sure that folder is in your `ERL_LIBS`
 environment variable.
 
@@ -200,26 +188,41 @@ environment variable.
 Contribute
 ----------
 
-Patches are greatly appreciated!
+Patches are greatly appreciated! For a much nicer history, please
+[write good commit messages][5]. Use a branch name prefixed by
+`feature/` (e.g. `feature/my_example_branch`) for easier integration
+when developing new features or fixes for meck.
 
-meck uses the [git flow][3] model (tip: install and use the
-[`git-flow`][4] command). Use the branch name `feature/...` for easier
-integration when developing new features or fixes for meck.
+Should you find yourself using Meck and have issues, comments or
+feedback please [create an issue here on GitHub][4].
 
-For a much nicer history, please [write good commit messages][5].
+Contributors:
 
-Should you find yourself using meck and have issues, comments or
-feedback please [create an issue here on GitHub.] [6]
+- Maxim Vladimirsky (@horkhe)
+- Ryan Zezeski (@rzezeski)
+- David Haglund (@daha)
+- Magnus Henoch (@legoscia)
+- Susan Potter (@mbbx6spp)
+- Andreas Amsenius (@adbl)
+- Anthony Molinaro (@djnym)
+- Matt Campbell (@xenolinguist)
+- Martynas Pumputis (@brb)
+- Shunichi Shinohara (@shino)
+- Miëtek Bak
+- Henry Nystrom
+- Ward Bekker (@wardbekker)
+- Damon Richardson
+- Christopher Meiklejohn
+- Joseph Wayne Norton (@norton)
+- Erkan Yilmaz (@Erkan-Yilmaz)
+- Joe Williams (@joewilliams)
+- Russell Brown
+- Michael Klishin (@michaelklishin)
+- Magnus Klaar
 
-  [1]: https://github.com/basho/rebar
-       "Rebar - A build tool for Erlang"
-  [2]: http://erlagner.org/
-       "Agner - Erlang Package Index & Package Manager"
-  [3]: http://jeffkreeftmeijer.com/2010/why-arent-you-using-git-flow/
-       "Why Aren't You Using git-flow?"
-  [4]: https://github.com/nvie/gitflow
-       "git-flow on GitHub"
-  [5]: https://github.com/erlang/otp/wiki/Writing-good-commit-messages
-       "Erlang/OTP commit messages"
-  [6]: http://github.com/eproxus/meck/issues
-       "meck issues"
+
+  [1]: https://github.com/eproxus/meck/wiki/0.8-Release-Notes
+       "0.8 Release Notes"
+  [2]: https://github.com/hyperthunk/hamcrest-erlang "Hamcrest for Erlang"
+  [3]: https://github.com/basho/rebar "Rebar - A build tool for Erlang"
+  [4]: http://github.com/eproxus/meck/issues "Meck issues"
