@@ -180,7 +180,8 @@ handle_exception(Pid, Mod, Func, Args, Class, Reason) ->
         no_return().
 raise(Pid, Mod, Func, Args, Class, Reason) ->
     StackTrace = inject(Mod, Func, Args, erlang:get_stacktrace()),
-    meck_proc:add_history(Mod, Pid, Func, Args, {Class, Reason, StackTrace}),
+    meck_proc:add_history_exception(Mod, Pid, Func, Args,
+                                    {Class, Reason, StackTrace}),
     erlang:raise(Class, Reason, StackTrace).
 
 -spec inject(Mod::atom(), Func::atom(), Args::[any()],

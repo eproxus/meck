@@ -31,6 +31,7 @@
 
 %% To be accessible from generated modules
 -export([get_result_spec/3]).
+-export([add_history_exception/5]).
 -export([add_history/5]).
 -export([invalidate/1]).
 
@@ -117,11 +118,16 @@ set_expect(Mod, Expect) ->
 delete_expect(Mod, Func, Ari) ->
     gen_server(call, Mod, {delete_expect, Func, Ari}).
 
+-spec add_history_exception(
+        Mod::atom(), CallerPid::pid(), Func::atom(), Args::[any()],
+        {Class::error|exit|throw, Reason::any(), StackTrace::any()}) ->
+        ok.
+add_history_exception(Mod, CallerPid, Func, Args, {Class, Reason, StackTrace}) ->
+    gen_server(cast, Mod, {add_history, {CallerPid, {Mod, Func, Args}, Class, Reason, StackTrace}}).
+
 -spec add_history(Mod::atom(), CallerPid::pid(), Func::atom(), Args::[any()],
                   Result::any()) ->
         ok.
-add_history(Mod, CallerPid, Func, Args, {Class, Reason, StackTrace}) ->
-    gen_server(cast, Mod, {add_history, {CallerPid, {Mod, Func, Args}, Class, Reason, StackTrace}});
 add_history(Mod, CallerPid, Func, Args, Result) ->
     gen_server(cast, Mod, {add_history, {CallerPid, {Mod, Func, Args}, Result}}).
 
