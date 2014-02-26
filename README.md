@@ -35,7 +35,7 @@ Here's an example of using Meck in the Erlang shell:
 
 ```erl
 Eshell V5.8.4  (abort with ^G)
-1> meck:new(dog).
+1> meck:new(dog, [non_strict]). % non_strict is used to create modules that don't exist
 ok
 2> meck:expect(dog, bark, fun() -> "Woof!" end).
 ok
