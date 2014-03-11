@@ -47,6 +47,18 @@
 %%% Definitions
 %%%============================================================================
 
+-ifdef(ERLANG_17).
+-record(state, {mod :: atom(),
+                can_expect :: any | [{Mod::atom(), Ari::byte()}],
+                expects :: dict:dict(),
+                valid = true :: boolean(),
+                history = [] :: meck_history:history() | undefined,
+                original :: term(),
+                was_sticky = false :: boolean(),
+                reload :: {Compiler::pid(), {From::pid(), Tag::any()}} |
+                          undefined,
+                trackers = [] :: [tracker()]}).
+-else.
 -record(state, {mod :: atom(),
                 can_expect :: any | [{Mod::atom(), Ari::byte()}],
                 expects :: dict(),
@@ -57,6 +69,7 @@
                 reload :: {Compiler::pid(), {From::pid(), Tag::any()}} |
                           undefined,
                 trackers = [] :: [tracker()]}).
+-endif.
 
 -record(tracker, {opt_func :: '_' | atom(),
                   args_matcher :: meck_args_matcher:args_matcher(),
@@ -410,9 +423,17 @@ resolve_can_expect(Mod, Exports, Options) ->
         _              -> Exports
     end.
 
+-ifdef(ERLANG_17).
+-spec init_expects(Exports::[meck_expect:func_ari()] | undefined,
+                   Options::[proplists:property()]) ->
+        dict:dict().
+-else.
 -spec init_expects(Exports::[meck_expect:func_ari()] | undefined,
                    Options::[proplists:property()]) ->
         dict().
+-endif.
+
+
 init_expects(Exports, Options) ->
     Passthrough = proplists:get_bool(passthrough, Options),
     StubAll = proplists:is_defined(stub_all, Options),
@@ -449,8 +470,13 @@ check_if_being_reloaded(#state{reload = undefined}) ->
 check_if_being_reloaded(_S) ->
     erlang:error(concurrent_reload).
 
+-ifdef(ERLANG_17).
+-spec do_get_result_spec(Expects::dict:dict(), Func::atom(), Args::[any()]) ->
+        {meck_ret_spec:result_spec() | undefined, NewExpects::dict:dict()}.
+-else.
 -spec do_get_result_spec(Expects::dict(), Func::atom(), Args::[any()]) ->
         {meck_ret_spec:result_spec() | undefined, NewExpects::dict()}.
+-endif.
 do_get_result_spec(Expects, Func, Args) ->
     FuncAri = {Func, erlang:length(Args)},
     Expect = dict:fetch(FuncAri, Expects),
@@ -479,21 +505,37 @@ validate_expect(Mod, Func, Ari, CanExpect) ->
             end
     end.
 
+-ifdef(ERLANG_17).
+-spec store_expect(Mod::atom(), meck_expect:func_ari(),
+                   meck_expect:expect(), Expects::dict:dict()) ->
+        {NewExpects::dict:dict(), CompilerPid::pid()}.
+-else.
 -spec store_expect(Mod::atom(), meck_expect:func_ari(),
                    meck_expect:expect(), Expects::dict()) ->
         {NewExpects::dict(), CompilerPid::pid()}.
+-endif.
 store_expect(Mod, FuncAri, Expect, Expects) ->
     NewExpects = dict:store(FuncAri, Expect, Expects),
     compile_expects(Mod, NewExpects).
 
+-ifdef(ERLANG_17).
+-spec do_delete_expect(Mod::atom(), meck_expect:func_ari(), Expects::dict:dict()) ->
+        {NewExpects::dict:dict(), CompilerPid::pid()}.
+-else.
 -spec do_delete_expect(Mod::atom(), meck_expect:func_ari(), Expects::dict()) ->
         {NewExpects::dict(), CompilerPid::pid()}.
+-endif.
 do_delete_expect(Mod, FuncAri, Expects) ->
     NewExpects = dict:erase(FuncAri, Expects),
     compile_expects(Mod, NewExpects).
 
+-ifdef(ERLANG_17).
+-spec compile_expects(Mod::atom(), Expects::dict:dict()) ->
+        {NewExpects::dict:dict(), CompilerPid::pid()}.
+-else.
 -spec compile_expects(Mod::atom(), Expects::dict()) ->
         {NewExpects::dict(), CompilerPid::pid()}.
+-endif.
 compile_expects(Mod, Expects) ->
     %% If the recompilation is made by the server that executes a module
     %% no module that is called from meck_code:compile_and_load_forms/2
