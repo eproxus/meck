@@ -47,7 +47,7 @@
 %%% Definitions
 %%%============================================================================
 
--ifdef(ERLANG_17).
+-ifdef(NAMESPACED_DICTS).
 -record(state, {mod :: atom(),
                 can_expect :: any | [{Mod::atom(), Ari::byte()}],
                 expects :: dict:dict(),
@@ -423,7 +423,7 @@ resolve_can_expect(Mod, Exports, Options) ->
         _              -> Exports
     end.
 
--ifdef(ERLANG_17).
+-ifdef(NAMESPACED_DICTS).
 -spec init_expects(Exports::[meck_expect:func_ari()] | undefined,
                    Options::[proplists:property()]) ->
         dict:dict().
@@ -470,7 +470,7 @@ check_if_being_reloaded(#state{reload = undefined}) ->
 check_if_being_reloaded(_S) ->
     erlang:error(concurrent_reload).
 
--ifdef(ERLANG_17).
+-ifdef(NAMESPACED_DICTS).
 -spec do_get_result_spec(Expects::dict:dict(), Func::atom(), Args::[any()]) ->
         {meck_ret_spec:result_spec() | undefined, NewExpects::dict:dict()}.
 -else.
@@ -505,7 +505,7 @@ validate_expect(Mod, Func, Ari, CanExpect) ->
             end
     end.
 
--ifdef(ERLANG_17).
+-ifdef(NAMESPACED_DICTS).
 -spec store_expect(Mod::atom(), meck_expect:func_ari(),
                    meck_expect:expect(), Expects::dict:dict()) ->
         {NewExpects::dict:dict(), CompilerPid::pid()}.
@@ -518,7 +518,7 @@ store_expect(Mod, FuncAri, Expect, Expects) ->
     NewExpects = dict:store(FuncAri, Expect, Expects),
     compile_expects(Mod, NewExpects).
 
--ifdef(ERLANG_17).
+-ifdef(NAMESPACED_DICTS).
 -spec do_delete_expect(Mod::atom(), meck_expect:func_ari(), Expects::dict:dict()) ->
         {NewExpects::dict:dict(), CompilerPid::pid()}.
 -else.
@@ -529,7 +529,7 @@ do_delete_expect(Mod, FuncAri, Expects) ->
     NewExpects = dict:erase(FuncAri, Expects),
     compile_expects(Mod, NewExpects).
 
--ifdef(ERLANG_17).
+-ifdef(NAMESPACED_DICTS).
 -spec compile_expects(Mod::atom(), Expects::dict:dict()) ->
         {NewExpects::dict:dict(), CompilerPid::pid()}.
 -else.
