@@ -365,11 +365,12 @@ backup_original(Mod, NoPassCover) ->
         %% so that it can be passed to Cover later.  There is no way
         %% to use the code server to access this binary without first
         %% saving it to disk.  Instead, it's passed around as state.
-        if (Cover == false) orelse NoPassCover ->
-            Binary2 = no_passthrough_cover;
-                true ->
-                Binary2 = Binary,
-                meck_cover:compile_beam(NewName, Binary2)
+        Binary2 = if
+            (Cover == false) orelse NoPassCover ->
+                no_passthrough_cover;
+            true ->
+                meck_cover:compile_beam(NewName, Binary),
+                Binary
         end,
         {Cover, Binary2}
     catch
