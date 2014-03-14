@@ -1003,7 +1003,6 @@ cover_options_fail_({_OldPath, Src, Module}) ->
     {ok, _} = compile:file(Src, CompilerOptions),
     ?assertEqual(CompilerOptions, meck_code:compile_options(Module)),
     {ok, _} = cover:compile_beam(Module),
-    io:format(user, "Copts: ~p~n", [?copts]),
     ?assertEqual(?copts, meck_code:compile_options(Module)),
     a      = Module:a(),
     b      = Module:b(),
