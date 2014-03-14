@@ -24,10 +24,9 @@ rebuild: distclean get-deps all
 
 get-deps:
 	@$(REBAR) -C test.config get-deps
-	@$(REBAR) -C test.config compile
 
 compile:
-	@$(REBAR) -C test.config skip_deps=true compile
+	@$(REBAR) -C rebar.config skip_deps=true compile
 
 doc:
 	@$(REBAR) -C test.config skip_deps=true doc
@@ -35,7 +34,8 @@ doc:
 clean:
 	@$(REBAR) -C test.config skip_deps=true clean
 
-test: get-deps
+test: get-deps compile
+	@$(REBAR) -C test.config compile
 	@$(REBAR) -C test.config skip_deps=true eunit
 
 $(PLTFILE):
