@@ -16,3 +16,4 @@ tags
 *.sublime-workspace
 *.sublime-project
 deps/*
+.rebar
