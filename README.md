@@ -1,4 +1,6 @@
-[![Build Status](https://secure.travis-ci.org/eproxus/meck.png)](http://travis-ci.org/eproxus/meck)
+[![Release](http://img.shields.io/github/release/eproxus/meck.svg)](https://github.com/eproxus/meck/releases/latest)
+[![Build Status](http://img.shields.io/travis/eproxus/meck.svg)](http://travis-ci.org/eproxus/meck)
+[![Code Climate](http://img.shields.io/badge/code_climate-R16B03--1-green.svg)](https://travis-ci.org/eproxus/meck)
 
 Meck
 ====
