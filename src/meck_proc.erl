@@ -47,7 +47,7 @@
 %%% Definitions
 %%%============================================================================
 
--ifdef(NAMESPACED_DICTS).
+-ifdef(namespaced_dicts).
 -type meck_dict() :: dict:dict().
 -else.
 -type meck_dict() :: dict().
