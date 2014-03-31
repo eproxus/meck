@@ -4,7 +4,7 @@ notifications:
     - hello@alind.io
 otp_release:
   - R16B03-1
+  - R16B
   - R15B03
-  - R14B04
 before_script: "make get-deps"
 script: "make all"

@@ -47,9 +47,15 @@
 %%% Definitions
 %%%============================================================================
 
+-ifdef(namespaced_dicts).
+-type meck_dict() :: dict:dict().
+-else.
+-type meck_dict() :: dict().
+-endif.
+
 -record(state, {mod :: atom(),
                 can_expect :: any | [{Mod::atom(), Ari::byte()}],
-                expects :: dict(),
+                expects :: meck_dict(),
                 valid = true :: boolean(),
                 history = [] :: meck_history:history() | undefined,
                 original :: term(),
@@ -412,7 +418,7 @@ resolve_can_expect(Mod, Exports, Options) ->
 
 -spec init_expects(Exports::[meck_expect:func_ari()] | undefined,
                    Options::[proplists:property()]) ->
-        dict().
+        meck_dict().
 init_expects(Exports, Options) ->
     Passthrough = proplists:get_bool(passthrough, Options),
     StubAll = proplists:is_defined(stub_all, Options),
@@ -449,8 +455,8 @@ check_if_being_reloaded(#state{reload = undefined}) ->
 check_if_being_reloaded(_S) ->
     erlang:error(concurrent_reload).
 
--spec do_get_result_spec(Expects::dict(), Func::atom(), Args::[any()]) ->
-        {meck_ret_spec:result_spec() | undefined, NewExpects::dict()}.
+-spec do_get_result_spec(Expects::meck_dict(), Func::atom(), Args::[any()]) ->
+        {meck_ret_spec:result_spec() | undefined, NewExpects::meck_dict()}.
 do_get_result_spec(Expects, Func, Args) ->
     FuncAri = {Func, erlang:length(Args)},
     Expect = dict:fetch(FuncAri, Expects),
@@ -480,20 +486,20 @@ validate_expect(Mod, Func, Ari, CanExpect) ->
     end.
 
 -spec store_expect(Mod::atom(), meck_expect:func_ari(),
-                   meck_expect:expect(), Expects::dict()) ->
-        {NewExpects::dict(), CompilerPid::pid()}.
+                   meck_expect:expect(), Expects::meck_dict()) ->
+        {NewExpects::meck_dict(), CompilerPid::pid()}.
 store_expect(Mod, FuncAri, Expect, Expects) ->
     NewExpects = dict:store(FuncAri, Expect, Expects),
     compile_expects(Mod, NewExpects).
 
--spec do_delete_expect(Mod::atom(), meck_expect:func_ari(), Expects::dict()) ->
-        {NewExpects::dict(), CompilerPid::pid()}.
+-spec do_delete_expect(Mod::atom(), meck_expect:func_ari(), Expects::meck_dict()) ->
+        {NewExpects::meck_dict(), CompilerPid::pid()}.
 do_delete_expect(Mod, FuncAri, Expects) ->
     NewExpects = dict:erase(FuncAri, Expects),
     compile_expects(Mod, NewExpects).
 
--spec compile_expects(Mod::atom(), Expects::dict()) ->
-        {NewExpects::dict(), CompilerPid::pid()}.
+-spec compile_expects(Mod::atom(), Expects::meck_dict()) ->
+        {NewExpects::meck_dict(), CompilerPid::pid()}.
 compile_expects(Mod, Expects) ->
     %% If the recompilation is made by the server that executes a module
     %% no module that is called from meck_code:compile_and_load_forms/2
@@ -643,6 +649,3 @@ is_expired({MacroSecs, Secs, MicroSecs}) ->
      (NowMacroSecs == MacroSecs andalso NowSecs > Secs) orelse
      (NowMacroSecs == MacroSecs andalso NowSecs == Secs andalso
       NowMicroSecs > MicroSecs)).
-
-
-

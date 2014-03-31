@@ -986,7 +986,7 @@ cover_options_({_OldPath, Src, Module}) ->
     % 2 instead of 3, as above
     ?assertEqual({ok, {Module, {2,0}}}, cover:analyze(Module, module)).
 
--ifndef(cover_empty_compile_opts).
+-ifdef(cover_empty_compile_opts).
 -define(compile_options, []).
 -else.
 -define(compile_options, [{i,"../test/include"},{d,'TEST',true}]).
