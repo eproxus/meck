@@ -173,7 +173,7 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%
 %%   <dt>`non_strict'</dt>
 %%   <dd>A mock created with this option will allow setting expectations on
-%%       functions that are not exported from the mocked module. With this
+%%       functions that does not exist in the mocked module. With this
 %%       option on it is even possible to mock non existing modules.</dd>
 %%
 %%   <dt>`{stub_all, '{@link ret_spec()}`}'</dt>
