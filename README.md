@@ -147,11 +147,17 @@ ok
 Build
 -----
 
-Meck requires `make` and [rebar][1] to build. To build Meck and run tests, go to the Meck
-directory and simply type:
+Meck requires `make` and [rebar][1] to build. To build Meck go to the Meck directory
+and simply type:
 
 ```sh
 make
+```
+
+In order to run all tests for Meck type the following command from the same directory:
+
+```sh
+make test
 ```
 
 Two things might seem alarming when running the tests:
@@ -163,6 +169,11 @@ Both are expected due to the way Erlang currently prints errors. The
 important line you should look for is `All XX tests passed`, if that
 appears all is correct.
 
+Documentation can be generated through the use of the following command:
+
+```sh
+make doc
+```
 
 <a name='install'>
 
