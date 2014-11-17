@@ -24,6 +24,7 @@
 -export_type([meck_mfa/0]).
 -export_type([successfull_call/0]).
 -export_type([faulty_call/0]).
+-export_type([history_record/0]).
 -export_type([history/0]).
 
 -export([get_history/2]).
