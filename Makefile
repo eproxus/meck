@@ -1,5 +1,5 @@
 PLTFILE=$(CURDIR)/.deps.plt
-APP_DEPS=kernel stdlib eunit tools compiler
+APP_DEPS=kernel stdlib eunit tools compiler erts
 ERLFLAGS= -pa $(CURDIR)/.eunit -pa $(CURDIR)/ebin -pa $(CURDIR)/deps/*/ebin
 
 REBAR="./rebar"
