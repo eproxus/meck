@@ -17,3 +17,4 @@ tags
 *.sublime-project
 deps/*
 .rebar
+.deps.plt
