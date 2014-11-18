@@ -200,7 +200,8 @@ init([Mod, Options]) ->
         _    -> false
     end,
     NoPassCover = proplists:get_bool(no_passthrough_cover, Options),
-    Original = backup_original(Mod, NoPassCover),
+    HideOnLoad = proplists:get_bool(hide_on_load, Options),
+    Original = backup_original(Mod, NoPassCover, HideOnLoad),
     NoHistory = proplists:get_bool(no_history, Options),
     History = if NoHistory -> undefined; true -> [] end,
     CanExpect = resolve_can_expect(Mod, Exports, Options),
@@ -338,16 +339,17 @@ expect_type(Mod, Func, Ari) ->
         false -> normal
     end.
 
--spec backup_original(Mod::atom(), NoPassCover::boolean()) ->
+-spec backup_original(Mod::atom(), NoPassCover::boolean(), HideOnLoad::boolean()) ->
     {Cover:: false |
              {File::string(), Data::string(), CompiledOptions::[any()]},
      Binary:: no_binary |
               no_passthrough_cover |
               binary()}.
-backup_original(Mod, NoPassCover) ->
+backup_original(Mod, NoPassCover, HideOnLoad) ->
     Cover = get_cover_state(Mod),
     try
-        Forms = meck_code:abstract_code(meck_code:beam_file(Mod)),
+        Forms0 = meck_code:abstract_code(meck_code:beam_file(Mod)),
+        Forms = meck_code:hide_on_load(Forms0, HideOnLoad),
         NewName = meck_util:original_name(Mod),
         CompileOpts = meck_code:compile_options(meck_code:beam_file(Mod)),
         Renamed = meck_code:rename_module(Forms, NewName),
