@@ -198,6 +198,21 @@ environment variable.
 
 <a name='contribute'>
 
+Caveats
+-------
+
+Meck will have trouble mocking certain modules since Meck works by
+recompiling and reloading modules. Since Erlang have a flat module
+namespace, replacing a module has to be done globally in the
+Erlang VM. This means certain modules cannot be mocked. The
+following is a non-exhaustive list of modules that can either be
+problematic to mock or not possible at all:
+
+* `erlang`
+* `os`
+* `crypto`
+* `compile`
+
 Contribute
 ----------
 
