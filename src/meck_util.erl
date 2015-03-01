@@ -22,6 +22,7 @@
 -export([proc_name/1]).
 -export([original_name/1]).
 -export([match_spec_item/1]).
+-export([pid_to_atom/1]).
 
 %%%============================================================================
 %%% Types
@@ -42,3 +43,7 @@ original_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck_original").
 -spec match_spec_item(Pattern::tuple()) -> match_spec_item().
 match_spec_item(Pattern) ->
     {Pattern, [], ['$_']}.
+
+-spec pid_to_atom(pid()) -> atom().
+pid_to_atom(Pid) ->
+    list_to_atom(pid_to_list(Pid)).
