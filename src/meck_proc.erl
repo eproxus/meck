@@ -47,7 +47,7 @@
 %%% Definitions
 %%%============================================================================
 
--ifdef(namespaced_dicts).
+-ifdef(namespaced_types).
 -type meck_dict() :: dict:dict().
 -else.
 -type meck_dict() :: dict().
