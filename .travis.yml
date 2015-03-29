@@ -9,4 +9,4 @@ otp_release:
   - R16B03-1
   - R15B03
 before_script: "make get-deps"
-script: "make all"
+script: "make test"
