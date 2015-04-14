@@ -28,6 +28,8 @@
 -export([reset/1]).
 -export([validate/1]).
 -export([stop/1]).
+-export([send/2]).
+-export([get/1]).
 
 %% To be accessible from generated modules
 -export([get_result_spec/3]).
@@ -62,7 +64,8 @@
                 was_sticky = false :: boolean(),
                 reload :: {Compiler::pid(), {From::pid(), Tag::any()}} |
                           undefined,
-                trackers = [] :: [tracker()]}).
+                trackers = [] :: [tracker()],
+                messages = [] :: [term()]}).
 
 -record(tracker, {opt_func :: '_' | atom(),
                   args_matcher :: meck_args_matcher:args_matcher(),
@@ -82,18 +85,20 @@
 %%%============================================================================
 
 -spec start(Mod::atom(), Options::[proplists:property()]) ->
-        {ok, MockProcPid::pid()} |
-        {error, Reason::any()}.
+        ok | atom() | {error, Reason::any()}.
 start(Mod, Options) ->
     StartFunc = case proplists:is_defined(no_link, Options) of
                     true  -> start;
                     false -> start_link
                 end,
     SpawnOpt = proplists:get_value(spawn_opt, Options, []),
-    case gen_server:StartFunc({local, meck_util:proc_name(Mod)}, ?MODULE,
-                              [Mod, Options], [{spawn_opt, SpawnOpt}]) of
-        {ok, _Pid}      -> ok;
-        {error, Reason} -> erlang:error(Reason, [Mod, Options])
+    UseOwnPid = proplists:is_defined(pid_module, Options),
+    Args = get_genserver_arguments(UseOwnPid, Mod, Options, SpawnOpt),
+    GenServer = apply(gen_server, StartFunc, Args),
+    case {GenServer, UseOwnPid} of
+        {{ok, Pid}, true}    -> register_meck_pid(Pid);
+        {{ok, _Pid}, _}      -> ok;
+        {{error, Reason}, _} -> erlang:error(Reason, [Mod, Options])
     end.
 
 -spec get_result_spec(Mod::atom(), Func::atom(), Args::[any()]) ->
@@ -187,11 +192,23 @@ invalidate(Mod) ->
 stop(Mod) ->
     gen_server(call, Mod, stop).
 
+-spec send(Mod::atom(), Message::term()) -> ok.
+send(Mod, Message) ->
+    gen_server(call, Mod, {send, Message}).
+
+-spec get(Mod::atom()) -> term().
+get(Mod) ->
+    gen_server(call, Mod, get_messages).
+
 %%%============================================================================
 %%% gen_server callbacks
 %%%============================================================================
 
 %% @hidden
+init([pid, Options]) ->
+    Mod = meck_util:pid_to_atom(self()),
+    init([Mod, Options]);
+
 init([Mod, Options]) ->
     Exports = normal_exports(Mod),
     WasSticky = case proplists:get_bool(unstick, Options) of
@@ -271,7 +288,16 @@ handle_call(invalidate, _From, S) ->
 handle_call(validate, _From, S) ->
     {reply, S#state.valid, S};
 handle_call(stop, _From, S) ->
-    {stop, normal, ok, S}.
+    {stop, normal, ok, S};
+handle_call({send, Message}, _From, S) ->
+    NewState = S#state{messages = S#state.messages ++ [Message]},
+    {reply, Message, NewState};
+handle_call(get_messages, _From, #state{messages=[]}=S) ->
+    {reply, no_messages, S};
+handle_call(get_messages, _From, S) ->
+    [Hd|Tl] = S#state.messages,
+    NewState = S#state{messages = Tl},
+    {reply, Hd, NewState}.
 
 %% @hidden
 handle_cast({add_history, HistoryRecord}, S = #state{history = undefined,
@@ -319,6 +345,19 @@ code_change(_OldVsn, S, _Extra) -> {ok, S}.
 %%%============================================================================
 %%% Internal functions
 %%%============================================================================
+
+-spec get_genserver_arguments(boolean(), Mod::atom(),
+    Options::[proplists:property()], SpawnOpt::[term()]) -> [Args::term()].
+get_genserver_arguments(true, _Mod, Options, SpawnOpt) ->
+    [?MODULE, [pid, [non_strict | Options]], [{spawn_opt, SpawnOpt}]];
+get_genserver_arguments(false, Mod, Options, SpawnOpt) ->
+    [{local, meck_util:proc_name(Mod)}, ?MODULE, [Mod, Options], [{spawn_opt, SpawnOpt}]].
+
+-spec register_meck_pid(pid()) -> atom().
+register_meck_pid(Pid) ->
+    PidAtom = meck_util:pid_to_atom(Pid),
+    register(meck_util:proc_name(PidAtom), Pid),
+    PidAtom.
 
 -spec normal_exports(Mod::atom()) -> [meck_expect:func_ari()] | undefined.
 normal_exports(Mod) ->

@@ -1409,6 +1409,38 @@ wait_purge_expired_tracker_test() ->
     %% Clean
     meck:unload().
 
+spawn_pid_module_test() ->
+    %% just_a_dog and just_a_cat hold no value when using pid_module
+    Dog = meck:new(just_a_dog, [pid_module]),
+    Cat = meck:new(just_a_cat, [pid_module]),
+    meck:expect(Dog, stare_at, fun(Target) -> meck_proc:send(Target, "*Stare*") end),
+    meck:expect(Dog, bark_at,  fun(Target) -> meck_proc:send(Target, "Woof!") end),
+    meck:expect(Dog, sleep, fun() -> zzz end),
+    meck:expect(Cat, react, fun () ->
+        case meck_proc:get(Cat) of
+            "Woof!" -> run_away;
+            _       -> just_being_a_cat
+        end
+    end),
+
+    Dog:stare_at(Cat),
+    Result1 = Cat:react(),
+
+    Dog:bark_at(Cat),
+    Result2 = Cat:react(),
+    Result3 = Dog:sleep(),
+
+    Expect1 = just_being_a_cat,
+    Expect2 = run_away,
+    Expect3 = zzz,
+    meck:unload(),
+    [
+       ?assertEqual(Expect1, Result1),
+       ?assertEqual(Expect2, Result2),
+       ?assertEqual(Expect3, Result3)
+    ].
+
+
 %%=============================================================================
 %% Internal Functions
 %%=============================================================================
