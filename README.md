@@ -163,7 +163,7 @@ make test
 Two things might seem alarming when running the tests:
 
   1. Warnings emitted by cover
-  2. En exception printed by SASL
+  2. An exception printed by SASL
 
 Both are expected due to the way Erlang currently prints errors. The
 important line you should look for is `All XX tests passed`, if that
