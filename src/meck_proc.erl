@@ -81,9 +81,7 @@
 %%% API
 %%%============================================================================
 
--spec start(Mod::atom(), Options::[proplists:property()]) ->
-        {ok, MockProcPid::pid()} |
-        {error, Reason::any()}.
+-spec start(Mod::atom(), Options::[proplists:property()]) -> ok | no_return().
 start(Mod, Options) ->
     StartFunc = case proplists:is_defined(no_link, Options) of
                     true  -> start;
