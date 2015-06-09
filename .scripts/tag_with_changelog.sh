@@ -33,6 +33,7 @@ sed -i "" -e "s/@version .*/@version $1/g" doc/overview.edoc
 sed -i "" -e "s/version: \".*\"/version: \"$1\"/g" package.exs
 git add src/meck.app.src
 git add doc/overview.edoc
+git add package.exs
 
 # Commit, tag and push
 git commit -m "Version $1"
