@@ -308,9 +308,9 @@ handle_info(_Info, S) ->
 %% @hidden
 terminate(_Reason, #state{mod = Mod, original = OriginalState,
                           was_sticky = WasSticky}) ->
-    export_original_cover(Mod, OriginalState),
+    BackupCover = export_original_cover(Mod, OriginalState),
     cleanup(Mod),
-    restore_original(Mod, OriginalState, WasSticky),
+    restore_original(Mod, OriginalState, WasSticky, BackupCover),
     ok.
 
 %% @hidden
@@ -393,15 +393,14 @@ backup_original(Mod, NoPassCover, EnableOnLoad) ->
 get_cover_state(Mod) ->
     case cover:is_compiled(Mod) of
         {file, File} ->
-            Data = atom_to_list(Mod) ++ ".coverdata",
-            ok = cover:export(Data, Mod),
+            OriginalCover = meck_cover:dump_coverdata(Mod),
             CompileOptions =
             try
                 meck_code:compile_options(meck_code:beam_file(Mod))
             catch
                 throw:{object_code_not_found, _Module} -> []
             end,
-            {File, Data, CompileOptions};
+            {File, OriginalCover, CompileOptions};
         _ ->
             false
     end.
@@ -513,10 +512,10 @@ compile_expects(Mod, Expects) ->
                           end),
     {Expects, CompilerPid}.
 
-restore_original(Mod, {false, _}, WasSticky) ->
+restore_original(Mod, {false, _Bin}, WasSticky, _BackupCover) ->
     restick_original(Mod, WasSticky),
     ok;
-restore_original(Mod, {{File, Data, Options}, Bin}, WasSticky) ->
+restore_original(Mod, {{File, OriginalCover, Options}, _Bin}, WasSticky, BackupCover) ->
     case filename:extension(File) of
         ".erl" ->
             {ok, Mod} = cover:compile_module(File, Options);
@@ -524,27 +523,26 @@ restore_original(Mod, {{File, Data, Options}, Bin}, WasSticky) ->
             cover:compile_beam(File)
     end,
     restick_original(Mod, WasSticky),
-    if is_binary(Bin) ->
+    if BackupCover =/= undefined ->
         %% Import the cover data for `<name>_meck_original' but since it was
         %% modified by `export_original_cover' it will count towards `<name>'.
-        OriginalData = atom_to_list(meck_util:original_name(Mod)) ++ ".coverdata",
-        ok = cover:import(OriginalData),
-        ok = file:delete(OriginalData);
+        ok = cover:import(BackupCover),
+        ok = file:delete(BackupCover);
     true -> ok
     end,
-    ok = cover:import(Data),
-    ok = file:delete(Data),
+    ok = cover:import(OriginalCover),
+    ok = file:delete(OriginalCover),
     ok.
 
 %% @doc Export the cover data for `<name>_meck_original' and modify
 %% the data so it can be imported under `<name>'.
 export_original_cover(Mod, {_, Bin}) when is_binary(Bin) ->
     OriginalMod = meck_util:original_name(Mod),
-    File = atom_to_list(OriginalMod) ++ ".coverdata",
-    ok = cover:export(File, OriginalMod),
-    ok = meck_cover:rename_module(File, Mod);
+    BackupCover = meck_cover:dump_coverdata(OriginalMod),
+    ok = meck_cover:rename_module(BackupCover, Mod),
+    BackupCover;
 export_original_cover(_, _) ->
-    ok.
+    undefined.
 
 unstick_original(Module) -> unstick_original(Module, code:is_sticky(Module)).
 

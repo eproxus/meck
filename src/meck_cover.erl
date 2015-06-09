@@ -20,6 +20,7 @@
 %% Interface exports
 -export([compile_beam/2]).
 -export([rename_module/2]).
+-export([dump_coverdata/1]).
 
 %%=============================================================================
 %% Interface exports
@@ -36,6 +37,14 @@ rename_module(File, Name) ->
     NewTerms = change_cover_mod_name(read_cover_file(File), Name),
     write_terms(File, NewTerms),
     ok.
+
+%% @doc Dump cover data for `Mod' into a .coverdata file in the current
+%% directory. Return the absolute file name.
+dump_coverdata(Mod) ->
+    {ok, CWD} = file:get_cwd(),
+    File = filename:join(CWD, atom_to_list(Mod) ++ ".coverdata"),
+    ok = cover:export(File, Mod),
+    File.
 
 %%=============================================================================
 %% Internal functions

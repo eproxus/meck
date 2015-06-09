@@ -1042,6 +1042,25 @@ cover_passthrough_test() ->
     ?assertEqual({ok, {meck_test_module, {2,1}}},
                  cover:analyze(meck_test_module, module)).
 
+cover_path_test() ->
+    {ok, _} = cover:compile("../test/meck_test_module.erl"),
+    ?assertEqual({ok, {meck_test_module, {0,3}}},
+                 cover:analyze(meck_test_module, module)),
+    ok = meck:new(meck_test_module, [passthrough]),
+    ok = meck:expect(meck_test_module, a, fun() -> c end),
+    ?assertEqual(c, meck_test_module:a()),
+    ?assertEqual(b, meck_test_module:b()),
+    ?assertEqual({1, 2}, meck_test_module:c(1, 2)),
+    {ok, CWD} = file:get_cwd(),
+    try
+        ok = file:set_cwd("/tmp"),
+        ok = meck:unload(meck_test_module),
+        ?assertEqual({ok, {meck_test_module, {2,1}}},
+                     cover:analyze(meck_test_module, module))
+    after
+        ok = file:set_cwd(CWD)
+    end.
+
 % @doc The mocked module is unloaded if the meck process crashes.
 unload_when_crashed_test() ->
     ok = meck:new(mymod, [non_strict]),
