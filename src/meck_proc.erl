@@ -516,7 +516,7 @@ compile_expects(Mod, Expects) ->
 restore_original(Mod, {false, _}, WasSticky) ->
     restick_original(Mod, WasSticky),
     ok;
-restore_original(Mod, OriginalState={{File, Data, Options},_}, WasSticky) ->
+restore_original(Mod, {{File, Data, Options}, Bin}, WasSticky) ->
     case filename:extension(File) of
         ".erl" ->
             {ok, Mod} = cover:compile_module(File, Options);
@@ -524,19 +524,16 @@ restore_original(Mod, OriginalState={{File, Data, Options},_}, WasSticky) ->
             cover:compile_beam(File)
     end,
     restick_original(Mod, WasSticky),
-    import_original_cover(Mod, OriginalState),
+    if is_binary(Bin) ->
+        %% Import the cover data for `<name>_meck_original' but since it was
+        %% modified by `export_original_cover' it will count towards `<name>'.
+        OriginalData = atom_to_list(meck_util:original_name(Mod)) ++ ".coverdata",
+        ok = cover:import(OriginalData),
+        ok = file:delete(OriginalData);
+    true -> ok
+    end,
     ok = cover:import(Data),
     ok = file:delete(Data),
-    ok.
-
-%% @doc Import the cover data for `<name>_meck_original' but since it
-%% was modified by `export_original_cover' it will count towards
-%% `<name>'.
-import_original_cover(Mod, {_,Bin}) when is_binary(Bin) ->
-    OriginalData = atom_to_list(meck_util:original_name(Mod)) ++ ".coverdata",
-    ok = cover:import(OriginalData),
-    ok = file:delete(OriginalData);
-import_original_cover(_, _) ->
     ok.
 
 %% @doc Export the cover data for `<name>_meck_original' and modify
