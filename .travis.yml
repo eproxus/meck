@@ -3,7 +3,7 @@ notifications:
   email:
     - hello@alind.io
 otp_release:
-  - 17.4
+  - 17.5
   - R16B03-1
   - R15B03
 before_script: "make get-deps"
