@@ -186,7 +186,7 @@ your `rebar.config` in your project root:
 ```erlang
 {deps, [
  {meck, ".*",
-  {git, "https://github.com/eproxus/meck.git", {tag, "0.8.2"}}}
+  {git, "https://github.com/eproxus/meck.git", {tag, "0.8.3"}}}
  ]}.
 ```
 
