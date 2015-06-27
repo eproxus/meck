@@ -213,6 +213,36 @@ problematic to mock or not possible at all:
 * `crypto`
 * `compile`
 
+Also, a meck expectation set up for a function _f_ does not apply to the module-local invocation of _f_ within the mocked module.
+Consider the following module:
+```
+-module(test).
+-export([a/0, b/0, c/0]).
+
+a() ->
+  c().
+
+b() ->
+  ?MODULE:c().
+
+c() ->
+  original.
+```
+Note how the module-local call to `c/0` in `a/0` stays unchanged even though the expectation changes the externally visible behaviour of `c/0`:
+
+```
+3> meck:new(test, [passthrough]).
+ok
+4> meck:expect(test,c,0,changed).
+ok
+5> test:a().
+original
+6> test:b().
+changed
+6> test:c().
+changed
+```
+
 Contribute
 ----------
 
