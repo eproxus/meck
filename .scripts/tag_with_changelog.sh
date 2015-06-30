@@ -41,5 +41,5 @@ git tag -s $1 -m "Version $
 
 $CHANGELOG"
 git push && git push --tags
-MIX_EXS mix hex.publish
+MIX_EXS=package.exs mix hex.publish
 
