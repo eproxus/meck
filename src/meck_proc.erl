@@ -179,7 +179,7 @@ validate(Mod) ->
 
 -spec invalidate(Mod::atom()) -> ok.
 invalidate(Mod) ->
-    gen_server(call, Mod, invalidate).
+    gen_server(cast, Mod, invalidate).
 
 -spec stop(Mod::atom()) -> ok.
 stop(Mod) ->
@@ -264,14 +264,14 @@ handle_call({wait, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout}, From,
     end;
 handle_call(reset, _From, S) ->
     {reply, ok, S#state{history = []}};
-handle_call(invalidate, _From, S) ->
-    {reply, ok, S#state{valid = false}};
 handle_call(validate, _From, S) ->
     {reply, S#state.valid, S};
 handle_call(stop, _From, S) ->
     {stop, normal, ok, S}.
 
 %% @hidden
+handle_cast(invalidate, S) ->
+    {noreply, S#state{valid = false}};
 handle_cast({add_history, HistoryRecord}, S = #state{history = undefined,
                                                      trackers = Trackers}) ->
     UpdTracker = update_trackers(HistoryRecord, Trackers),
