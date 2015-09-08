@@ -60,6 +60,7 @@
                 history = [] :: meck_history:history() | undefined,
                 original :: term(),
                 was_sticky = false :: boolean(),
+                merge_expects = false :: boolean(),
                 reload :: {Compiler::pid(), {From::pid(), Tag::any()}} |
                           undefined,
                 trackers = [] :: [tracker()]}).
@@ -198,6 +199,7 @@ init([Mod, Options]) ->
         _    -> false
     end,
     NoPassCover = proplists:get_bool(no_passthrough_cover, Options),
+    MergeExpects = proplists:get_bool(merge_expects, Options),
     EnableOnLoad = proplists:get_bool(enable_on_load, Options),
     Original = backup_original(Mod, NoPassCover, EnableOnLoad),
     NoHistory = proplists:get_bool(no_history, Options),
@@ -213,6 +215,7 @@ init([Mod, Options]) ->
                     expects = Expects,
                     original = Original,
                     was_sticky = WasSticky,
+                    merge_expects = MergeExpects,
                     history = History}}
     catch
         exit:{error_loading_module, Mod, sticky_directory} ->
@@ -224,13 +227,13 @@ handle_call({get_result_spec, Func, Args}, _From, S) ->
     {ResultSpec, NewExpects} = do_get_result_spec(S#state.expects, Func, Args),
     {reply, ResultSpec, S#state{expects = NewExpects}};
 handle_call({set_expect, Expect}, From,
-            S = #state{mod = Mod, expects = Expects}) ->
+            S = #state{mod = Mod, expects = Expects, merge_expects = MergeExpects}) ->
     check_if_being_reloaded(S),
     FuncAri = {Func, Ari} = meck_expect:func_ari(Expect),
     case validate_expect(Mod, Func, Ari, S#state.can_expect) of
         ok ->
             {NewExpects, CompilerPid} = store_expect(Mod, FuncAri, Expect,
-                                                     Expects),
+                                                     Expects, MergeExpects),
             {noreply, S#state{expects = NewExpects,
                               reload = {CompilerPid, From}}};
         {error, Reason} ->
@@ -485,10 +488,19 @@ validate_expect(Mod, Func, Ari, CanExpect) ->
     end.
 
 -spec store_expect(Mod::atom(), meck_expect:func_ari(),
-                   meck_expect:expect(), Expects::meck_dict()) ->
+                   meck_expect:expect(), Expects::meck_dict(), boolean()) ->
         {NewExpects::meck_dict(), CompilerPid::pid()}.
-store_expect(Mod, FuncAri, Expect, Expects) ->
-    NewExpects = dict:store(FuncAri, Expect, Expects),
+store_expect(Mod, FuncAri, Expect, Expects, true) ->
+    NewExpects = case dict:is_key(FuncAri, Expects) of
+        true ->
+            {FuncAri, ExistingClauses} = dict:fetch(FuncAri, Expects),
+            {FuncAri, NewClauses} = Expect,
+            dict:store(FuncAri, {FuncAri, ExistingClauses ++ NewClauses}, Expects);
+        false -> dict:store(FuncAri, Expect, Expects)
+    end,
+    compile_expects(Mod, NewExpects);
+store_expect(Mod, FuncAri, Expect, Expects, false) ->
+    NewExpects =  dict:store(FuncAri, Expect, Expects),
     compile_expects(Mod, NewExpects).
 
 -spec do_delete_expect(Mod::atom(), meck_expect:func_ari(), Expects::meck_dict()) ->

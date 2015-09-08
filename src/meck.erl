@@ -182,6 +182,13 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%       passed in. It is possible to specify this option as just `stub_all'
 %%       then stubs will return atom `ok'. If used along with `passthrough'
 %%       then `stub_all' is ignored. </dd>
+%%
+%%   <dt>`merge_expects'</dt>
+%%   <dd>The expectations for the function/arity signature are merged with
+%%       existing ones instead of replacing all of them each time an
+%%       expectation is added. Expectations are added to the end of the
+%%       function clause list, meaning that pattern matching will be performed
+%%       in the order the expectations were added.</dd>
 %% </dl>
 -spec new(Mods, Options) -> ok when
       Mods :: Mod | [Mod],
