@@ -212,6 +212,7 @@ problematic to mock or not possible at all:
 * `os`
 * `crypto`
 * `compile`
+* `global`
 
 Also, a meck expectation set up for a function _f_ does not apply to the module-local invocation of _f_ within the mocked module.
 Consider the following module:
