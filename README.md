@@ -279,9 +279,13 @@ Contributors:
 - Michael Klishin (@michaelklishin)
 - Magnus Klaar
 
+### Donations
+
+If you or your company use Meck and find it useful, Bitcoin donations to the address `1M7pLbBpjkwxffT7kZPKhxiPGKf4eHDqtz` are greatly appreciated!
 
   [1]: https://github.com/eproxus/meck/wiki/0.8-Release-Notes
        "0.8 Release Notes"
   [2]: https://github.com/hyperthunk/hamcrest-erlang "Hamcrest for Erlang"
   [3]: https://github.com/basho/rebar "Rebar - A build tool for Erlang"
   [4]: http://github.com/eproxus/meck/issues "Meck issues"
+
