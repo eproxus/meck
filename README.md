@@ -213,6 +213,7 @@ problematic to mock or not possible at all:
 * `crypto`
 * `compile`
 * `global`
+* `timer` (possible to mock, but used by some test frameworks, like Elixir's ExUnit)
 
 Also, a meck expectation set up for a function _f_ does not apply to the module-local invocation of _f_ within the mocked module.
 Consider the following module:
