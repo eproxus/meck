@@ -803,6 +803,42 @@ expect_ret_specs_(Mod) ->
 
 %% --- Tests with own setup ----------------------------------------------------
 
+merge_expects_module_test() ->
+    Mod = merge_mod,
+    meck:new(Mod, [non_strict, merge_expects]),
+    %% Given
+    meck:expect(Mod, f, [2001], meck:raise(error, a)),
+    meck:expect(Mod, f, [2002], meck:raise(throw, b)),
+    meck:expect(Mod, f, [2003], meck:raise(exit, c)),
+    meck:expect(Mod, f, [2004], meck:val(d)),
+    %% When/Then
+    ?assertException(error, a, Mod:f(2001)),
+    ?assertException(throw, b, Mod:f(2002)),
+    ?assertException(exit, c, Mod:f(2003)),
+    ?assertMatch(d, Mod:f(2004)),
+    meck:unload(Mod).
+
+merge_expects_ret_specs_test() ->
+    Mod = merge_mod,
+    meck:new(Mod, [non_strict, merge_expects]),
+    %% When
+    meck:expect(Mod, f, [1, 1],   meck:seq([a, b, c])),
+    meck:expect(Mod, f, [1, '_'], meck:loop([d, e])),
+    meck:expect(Mod, f, ['_', '_'], meck:val(f)),
+    %% Then
+    ?assertEqual(d, Mod:f(1, 2)),
+    ?assertEqual(f, Mod:f(2, 2)),
+    ?assertEqual(e, Mod:f(1, 2)),
+    ?assertEqual(a, Mod:f(1, 1)),
+    ?assertEqual(d, Mod:f(1, 2)),
+    ?assertEqual(b, Mod:f(1, 1)),
+    ?assertEqual(c, Mod:f(1, 1)),
+    ?assertEqual(f, Mod:f(2, 2)),
+    ?assertEqual(c, Mod:f(1, 1)),
+    ?assertEqual(e, Mod:f(1, 2)),
+    ?assertEqual(c, Mod:f(1, 1)),
+    meck:unload(Mod).
+
 undefined_module_test() ->
     %% When/Then
     ?assertError({{undefined_module, blah}, _}, meck:new(blah, [no_link])).
