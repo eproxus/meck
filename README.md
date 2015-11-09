@@ -256,29 +256,8 @@ when developing new features or fixes for meck.
 Should you find yourself using Meck and have issues, comments or
 feedback please [create an issue here on GitHub][4].
 
-Contributors:
-
-- Maxim Vladimirsky (@horkhe)
-- Ryan Zezeski (@rzezeski)
-- David Haglund (@daha)
-- Magnus Henoch (@legoscia)
-- Susan Potter (@mbbx6spp)
-- Andreas Amsenius (@adbl)
-- Anthony Molinaro (@djnym)
-- Matt Campbell (@xenolinguist)
-- Martynas Pumputis (@brb)
-- Shunichi Shinohara (@shino)
-- Miëtek Bak
-- Henry Nystrom
-- Ward Bekker (@wardbekker)
-- Damon Richardson
-- Christopher Meiklejohn
-- Joseph Wayne Norton (@norton)
-- Erkan Yilmaz (@Erkan-Yilmaz)
-- Joe Williams (@joewilliams)
-- Russell Brown
-- Michael Klishin (@michaelklishin)
-- Magnus Klaar
+Meck has been greatly improved by [many contributors]
+(https://github.com/eproxus/meck/graphs/contributors)!
 
 ### Donations
 
