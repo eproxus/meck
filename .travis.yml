@@ -3,10 +3,10 @@ notifications:
   email:
     - hello@alind.io
 otp_release:
-  - 18.2.1
+  - 18.2
   - 17.5
   - R16B03-1
-  - R15B03-1
+  - R15B03
 before_script: "make get-deps"
 script: "make test"
 
