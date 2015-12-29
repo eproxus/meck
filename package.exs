@@ -31,7 +31,7 @@ defmodule Meck.Mixfile do
         "LICENSE",
         "CHANGELOG",
       ],
-      contributors: [
+      maintainers: [
         "Adam Lindberg",
       ],
       licenses: [
