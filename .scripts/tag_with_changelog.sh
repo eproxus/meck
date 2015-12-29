@@ -37,7 +37,7 @@ git add package.exs
 
 # Commit, tag and push
 git commit -m "Version $1"
-git tag -s $1 -m "Version $
+git tag -s $1 -m "Version $1
 
 $CHANGELOG"
 git push && git push --tags
