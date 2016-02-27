@@ -2,52 +2,59 @@
 -module(meck_performance_test).
 
 %% Interface exports
+-export([run/0]).
 -export([run/1]).
+-export([run/2]).
+-export([new_unload/3]).
 
 %%=============================================================================
 %% Interface exports
 %%=============================================================================
 
-run(N) ->
-    meck:new(test, [non_strict]),
-    io:format("\t\tMin\tMax\tMed\tAvg~n"),
-    io:format("expect/3\t~p\t~p\t~p\t~p~n",
-              test_avg(meck, expect, [test, normal, fun() -> ok end], N)),
-    io:format("expect/3+args\t~p\t~p\t~p\t~p~n",
-              test_avg(meck, expect, [test, normal_args,
-                                      fun(_, _) -> ok end], N)),
-    io:format("expect/4\t~p\t~p\t~p\t~p~n",
-              test_avg(meck, expect, [test, shortcut, 0, ok], N)),
-    io:format("expect/4+args\t~p\t~p\t~p\t~p~n",
-              test_avg(meck, expect, [test, shortcut_args, 2, ok], N)),
+run() -> run(meck, 100).
+run(N) -> run(meck, N).
+run(Mod, N) ->
+    header(Mod),
+    run("new+unload", ?MODULE, new_unload, [Mod, test, [non_strict]], N),
+    Mod:new(test, [non_strict]),
+    run("expect/3", Mod, expect, [test, normal, fun() -> ok end], N),
+    run("expect/3+args", Mod, expect, [test, normal_args,
+      fun(_, _) -> ok end], N),
+    run("expect/4", Mod, expect, [test, shortcut, 0, ok], N),
+    run("expect/4+args", Mod, expect, [test, shortcut_args, 2, ok], N),
 
-    meck:expect(test, shortcut_opaque, 0, self()),
+    header("calls"),
+    Mod:expect(test, shortcut_opaque, 0, self()),
+    run("normal", test, normal, [], N),
+    run("normal_args", test, normal_args, [a, b], N),
+    run("shortcut", test, shortcut, [], N),
+    run("shortcut_args", test, shortcut_args, [a, b], N),
+    run("shortcut_opaque", test, shortcut_opaque, [], N),
+    Mod:unload(test),
 
-    io:format("~n\t\tMin\tMax\tMed\tAvg~n"),
-    io:format("normal\t\t~p\t~p\t~p\t~p~n",
-              test_avg(test, normal, [], N)),
-    io:format("normal_args\t~p\t~p\t~p\t~p~n",
-              test_avg(test, normal_args, [a, b], N)),
-    io:format("shortcut\t~p\t~p\t~p\t~p~n",
-              test_avg(test, shortcut, [], N)),
-    io:format("shortcut_args\t~p\t~p\t~p\t~p~n",
-              test_avg(test, shortcut_args, [a, b], N)),
-    io:format("shortcut_opaque\t~p\t~p\t~p\t~p~n",
-              test_avg(test, shortcut_opaque, [], N)),
-    meck:unload(test),
-
-    meck:new(test, [non_strict]),
-    meck:expect(test, func, 1, ok),
+    header("history"),
+    Mod:new(test, [non_strict]),
+    Mod:expect(test, func, 1, ok),
     [test:func(I) || I <- lists:seq(1, 100)],
-    io:format("~n\t\tMin\tMax\tMed\tAvg~n"),
-    io:format("called\t\t~p\t~p\t~p\t~p~n",
-              test_avg(meck, called, [test, func, 50], N)),
-    meck:unload(test),
+    run("called", Mod, called, [test, func, 50], N),
+    Mod:unload(test),
     ok.
+
+new_unload(Mod, Mock, Opts) ->
+    Mod:new(Mock, Opts),
+    Mod:unload(Mock).
 
 %%=============================================================================
 %% Internal functions
 %%=============================================================================
+
+header(Name) ->
+    io:format("~n~s\t\tMin\tMax\tMed\tAvg~n", [Name]),
+    io:format("------------------------------------------------~n").
+
+run(Name, M, F, A, N) ->
+    io:fwrite("~-16s", [Name]),
+    io:format("~p\t~p\t~p\t~p~n", test_avg(M, F, A, N)).
 
 test_avg(M, F, A, N) when N > 0 ->
     L = test_loop(M, F, A, N, []),
