@@ -22,7 +22,7 @@
 %% API
 -export([start/2]).
 -export([set_expect/2]).
--export([delete_expect/3]).
+-export([delete_expect/4]).
 -export([get_history/1]).
 -export([wait/6]).
 -export([reset/1]).
@@ -61,6 +61,7 @@
                 original :: term(),
                 was_sticky = false :: boolean(),
                 merge_expects = false :: boolean(),
+                passthrough = false :: boolean(),
                 reload :: {Compiler::pid(), {From::pid(), Tag::any()}} |
                           undefined,
                 trackers = [] :: [tracker()]}).
@@ -119,9 +120,9 @@ set_expect(Mod, Expect) ->
             end
     end.
 
--spec delete_expect(Mod::atom(), Func::atom(), Ari::byte()) -> ok.
-delete_expect(Mod, Func, Ari) ->
-    gen_server(call, Mod, {delete_expect, Func, Ari}).
+-spec delete_expect(Mod::atom(), Func::atom(), Ari::byte(), Force::boolean()) -> ok.
+delete_expect(Mod, Func, Ari, Force) ->
+    gen_server(call, Mod, {delete_expect, Func, Ari, Force}).
 
 -spec add_history_exception(
         Mod::atom(), CallerPid::pid(), Func::atom(), Args::[any()],
@@ -201,6 +202,7 @@ init([Mod, Options]) ->
     NoPassCover = proplists:get_bool(no_passthrough_cover, Options),
     MergeExpects = proplists:get_bool(merge_expects, Options),
     EnableOnLoad = proplists:get_bool(enable_on_load, Options),
+    Passthrough = proplists:get_bool(passthrough, Options),
     Original = backup_original(Mod, NoPassCover, EnableOnLoad),
     NoHistory = proplists:get_bool(no_history, Options),
     History = if NoHistory -> undefined; true -> [] end,
@@ -216,6 +218,7 @@ init([Mod, Options]) ->
                     original = Original,
                     was_sticky = WasSticky,
                     merge_expects = MergeExpects,
+                    passthrough = Passthrough,
                     history = History}}
     catch
         exit:{error_loading_module, Mod, sticky_directory} ->
@@ -239,10 +242,13 @@ handle_call({set_expect, Expect}, From,
         {error, Reason} ->
             {reply, {error, Reason}, S}
     end;
-handle_call({delete_expect, Func, Ari}, From,
-            S = #state{mod = Mod, expects = Expects}) ->
+handle_call({delete_expect, Func, Ari, Force}, From,
+            S = #state{mod = Mod, expects = Expects,
+                       passthrough = PassThrough}) ->
     check_if_being_reloaded(S),
-    {NewExpects, CompilerPid} = do_delete_expect(Mod, {Func, Ari}, Expects),
+    ErasePassThrough = Force orelse (not PassThrough),
+    {NewExpects, CompilerPid} =
+        do_delete_expect(Mod, {Func, Ari}, Expects, ErasePassThrough),
     {noreply, S#state{expects = NewExpects,
                       reload = {CompilerPid, From}}};
 handle_call(get_history, _From, S = #state{history = undefined}) ->
@@ -503,10 +509,18 @@ store_expect(Mod, FuncAri, Expect, Expects, false) ->
     NewExpects =  dict:store(FuncAri, Expect, Expects),
     compile_expects(Mod, NewExpects).
 
--spec do_delete_expect(Mod::atom(), meck_expect:func_ari(), Expects::meck_dict()) ->
+-spec do_delete_expect(Mod::atom(), meck_expect:func_ari(),
+                       Expects::meck_dict(), ErasePassThrough::boolean()) ->
         {NewExpects::meck_dict(), CompilerPid::pid()}.
-do_delete_expect(Mod, FuncAri, Expects) ->
-    NewExpects = dict:erase(FuncAri, Expects),
+do_delete_expect(Mod, FuncAri, Expects, ErasePassThrough) ->
+    NewExpects = case ErasePassThrough of
+                     true  ->
+                         dict:erase(FuncAri, Expects);
+                     false ->
+                         dict:store(FuncAri,
+                                    meck_expect:new_passthrough(FuncAri),
+                                    Expects)
+                 end,
     compile_expects(Mod, NewExpects).
 
 -spec compile_expects(Mod::atom(), Expects::meck_dict()) ->
