@@ -1488,6 +1488,35 @@ wait_purge_expired_tracker_test() ->
     %% Clean
     meck:unload().
 
+
+meck_passthrough_test_() ->
+    {foreach, fun setup_passthrough/0, fun teardown/1,
+     [{with, [T]} || T <- [
+                           fun ?MODULE:delete_passthrough_/1,
+                           fun ?MODULE:delete_passthrough_force_/1
+                          ]]}.
+
+setup_passthrough() ->
+    % Uncomment to run tests with dbg:
+    % dbg:tracer(),
+    % dbg:p(all, call),
+    % dbg:tpl(meck, []),
+    ok = meck:new(meck_test_module, [passthrough, non_strict]),
+    meck_test_module.
+
+delete_passthrough_(Mod) ->
+    ok = meck:expect(Mod, c, 2, {c, d}),
+    ?assertMatch({c, d}, Mod:c(a, b)),
+    ?assertEqual(ok, meck:delete(Mod, c, 2)),
+    ?assertMatch({a, b}, Mod:c(a, b)),
+    ?assert(meck:validate(Mod)).
+
+delete_passthrough_force_(Mod) ->
+    ok = meck:expect(Mod, c, 2, ok),
+    ?assertEqual(ok, meck:delete(Mod, c, 2, true)),
+    ?assertError(undef, Mod:test(a, b)),
+    ?assert(meck:validate(Mod)).
+
 %%=============================================================================
 %% Internal Functions
 %%=============================================================================
