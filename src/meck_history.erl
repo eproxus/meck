@@ -30,6 +30,7 @@
 -export([get_history/2]).
 -export([num_calls/4]).
 -export([capture/6]).
+-export([result/5]).
 -export([new_filter/3]).
 
 %%%============================================================================
@@ -93,6 +94,21 @@ capture(Occur, OptCallerPid, Mod, Func, OptArgsSpec, ArgNum) ->
             lists:nth(ArgNum, Args);
         {_CallerPid, {_Mod, Func, Args}, _Class, _Reason, _Trace} ->
             lists:nth(ArgNum, Args)
+    end.
+
+-spec result(Occur::pos_integer(), opt_pid(), Mod::atom(), Func::atom(),
+             meck_args_matcher:opt_args_spec()) -> ResultValue::any().
+result(Occur, OptCallerPid, Mod, Func, OptArgsSpec) ->
+    ArgsMatcher = meck_args_matcher:new(OptArgsSpec),
+    Filter = new_filter(OptCallerPid, Func, ArgsMatcher),
+    Filtered = lists:filter(Filter, meck_proc:get_history(Mod)),
+    case nth_record(Occur, Filtered) of
+        not_found ->
+            erlang:error(not_found);
+        {_CallerPid, _MFA, Result} ->
+            Result;
+        {_CallerPid, _MFA, Class, Reason, Trace} ->
+            erlang:raise(Class, Reason, Trace)
     end.
 
 -spec new_filter(opt_pid(), opt_func(), meck_args_matcher:args_matcher()) ->
