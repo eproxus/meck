@@ -90,6 +90,7 @@ meck_test_() ->
                            fun ?MODULE:num_calls_/1,
                            fun ?MODULE:num_calls_error_/1,
                            fun ?MODULE:num_calls_with_pid_no_args_/1,
+                           fun ?MODULE:num_calls_counts_before_return_/1,
                            fun ?MODULE:called_wildcard_/1,
                            fun ?MODULE:sequence_/1,
                            fun ?MODULE:expect_args_sequence_/1,
@@ -516,6 +517,16 @@ num_calls_with_pid_no_args_(Mod) ->
     ?assertEqual(1, meck:num_calls(Mod, test, Args, self())),
     ?assertEqual(meck:num_calls(Mod, test, Args, '_'),
                  meck:num_calls(Mod, test, Args)).
+
+num_calls_counts_before_return_(Mod) ->
+    ok = meck:expect(Mod, test, fun() -> receive call -> ok end end),
+    TestPid = self(),
+    Fun = fun() -> catch apply(Mod, test, []), TestPid ! {self(), done} end,
+    Pid = spawn(Fun),
+    ?assertEqual(1, meck:num_calls(Mod, test, [], Pid)),
+    Pid ! call,
+    receive {Pid, done} -> ok end, % sync with the spawned process
+    ?assertEqual(1, meck:num_calls(Mod, test, [], Pid)).
 
 expect_apply(Mod, Func, Args) ->
     ok = meck:expect(Mod, Func, length(Args), ok),
