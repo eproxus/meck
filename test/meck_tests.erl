@@ -17,7 +17,6 @@
 -module(meck_tests).
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("hamcrest/include/hamcrest.hrl").
 
 -define(assertTerminated(MonitorRef, Reason, Timeout),
         (fun() ->
@@ -459,8 +458,8 @@ called_few_args_matchers_(Mod) ->
     Args = [one, 2, {three, 3}, "four"],
     ok = meck:expect(Mod, test, length(Args), ok),
     ok = apply(Mod, test, Args),
-    assert_called(Mod, test, ['_', meck:is(equal_to(2)), {'_', 3}, "four"], true),
-    assert_called(Mod, test, ['_', meck:is(equal_to(3)), {'_', 3}, "four"], false),
+    assert_called(Mod, test, ['_', meck:is(fun(X) -> X == 2 end), {'_', 3}, "four"], true),
+    assert_called(Mod, test, ['_', meck:is(fun(X) -> X == 3 end), {'_', 3}, "four"], false),
     ok.
 
 called_false_error_(Mod) ->
@@ -777,7 +776,7 @@ expect_args_pattern_invalid_(Mod) ->
 expect_args_matchers_(Mod) ->
     %% When
     meck:expect(Mod, f, [{[1, meck:is(fun(X) -> X == 1 end)], a},
-                         {[1, meck:is(less_than(3))],         b},
+                         {[1, meck:is(fun(X) -> X < 3 end)],  b},
                          {['_', '_'],                         c}]),
     %% Then
     ?assertEqual(a, Mod:f(1, 1)),
@@ -951,7 +950,7 @@ stub_all_overridden_by_passthrough_test() ->
 
 mock_file_existing_test() ->
     %% Given
-    ExistingFile = atom_to_list(?MODULE) ++ ".erl",
+    ExistingFile = test_file(?MODULE, ".erl"),
     {ok, ExistsInfo} = file:read_file_info(ExistingFile),
     meck:new(file, [unstick, passthrough]),
     %% When
@@ -974,7 +973,7 @@ mock_file_missing_test() ->
     meck:unload(file).
 
 cover_test() ->
-    {ok, _} = cover:compile("../test/meck_test_module.erl"),
+    {ok, _} = cover:compile(test_file(meck_test_module, ".erl")),
     a = meck_test_module:a(),
     b = meck_test_module:b(),
     {1, 2} = meck_test_module:c(1, 2),
@@ -992,14 +991,14 @@ compile_options_setup() ->
     Module = cover_test_module,
     % Our test module won't compile without compiler options that
     % rebar won't give it, thus the rename dance.
-    Src = join("../test/", Module, ".erl"),
-    ok = file:rename(join("../test/", Module, ".dontcompile"), Src),
+    Src = test_file(Module, ".erl"),
+    ok = file:rename(test_file(Module, ".dontcompile"), Src),
     OldPath = code:get_path(),
-    code:add_path("../test"),
+    code:add_path(test_dir()),
     {OldPath, Src, Module}.
 
 compile_options_teardown({OldPath, Src, Module}) ->
-    file:rename(Src, join("../test/", Module, ".dontcompile")),
+    file:rename(Src, test_file(Module, ".dontcompile")),
     code:purge(Module),
     code:delete(Module),
     code:set_path(OldPath).
@@ -1008,10 +1007,10 @@ cover_options_({_OldPath, Src, Module}) ->
     % Test that compilation options (include paths and preprocessor
     % definitions) are used when un-mecking previously cover compiled
     % modules.
-    CompilerOptions = [{i, "../test/include"}, {d, 'TEST', true}],
+    CompilerOptions = [{i, test_include()}, {d, 'TEST', true}],
     % The option recover feature depends on having the BEAM file
     % available.
-    {ok, _} = compile:file(Src, [{outdir, "../test"}|CompilerOptions]),
+    {ok, _} = compile:file(Src, [{outdir, test_dir()}|CompilerOptions]),
     {ok, _} = cover:compile(Src, CompilerOptions),
     a      = Module:a(),
     b      = Module:b(),
@@ -1026,7 +1025,10 @@ cover_options_({_OldPath, Src, Module}) ->
 -ifdef(cover_empty_compile_opts).
 -define(compile_options, []).
 -else.
--define(compile_options, [{i,"../test/include"},{d,'TEST',true}]).
+-define(compile_options, [
+    {i, test_include()},
+    {d, 'TEST', true}
+]).
 -endif.
 cover_options_fail_({_OldPath, Src, Module}) ->
     %% This may look like the test above but there is a subtle
@@ -1034,8 +1036,12 @@ cover_options_fail_({_OldPath, Src, Module}) ->
     %% compile options.  This test verifies that function `b/0', which
     %% relies on the `TEST' directive being set can still be called
     %% after the module is meck'ed.
-    CompilerOptions = [{i, "../test/include"}, {d, 'TEST', true},
-                       {outdir, "../test"}, debug_info],
+    CompilerOptions = [
+        debug_info,
+        {i, test_include()},
+        {outdir, test_dir()},
+        {d, 'TEST', true}
+    ],
     {ok, _} = compile:file(Src, CompilerOptions),
     ?assertEqual(
         proplists:delete(outdir, lists:sort(CompilerOptions)),
@@ -1056,7 +1062,12 @@ cover_options_fail_({_OldPath, Src, Module}) ->
     %% Verify passthru calls went to cover
     ?assertEqual({ok, {Module, 4}}, cover:analyze(Module, calls, module)).
 
-join(Path, Module, Ext) -> filename:join(Path, atom_to_list(Module) ++ Ext).
+test_file(Module, Ext) ->
+    filename:join(test_dir(), atom_to_list(Module) ++ Ext).
+
+test_dir() -> filename:dirname(?FILE).
+
+test_include() -> filename:join(test_dir(), "include").
 
 run_mock_no_cover_file(Module) ->
     ok = meck:new(Module),
@@ -1068,14 +1079,14 @@ run_mock_no_cover_file(Module) ->
 %% @doc Verify that passthrough calls _don't_ appear in cover
 %% analysis.
 no_cover_passthrough_test() ->
-    {ok, _} = cover:compile("../test/meck_test_module.erl"),
+    {ok, _} = cover:compile("test/meck_test_module.erl"),
     {ok, {meck_test_module, {0,3}}} = cover:analyze(meck_test_module, module),
     passthrough_test([no_passthrough_cover]),
     {ok, {meck_test_module, {0,3}}} = cover:analyze(meck_test_module, module).
 
 %% @doc Verify that passthrough calls appear in cover analysis.
 cover_passthrough_test() ->
-    {ok, _} = cover:compile("../test/meck_test_module.erl"),
+    {ok, _} = cover:compile("test/meck_test_module.erl"),
     ?assertEqual({ok, {meck_test_module, {0,3}}},
                  cover:analyze(meck_test_module, module)),
     passthrough_test([]),
@@ -1083,7 +1094,7 @@ cover_passthrough_test() ->
                  cover:analyze(meck_test_module, module)).
 
 cover_path_test() ->
-    {ok, _} = cover:compile("../test/meck_test_module.erl"),
+    {ok, _} = cover:compile("test/meck_test_module.erl"),
     ?assertEqual({ok, {meck_test_module, {0,3}}},
                  cover:analyze(meck_test_module, module)),
     ok = meck:new(meck_test_module, [passthrough]),
@@ -1109,8 +1120,10 @@ unload_when_crashed_test() ->
     Pid = whereis(SaltedName),
     ?assertEqual(true, is_pid(Pid)),
     unlink(Pid),
+    error_logger:tty(false),
     exit(Pid, expected_test_exit),
     timer:sleep(100),
+    error_logger:tty(true),
     ?assertEqual(undefined, whereis(SaltedName)),
     ?assertEqual(false, code:is_loaded(mymod)).
 
@@ -1246,7 +1259,7 @@ remote_setup() ->
     Myself = list_to_atom("meck_eunit_test@" ++ Hostname),
     net_kernel:start([Myself, shortnames]),
     {ok, Node} = slave:start_link(list_to_atom(Hostname), meck_remote_test,
-                                  "-pa test"),
+                                  "-pa \"" ++ test_dir() ++ "\""),
     {Mod, Bin, File} = code:get_object_code(meck),
     true = rpc:call(Node, code, add_path, [filename:dirname(File)]),
     {module, Mod} = rpc:call(Node, code, load_binary, [Mod, File, Bin]),
@@ -1264,7 +1277,7 @@ remote_meck_({Node, Mod}) ->
     ?assertEqual(true, rpc:call(Node, Mod, test, [])).
 
 remote_meck_cover_({Node, Mod}) ->
-    {ok, Mod} = cover:compile(Mod),
+    {ok, Mod} = cover:compile(test_file(Mod, ".erl")),
     {ok, _Nodes} = cover:start([Node]),
     ?assertEqual(ok, rpc:call(Node, meck, new, [Mod])).
 
@@ -1320,7 +1333,9 @@ can_mock_sticky_module_not_yet_loaded_({Mod, _}) ->
     ?assert(code:is_sticky(Mod)).
 
 cannot_mock_sticky_module_without_unstick_({Mod, _}) ->
-    ?assertError(module_is_sticky, meck:new(Mod, [no_link])).
+    error_logger:tty(false),
+    ?assertError(module_is_sticky, meck:new(Mod, [no_link])),
+    error_logger:tty(true).
 
 can_mock_non_sticky_module_test() ->
     ?assertNot(code:is_sticky(meck_test_module)),
@@ -1424,6 +1439,7 @@ wait_timeout_test() ->
     meck:unload().
 
 wait_for_the_same_pattern_on_different_processes_test() ->
+    error_logger:tty(false),
     %% Given
     meck:new(test, [non_strict]),
     meck:expect(test, foo, 2, ok),
@@ -1447,9 +1463,11 @@ wait_for_the_same_pattern_on_different_processes_test() ->
     ?assertTerminated(MonitorRef1, normal, 300),
     ?assertTerminated(MonitorRef2, {timeout, _}, 300),
     %% Clean
-    meck:unload().
+    meck:unload(),
+    error_logger:tty(true).
 
 wait_for_different_patterns_on_different_processes_test() ->
+    error_logger:tty(false),
     %% Given
     meck:new(test, [non_strict]),
     meck:expect(test, foo, 1, ok),
@@ -1476,7 +1494,8 @@ wait_for_different_patterns_on_different_processes_test() ->
     ?assertTerminated(MonitorRef1, {timeout, _}, 300),
     ?assertTerminated(MonitorRef2, normal, 300),
     %% Clean
-    meck:unload().
+    meck:unload(),
+    error_logger:tty(true).
 
 wait_purge_expired_tracker_test() ->
     %% Given

@@ -78,7 +78,7 @@ capture_different_args_specs_test() ->
     ?assertMatch(2003, meck:capture(first, test, foo, 3, 2)),
     ?assertMatch(2005, meck:capture(first, test, foo, ['_', '_'], 2)),
     ?assertMatch(2006, meck:capture(first, test, foo, [1006, '_', '_'], 2)),
-    ?assertMatch(2008, meck:capture(first, test, foo, ['_', '_', meck:is(hamcrest_matchers:greater_than(3006))], 2)),
+    ?assertMatch(2008, meck:capture(first, test, foo, ['_', '_', meck:is(fun(X) -> X > 3006 end)], 2)),
     %% Clean
     meck:unload().
 
@@ -126,7 +126,7 @@ result_different_args_specs_test() ->
     ?assertMatch(2003, meck_history:result(first, '_', test, foo, 3)),
     ?assertMatch(2005, meck_history:result(first, '_', test, foo, ['_', '_'])),
     ?assertMatch(2006, meck_history:result(first, '_', test, foo, [1006, '_', '_'])),
-    Matcher = meck:is(hamcrest_matchers:greater_than(3006)),
+    Matcher = meck:is(fun(X) -> X > 3006 end),
     ?assertMatch(2008, meck_history:result(first, '_', test, foo, ['_', '_', Matcher])),
     %% Clean
     meck:unload().

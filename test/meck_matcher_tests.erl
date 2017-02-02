@@ -28,7 +28,7 @@ match_predicate_not_bool_test() ->
     ?assertMatch(false, meck_matcher:match_ignore(1001, Matcher)).
 
 match_hamcrest_test() ->
-    Matcher = meck_matcher:new(hamcrest_matchers:equal_to(1000)),
+    Matcher = meck_matcher:new(fun(X) -> X == 1000 end),
     ?assertMatch(true, meck_matcher:match_ignore(1000, Matcher)),
     ?assertMatch(false, meck_matcher:match_ignore(1001, Matcher)).
 
@@ -43,6 +43,4 @@ predicate_wrong_arity_test() ->
 is_matcher_test() ->
     ?assertMatch(true, meck_matcher:is_matcher(meck_matcher:new(fun(X) -> X == 1000 end))),
     ?assertMatch(false, meck_matcher:is_matcher(fun(X) -> X == 1000 end)),
-    ?assertMatch(true, meck_matcher:is_matcher(meck_matcher:new(hamcrest_matchers:equal_to(1000)))),
-    ?assertMatch(false, meck_matcher:is_matcher(hamcrest_matchers:equal_to(1000))),
     ?assertMatch(false, meck_matcher:is_matcher(blah)).

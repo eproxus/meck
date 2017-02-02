@@ -44,7 +44,7 @@ from_empty_args_test() ->
     ?assertMatch(false, meck_args_matcher:match([1, 2, 3], ArgsMatcher)).
 
 matcher_featured_test() ->
-    ArgsSpec = [meck:is(hamcrest_matchers:equal_to(1)),
+    ArgsSpec = [meck:is(fun(X) -> X == 1 end),
                 2,
                 meck:is(fun(X) -> X == 3 end),
                 {4, [5, '_'], <<"7">>}],

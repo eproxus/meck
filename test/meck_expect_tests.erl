@@ -56,7 +56,7 @@ expect_wildcard_test() ->
 expect_matchers_test() ->
     %% Given
     Is1003 = meck_matcher:new(fun(X) -> X == 1003 end),
-    LessThen1004 = meck_matcher:new(hamcrest_matchers:less_than(1004)),
+    LessThen1004 = meck_matcher:new(fun(X) -> X < 1004 end),
     %% When
     E = meck_expect:new(blah, [Is1003, LessThen1004], 2001),
     %% Then
@@ -69,7 +69,7 @@ expect_matchers_test() ->
 expect_with_matchers_multiclause_test() ->
     %% Given
     Is1003 = meck_matcher:new(fun(X) -> X == 1003 end),
-    LessThen1004 = meck_matcher:new(hamcrest_matchers:less_than(1004)),
+    LessThen1004 = meck_matcher:new(fun(X) -> X < 1004 end),
     %% When
     E = meck_expect:new(blah, [{['_', Is1003, 1004],         2001},
                                {['_', Is1003, LessThen1004], 2002},
@@ -90,7 +90,7 @@ expect_with_matchers_multiclause_test() ->
 expect_with_matchers_masked_clause_test() ->
     %% Given
     Is1003 = meck_matcher:new(fun(X) -> X == 1003 end),
-    LessThen1004 = meck_matcher:new(hamcrest_matchers:less_than(1004)),
+    LessThen1004 = meck_matcher:new(fun(X) -> X < 1004 end),
     %% When
     E = meck_expect:new(blah, [{[Is1003, LessThen1004], 2001},
                                {[Is1003, Is1003], 2002}]),
