@@ -7,8 +7,6 @@ Meck
 
 A mocking library for Erlang.
 
-<a name='features'>
-
 Features
 --------
 
@@ -27,9 +25,6 @@ See what's new in [0.8 Release Notes][1].
   * Mock is linked to the creating process and will unload automatically
     when a crash occurs (disable with option `no_link`)
   * Mocking of sticky modules (using the option `unstick`)
-
-
-<a name='examples'>
 
 Examples
 --------
@@ -142,8 +137,6 @@ ok
 "test"
 ```
 
-<a name='build'>
-
 Build
 -----
 
@@ -175,8 +168,6 @@ Documentation can be generated through the use of the following command:
 make doc
 ```
 
-<a name='install'>
-
 Install
 -------
 
@@ -194,9 +185,6 @@ If you want to install your own built version of Meck add the ebin
 directory to your Erlang code path or move the Meck folder into your
 release folder and make sure that folder is in your `ERL_LIBS`
 environment variable.
-
-
-<a name='contribute'>
 
 Caveats
 -------
