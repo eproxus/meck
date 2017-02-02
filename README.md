@@ -9,6 +9,13 @@ Meck
 
 A mocking library for Erlang.
 
+  * [Features](#features)
+  * [Examples](#examples)
+  * [Use](#use)
+  * [Build](#build)
+  * [Caveats](#caveats)
+  * [Contribute](#contribute)
+
 Features
 --------
 
