@@ -75,6 +75,7 @@ meck_test_() ->
                            fun ?MODULE:shortcut_call_argument_/1,
                            fun ?MODULE:shortcut_re_add_/1,
                            fun ?MODULE:shortcut_opaque_/1,
+                           fun ?MODULE:shortcut_stacktrace_/1,
                            fun ?MODULE:delete_/1,
                            fun ?MODULE:called_false_no_args_/1,
                            fun ?MODULE:called_true_no_args_/1,
@@ -395,6 +396,13 @@ shortcut_opaque_(Mod) ->
     Ref = make_ref(),
     ok = meck:expect(Mod, test, 0, {test, [a, self()], Ref}),
     ?assertMatch({test, [a, P], Ref} when P == self(), Mod:test()).
+
+shortcut_stacktrace_(Mod) ->
+    ok = meck:expect(Mod, test, [true], ok),
+    ?assertEqual(
+        {'EXIT', {function_clause, [{mymod, test, [false], []}]}},
+        catch(Mod:test(false))
+    ).
 
 delete_(Mod) ->
     ok = meck:expect(Mod, test, 2, ok),

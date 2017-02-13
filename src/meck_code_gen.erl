@@ -190,8 +190,8 @@ raise(Pid, Mod, Func, Args, Class, Reason) ->
 -spec inject(Mod::atom(), Func::atom(), Args::[any()],
              meck_history:stack_trace()) ->
         NewStackTrace::meck_history:stack_trace().
-inject(_Mod, _Func, _Args, []) ->
-    [];
+inject(Mod, Func, Args, []) ->
+    [{Mod, Func, Args}];
 inject(Mod, Func, Args, [{?MODULE, exec, _AriOrArgs, _Loc}|Stack]) ->
     [{Mod, Func, Args} | Stack];
 inject(Mod, Func, Args, [{?MODULE, exec, _AriOrArgs}|Stack]) ->
