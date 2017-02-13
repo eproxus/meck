@@ -147,7 +147,7 @@ ok
 Use
 ---
 
-Meck is best used via [Rebar 3]. Add the following dependency to your
+Meck is best used via [Rebar 3][rebar_3]. Add the following dependency to your
 `rebar.config` in your project root:
 
 ```erlang
