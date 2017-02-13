@@ -261,7 +261,7 @@ donations][coinbase] are greatly appreciated!
 
 <!-- Badges -->
 [travis]: https://travis-ci.org/eproxus/meck
-[travis badge]: https://img.shields.io/travis/eproxus/meck.svg?style=flat-square
+[travis badge]: https://img.shields.io/travis/eproxus/meck/master.svg?style=flat-square
 [hex]: https://hex.pm/packages/meck
 [hex version badge]: https://img.shields.io/hexpm/v/meck.svg?style=flat-square
 [hex license badge]: https://img.shields.io/hexpm/l/meck.svg?style=flat-square
