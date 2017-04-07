@@ -349,6 +349,31 @@ passthrough(Args) when is_list(Args) ->
 %% arguments or non-existing function (undef), wrong arguments
 %% (function clause) or unexpected exceptions.
 %%
+%% Validation can detect:
+%%
+%% <ul>
+%%   <li>When a function was called with the wrong argument types
+%%       (`function_clause')</li>
+%%   <li>When an exception was thrown</li>
+%%   <li>When an exception was thrown and expected (via meck:exception/2),
+%%       which still results in `true' being returned</li>
+%% </ul>
+%%
+%% Validation cannot detect:
+%%
+%% <ul>
+%%   <li>When you didn't call a function</li>
+%%   <li>When you called a function with the wrong number of arguments
+%%       (`undef')</li>
+%%   <li>When you called an undefined function (`undef')</li>
+%% </ul>
+%%
+%% The reason Meck cannot detect these cases is because of how it is implemented.
+%% Meck replaces the module with a mock and a process that maintains the mock.
+%% Everything Meck get goes through that mock module. Meck does not insert
+%% itself at the caller level (i.e. in your module or in your test case), so it
+%% cannot know that you failed to call a module.
+%%
 %% Use the {@link history/1} or {@link history/2} function to analyze errors.
 -spec validate(Mods) -> boolean() when
       Mods :: Mod | [Mod],
