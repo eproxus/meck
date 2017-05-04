@@ -643,7 +643,7 @@ is(MatcherImpl) ->
 %%
 %% If an occurrence of a function call irrespective of the calling process needs
 %% to be captured then `_' might be passed as `OptCallerPid', but it is better
-%% to use {@link capture/3} instead.
+%% to use {@link capture/5} instead.
 -spec capture(Occur, Mod, Func, OptArgsSpec, ArgNum, OptCallerPid) -> ArgValue when
       Occur :: first | last | pos_integer(),
       Mod :: atom(),
@@ -667,7 +667,7 @@ capture(Occur, Mod, Func, OptArgsSpec, ArgNum, OptCallerPid) ->
 %% retrieve the argument value passed when the function was called the first
 %% or the last time respectively.
 %%
-%% @equiv capture(Occur, '_', Mod, Func, OptArgsSpec, ArgNum)
+%% @equiv capture(Occur, Mod, Func, OptArgsSpec, ArgNum, '_')
 -spec capture(Occur, Mod, Func, OptArgsSpec, ArgNum) -> ArgValue when
       Occur :: first | last | pos_integer(),
       Mod::atom(),
