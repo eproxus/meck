@@ -16,7 +16,8 @@
 
 ## Versions
 
-**Meck version:** [Enter Meck version here]
-**Erlang version:** [Enter Erlang version here]
+* **Meck version:** [Enter Meck version here]
+* **Erlang version:** [Enter Erlang version here]
 
-[Add any other environment or test framework related information here]
+[Add any other environment or test framework related information here, such as
+what OS you are using and how Erlang is installed]
