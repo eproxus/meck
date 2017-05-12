@@ -63,7 +63,7 @@ attributes(Mod) ->
     try
         [?attribute(Key, Val) || {Key, Val} <-
             proplists:get_value(attributes, Mod:module_info(), []),
-            Key =/= vsn, Key =/= deprecated, Key =/= optional_callbacks]
+            Key =:= callback]
     catch
         error:undef -> []
     end.
