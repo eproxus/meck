@@ -59,11 +59,23 @@ get_current_call() ->
 %%% Internal functions
 %%%============================================================================
 
+attribute({Key, _Value}, Attrs)
+    when Key =:= vsn;
+	 Key =:= deprecated;
+	 Key =:= optional_callbacks ->
+    Attrs;
+attribute({Key, Value}, Attrs)
+  when (Key =:= behaviour orelse Key =:= behavior)
+       andalso is_list(Value) ->
+    lists:foldl(fun(Behavior, Acc) -> [?attribute(Key, Behavior) | Acc] end,
+		Attrs, Value);
+attribute({Key, Value}, Attrs) ->
+    [?attribute(Key, Value) | Attrs].
+
 attributes(Mod) ->
     try
-        [?attribute(Key, Val) || {Key, Val} <-
-            proplists:get_value(attributes, Mod:module_info(), []),
-            Key =/= vsn, Key =/= deprecated, Key =/= optional_callbacks]
+	lists:foldl(fun attribute/2, [],
+		    proplists:get_value(attributes, Mod:module_info(), []))
     catch
         error:undef -> []
     end.
