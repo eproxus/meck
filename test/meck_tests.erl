@@ -16,11 +16,8 @@
 
 -module(meck_tests).
 
--compile(export_all).
-
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("hamcrest/include/hamcrest.hrl").
-
 
 -define(assertTerminated(MonitorRef, Reason, Timeout),
         (fun() ->
@@ -37,85 +34,85 @@
 
 meck_test_() ->
     {foreach, fun setup/0, fun teardown/1,
-     [{with, [T]} || T <- [fun ?MODULE:new_/1,
-                           fun ?MODULE:unload_/1,
-                           fun ?MODULE:double_new_/1,
-                           fun ?MODULE:validate_/1,
-                           fun ?MODULE:expect_/1,
-                           fun ?MODULE:exports_/1,
-                           fun ?MODULE:call_return_value_/1,
-                           fun ?MODULE:call_return_value_improper_list_/1,
-                           fun ?MODULE:call_argument_/1,
-                           fun ?MODULE:call_undef_/1,
-                           fun ?MODULE:call_function_clause_/1,
-                           fun ?MODULE:validate_unexpected_error_/1,
-                           fun ?MODULE:validate_expected_error_/1,
-                           fun ?MODULE:validate_chained_/1,
-                           fun ?MODULE:stacktrace_/1,
-                           fun ?MODULE:stacktrace_function_clause_/1,
-                           fun ?MODULE:change_func_/1,
-                           fun ?MODULE:caller_does_not_crash_on_reload_/1,
-                           fun ?MODULE:call_original_undef_/1,
-                           fun ?MODULE:history_empty_/1,
-                           fun ?MODULE:history_call_/1,
-                           fun ?MODULE:history_throw_/1,
-                           fun ?MODULE:history_throw_fun_/1,
-                           fun ?MODULE:history_exit_/1,
-                           fun ?MODULE:history_error_/1,
-                           fun ?MODULE:history_error_args_/1,
-                           fun ?MODULE:history_meck_throw_/1,
-                           fun ?MODULE:history_meck_throw_fun_/1,
-                           fun ?MODULE:history_meck_exit_/1,
-                           fun ?MODULE:history_meck_error_/1,
-                           fun ?MODULE:history_by_pid_/1,
-                           fun ?MODULE:reset_/1,
-                           fun ?MODULE:shortcut_expect_/1,
-                           fun ?MODULE:shortcut_expect_negative_arity_/1,
-                           fun ?MODULE:shortcut_call_return_value_/1,
-                           fun ?MODULE:shortcut_call_argument_/1,
-                           fun ?MODULE:shortcut_re_add_/1,
-                           fun ?MODULE:shortcut_opaque_/1,
-                           fun ?MODULE:shortcut_stacktrace_/1,
-                           fun ?MODULE:delete_/1,
-                           fun ?MODULE:called_false_no_args_/1,
-                           fun ?MODULE:called_true_no_args_/1,
-                           fun ?MODULE:called_true_two_functions_/1,
-                           fun ?MODULE:called_false_one_arg_/1,
-                           fun ?MODULE:called_true_one_arg_/1,
-                           fun ?MODULE:called_false_few_args_/1,
-                           fun ?MODULE:called_true_few_args_/1,
-                           fun ?MODULE:called_few_args_matchers_/1,
-                           fun ?MODULE:called_false_error_/1,
-                           fun ?MODULE:called_true_error_/1,
-                           fun ?MODULE:called_with_pid_no_args_/1,
-                           fun ?MODULE:num_calls_/1,
-                           fun ?MODULE:num_calls_error_/1,
-                           fun ?MODULE:num_calls_with_pid_no_args_/1,
-                           fun ?MODULE:called_wildcard_/1,
-                           fun ?MODULE:sequence_/1,
-                           fun ?MODULE:expect_args_sequence_/1,
-                           fun ?MODULE:expect_arity_sequence_/1,
-                           fun ?MODULE:expect_complex_sequence_/1,
-                           fun ?MODULE:sequence_multi_/1,
-                           fun ?MODULE:loop_/1,
-                           fun ?MODULE:expect_empty_clause_list_/1,
-                           fun ?MODULE:expect_args_value_/1,
-                           fun ?MODULE:expect_args_invalid_call_/1,
-                           fun ?MODULE:expect_arity_value_/1,
-                           fun ?MODULE:expect_args_loop_/1,
-                           fun ?MODULE:expect_arity_loop_/1,
-                           fun ?MODULE:expect_complex_loop_/1,
-                           fun ?MODULE:expect_loop_in_seq_/1,
-                           fun ?MODULE:expect_args_exception_/1,
-                           fun ?MODULE:expect_arity_exception_/1,
-                           fun ?MODULE:expect_arity_clause_/1,
-                           fun ?MODULE:loop_multi_/1,
-                           fun ?MODULE:expect_args_pattern_override_/1,
-                           fun ?MODULE:expect_args_pattern_shadow_/1,
-                           fun ?MODULE:expect_args_pattern_missing_/1,
-                           fun ?MODULE:expect_args_pattern_invalid_/1,
-                           fun ?MODULE:expect_args_matchers_/1,
-                           fun ?MODULE:expect_ret_specs_/1
+     [{with, [T]} || T <- [fun new_/1,
+                           fun unload_/1,
+                           fun double_new_/1,
+                           fun validate_/1,
+                           fun expect_/1,
+                           fun exports_/1,
+                           fun call_return_value_/1,
+                           fun call_return_value_improper_list_/1,
+                           fun call_argument_/1,
+                           fun call_undef_/1,
+                           fun call_function_clause_/1,
+                           fun validate_unexpected_error_/1,
+                           fun validate_expected_error_/1,
+                           fun validate_chained_/1,
+                           fun stacktrace_/1,
+                           fun stacktrace_function_clause_/1,
+                           fun change_func_/1,
+                           fun caller_does_not_crash_on_reload_/1,
+                           fun call_original_undef_/1,
+                           fun history_empty_/1,
+                           fun history_call_/1,
+                           fun history_throw_/1,
+                           fun history_throw_fun_/1,
+                           fun history_exit_/1,
+                           fun history_error_/1,
+                           fun history_error_args_/1,
+                           fun history_meck_throw_/1,
+                           fun history_meck_throw_fun_/1,
+                           fun history_meck_exit_/1,
+                           fun history_meck_error_/1,
+                           fun history_by_pid_/1,
+                           fun reset_/1,
+                           fun shortcut_expect_/1,
+                           fun shortcut_expect_negative_arity_/1,
+                           fun shortcut_call_return_value_/1,
+                           fun shortcut_call_argument_/1,
+                           fun shortcut_re_add_/1,
+                           fun shortcut_opaque_/1,
+                           fun shortcut_stacktrace_/1,
+                           fun delete_/1,
+                           fun called_false_no_args_/1,
+                           fun called_true_no_args_/1,
+                           fun called_true_two_functions_/1,
+                           fun called_false_one_arg_/1,
+                           fun called_true_one_arg_/1,
+                           fun called_false_few_args_/1,
+                           fun called_true_few_args_/1,
+                           fun called_few_args_matchers_/1,
+                           fun called_false_error_/1,
+                           fun called_true_error_/1,
+                           fun called_with_pid_no_args_/1,
+                           fun num_calls_/1,
+                           fun num_calls_error_/1,
+                           fun num_calls_with_pid_no_args_/1,
+                           fun called_wildcard_/1,
+                           fun sequence_/1,
+                           fun expect_args_sequence_/1,
+                           fun expect_arity_sequence_/1,
+                           fun expect_complex_sequence_/1,
+                           fun sequence_multi_/1,
+                           fun loop_/1,
+                           fun expect_empty_clause_list_/1,
+                           fun expect_args_value_/1,
+                           fun expect_args_invalid_call_/1,
+                           fun expect_arity_value_/1,
+                           fun expect_args_loop_/1,
+                           fun expect_arity_loop_/1,
+                           fun expect_complex_loop_/1,
+                           fun expect_loop_in_seq_/1,
+                           fun expect_args_exception_/1,
+                           fun expect_arity_exception_/1,
+                           fun expect_arity_clause_/1,
+                           fun loop_multi_/1,
+                           fun expect_args_pattern_override_/1,
+                           fun expect_args_pattern_shadow_/1,
+                           fun expect_args_pattern_missing_/1,
+                           fun expect_args_pattern_invalid_/1,
+                           fun expect_args_matchers_/1,
+                           fun expect_ret_specs_/1
                           ]]}.
 
 setup() ->
@@ -524,10 +521,6 @@ num_calls_with_pid_no_args_(Mod) ->
     ?assertEqual(1, meck:num_calls(Mod, test, Args, self())),
     ?assertEqual(meck:num_calls(Mod, test, Args, '_'),
                  meck:num_calls(Mod, test, Args)).
-
-expect_apply(Mod, Func, Args) ->
-    ok = meck:expect(Mod, Func, length(Args), ok),
-    ok = apply(Mod, Func, Args).
 
 expect_catch_apply(Mod, Func, Args) ->
     TestFun = fun (_, _, _) -> meck:exception(error, my_error) end,
@@ -991,8 +984,8 @@ cover_test() ->
 
 cover_options_test_() ->
     {foreach, fun compile_options_setup/0, fun compile_options_teardown/1,
-     [{with, [T]} || T <- [fun ?MODULE:cover_options_/1,
-                           fun ?MODULE:cover_options_fail_/1
+     [{with, [T]} || T <- [fun cover_options_/1,
+                           fun cover_options_fail_/1
                           ]]}.
 
 compile_options_setup() ->
@@ -1044,7 +1037,10 @@ cover_options_fail_({_OldPath, Src, Module}) ->
     CompilerOptions = [{i, "../test/include"}, {d, 'TEST', true},
                        {outdir, "../test"}, debug_info],
     {ok, _} = compile:file(Src, CompilerOptions),
-    ?assertEqual(CompilerOptions, meck_code:compile_options(Module)),
+    ?assertEqual(
+        proplists:delete(outdir, lists:sort(CompilerOptions)),
+        proplists:delete(outdir, lists:sort(meck_code:compile_options(Module)))
+    ),
     {ok, _} = cover:compile_beam(Module),
     ?assertEqual(?compile_options, meck_code:compile_options(Module)),
     a      = Module:a(),
@@ -1284,8 +1280,8 @@ can_mock_sticky_modules_test() ->
 sticky_directory_test_() ->
     {foreach, fun sticky_setup/0, fun sticky_teardown/1,
      [{with, [T]}
-      || T <- [fun ?MODULE:can_mock_sticky_module_not_yet_loaded_/1,
-               fun ?MODULE:cannot_mock_sticky_module_without_unstick_/1]]}.
+      || T <- [fun can_mock_sticky_module_not_yet_loaded_/1,
+               fun cannot_mock_sticky_module_without_unstick_/1]]}.
 
 sticky_setup() ->
     % Find out where the beam file is (purge because it is cover compiled)
@@ -1500,8 +1496,8 @@ wait_purge_expired_tracker_test() ->
 meck_passthrough_test_() ->
     {foreach, fun setup_passthrough/0, fun teardown/1,
      [{with, [T]} || T <- [
-                           fun ?MODULE:delete_passthrough_/1,
-                           fun ?MODULE:delete_passthrough_force_/1
+                           fun delete_passthrough_/1,
+                           fun delete_passthrough_force_/1
                           ]]}.
 
 setup_passthrough() ->
