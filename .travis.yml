@@ -3,7 +3,8 @@ notifications:
   email:
     - hello@alind.io
 otp_release:
-  - 19.2
+  - 20.0
+  - 19.3
   - 18.3
   - 17.5
   - R16B03-1
