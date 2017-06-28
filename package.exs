@@ -4,7 +4,7 @@ defmodule Meck.Mixfile do
   def project do
     [
       app: :meck,
-      version: "0.8.5",
+      version: "0.8.6",
       description: description,
       package: package,
       deps: [],
