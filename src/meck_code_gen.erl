@@ -62,7 +62,8 @@ get_current_call() ->
 attribute({Key, _Value}, Attrs)
     when Key =:= vsn;
 	 Key =:= deprecated;
-	 Key =:= optional_callbacks ->
+	 Key =:= optional_callbacks;
+     Key =:= dialyzer ->
     Attrs;
 attribute({Key, Value}, Attrs)
   when (Key =:= behaviour orelse Key =:= behavior)
