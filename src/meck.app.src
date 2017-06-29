@@ -11,6 +11,6 @@
     {licenses, ["Apache 2.0"]},
     {links, [
         {"Changelog", "https://github.com/eproxus/meck/blob/master/CHANGELOG.md"},
-        {"GitHub", "https://github.com/eproxus/meck"},
+        {"GitHub", "https://github.com/eproxus/meck"}
     ]}
 ]}.
