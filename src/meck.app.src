@@ -9,5 +9,8 @@
     % Hex.pm
     {maintainers, ["Adam Lindberg"]},
     {licenses, ["Apache 2.0"]},
-    {links, [{"GitHub", "https://github.com/eproxus/meck"}]}
+    {links, [
+        {"Changelog", "https://github.com/eproxus/meck/blob/master/CHANGELOG.md"},
+        {"GitHub", "https://github.com/eproxus/meck"},
+    ]}
 ]}.
