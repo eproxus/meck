@@ -1,5 +1,12 @@
 # Change Log
 
+## [0.8.7](https://github.com/eproxus/meck/tree/0.8.7) (2017-06-29)
+[Full Changelog](https://github.com/eproxus/meck/compare/0.8.6...0.8.7)
+
+**Closed issues:**
+
+- Remove dialyzer attributes when creating mock \(Erlang 20.0\) [\#178](https://github.com/eproxus/meck/issues/178)
+
 ## [0.8.6](https://github.com/eproxus/meck/tree/0.8.6) (2017-06-28)
 [Full Changelog](https://github.com/eproxus/meck/compare/0.8.5...0.8.6)
 
