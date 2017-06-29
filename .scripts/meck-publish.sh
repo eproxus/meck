@@ -26,7 +26,7 @@ git add doc/overview.edoc
 
 # Commit, tag and push
 git commit -m "Version $VSN"
-git tag -s $1 -m "Version $VSN"
+git tag -s "$VSN" -m "Version $VSN"
 
 git push && git push --tags
 rebar3 hex publish
@@ -34,3 +34,4 @@ rebar3 hex publish
 github_changelog_generator
 git add CHANGELOG.md
 git commit -m "Update Changelog for version $VSN"
+git push
