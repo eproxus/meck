@@ -1,8 +1,13 @@
-%% -*- mode: erlang; -*-
-{application, meck,
- [{description, "A mocking framework for Erlang"},
-  {vsn, "0.8.6"},
-  {modules, []},
-  {registered, []},
-  {applications, [kernel, stdlib, tools]},
-  {env, []}]}.
+{application, meck, [
+    {description, "A mocking framework for Erlang"},
+    {vsn, "0.8.6"},
+    {modules, []},
+    {registered, []},
+    {applications, [kernel, stdlib, tools]},
+    {env, []},
+
+    % Hex.pm
+    {maintainers, ["Adam Lindberg"]},
+    {licenses, ["Apache 2.0"]},
+    {links, [{"GitHub", "https://github.com/eproxus/meck"}]}
+]}.
