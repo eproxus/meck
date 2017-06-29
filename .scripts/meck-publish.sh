@@ -30,6 +30,7 @@ git tag -s "$VSN" -m "Version $VSN"
 
 git push && git push --tags
 rebar3 hex publish
+rebar3 hex docs
 
 github_changelog_generator
 git add CHANGELOG.md
