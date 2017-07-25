@@ -358,7 +358,7 @@ backup_original(Mod, NoPassCover, EnableOnLoad) ->
         Forms0 = meck_code:abstract_code(meck_code:beam_file(Mod)),
         Forms = meck_code:enable_on_load(Forms0, EnableOnLoad),
         NewName = meck_util:original_name(Mod),
-        CompileOpts = meck_code:compile_options(meck_code:beam_file(Mod)),
+        CompileOpts = [debug_info | meck_code:compile_options(meck_code:beam_file(Mod))],
         Renamed = meck_code:rename_module(Forms, NewName),
         Binary = meck_code:compile_and_load_forms(Renamed, CompileOpts),
 
