@@ -1,5 +1,16 @@
 # Change Log
 
+## [0.8.8](https://github.com/eproxus/meck/tree/0.8.8) (2017-08-29)
+[Full Changelog](https://github.com/eproxus/meck/compare/0.8.7...0.8.8)
+
+**Closed issues:**
+
+- `{:error, {:no\_abstract\_code, ...}}` with Elixir 1.5.0-rc.0 and Erlang 20.0 [\#179](https://github.com/eproxus/meck/issues/179)
+
+**Merged pull requests:**
+
+- Always add debug\_info to compile opts for mocks [\#180](https://github.com/eproxus/meck/pull/180) ([antipax](https://github.com/antipax))
+
 ## [0.8.7](https://github.com/eproxus/meck/tree/0.8.7) (2017-06-29)
 [Full Changelog](https://github.com/eproxus/meck/compare/0.8.6...0.8.7)
 
