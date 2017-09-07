@@ -185,7 +185,7 @@ rebar3 edoc
 
 ### Test Output
 
-Normally the test output is hidden using [Unite][unite]. If EUnit is run
+Normally the test output is hidden, but if EUnit is run
 directly, two things might seem alarming when running the tests:
 
   1. Warnings emitted by cover
@@ -278,7 +278,6 @@ donations][coinbase] are greatly appreciated!
 [release_notes_0.8]: https://github.com/eproxus/meck/wiki/0.8-Release-Notes
 [hamcrest]: https://github.com/hyperthunk/hamcrest-erlang
 [rebar_3]: https://github.com/erlang/rebar3
-[unite]: https://github.com/eproxus/unite
 [issues]: http://github.com/eproxus/meck/issues
 [commit_messages]: http://chris.beams.io/posts/git-commit/
 [coinbase]: https://www.coinbase.com/alind
