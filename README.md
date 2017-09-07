@@ -12,7 +12,7 @@ A mocking library for Erlang.
   * [Features](#features)
   * [Examples](#examples)
   * [Use](#use)
-  * [Build](#build)
+  * [Manual Build](#manual-build)
   * [Caveats](#caveats)
   * [Contribute](#contribute)
 
@@ -147,34 +147,46 @@ ok
 Use
 ---
 
-Meck is best used via [Rebar 3][rebar_3]. Add the following dependency to your
-`rebar.config` in your project root:
+Meck is best used via [Rebar 3][rebar_3]. Add Meck to the test dependencies
+in your `rebar.config` for your project:
 
 ```erlang
-{deps, [
-    {meck, "0.8.4"}
+{profiles, [
+    {test, [
+        {deps, [
+            {meck, "0.8.8"}
+        ]}
+    ]}
 ]}.
 ```
 
-Build
------
+Manual Build
+------------
 
-Meck requires `make` and [Rebar 2][rebar_2] to build (included in the
-repository, to be upgraded to Rebar 3). To build Meck go to the Meck directory
+Meck uses [Rebar 3][rebar_3]. To build Meck go to the Meck directory
 and simply type:
 
 ```sh
-make
+rebar3 compile
 ```
 
 In order to run all tests for Meck type the following command from the same
 directory:
 
 ```sh
-make test
+rebar3 eunit
 ```
 
-Two things might seem alarming when running the tests:
+Documentation can be generated through the use of the following command:
+
+```sh
+rebar3 edoc
+```
+
+### Test Output
+
+Normally the test output is hidden using [Unite][unite]. If EUnit is run
+directly, two things might seem alarming when running the tests:
 
   1. Warnings emitted by cover
   2. An exception printed by SASL
@@ -182,12 +194,6 @@ Two things might seem alarming when running the tests:
 Both are expected due to the way Erlang currently prints errors. The important
 line you should look for is `All XX tests passed`, if that appears all is
 correct.
-
-Documentation can be generated through the use of the following command:
-
-```sh
-make doc
-```
 
 Caveats
 -------
@@ -271,8 +277,8 @@ donations][coinbase] are greatly appreciated!
 <!-- Links -->
 [release_notes_0.8]: https://github.com/eproxus/meck/wiki/0.8-Release-Notes
 [hamcrest]: https://github.com/hyperthunk/hamcrest-erlang
-[rebar_2]: https://github.com/rebar/rebar
 [rebar_3]: https://github.com/erlang/rebar3
+[unite]: https://github.com/eproxus/unite
 [issues]: http://github.com/eproxus/meck/issues
 [commit_messages]: http://chris.beams.io/posts/git-commit/
 [coinbase]: https://www.coinbase.com/alind
