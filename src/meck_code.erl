@@ -123,5 +123,8 @@ load_binary(Name, Binary) ->
 % module, and often are not always available when compiling the forms, so
 % filter them out of the options
 filter_options (Options) ->
-    lists:filter(fun({parse_transform,_}) -> false; (_) -> true end, Options).
+    case Options of
+        undefined -> [];
+        _ -> lists:filter(fun({parse_transform,_}) -> false; (_) -> true end, Options)
+    end.
 
