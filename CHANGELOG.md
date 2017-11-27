@@ -1,5 +1,19 @@
 # Change Log
 
+## [0.8.9](https://github.com/eproxus/meck/tree/0.8.9) (2017-11-27)
+[Full Changelog](https://github.com/eproxus/meck/compare/0.8.8...0.8.9)
+
+**Closed issues:**
+
+- Meck doesn't support modules built with '+deterministic' compile option [\#184](https://github.com/eproxus/meck/issues/184)
+- How do I run coverage results after using meck? [\#181](https://github.com/eproxus/meck/issues/181)
+- Migrate to Rebar 3 and rebar3\_hex [\#155](https://github.com/eproxus/meck/issues/155)
+
+**Merged pull requests:**
+
+- Support running meck with modules built with '+deterministic' compile… [\#185](https://github.com/eproxus/meck/pull/185) ([nablaa](https://github.com/nablaa))
+- Fix for Rebar 2.x.y on secondary arches [\#183](https://github.com/eproxus/meck/pull/183) ([lemenkov](https://github.com/lemenkov))
+
 ## [0.8.8](https://github.com/eproxus/meck/tree/0.8.8) (2017-08-29)
 [Full Changelog](https://github.com/eproxus/meck/compare/0.8.7...0.8.8)
 
