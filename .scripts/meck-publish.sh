@@ -32,7 +32,7 @@ git push && git push --tags
 rebar3 hex publish
 rebar3 hex docs
 
-github_changelog_generator
+github_changelog_generator -u eproxus -p meck
 git add CHANGELOG.md
 git commit -m "Update Changelog for version $VSN"
 git push
