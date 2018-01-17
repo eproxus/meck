@@ -35,6 +35,7 @@
 -export([loop/4]).
 -export([delete/3]).
 -export([delete/4]).
+-export([expects/1]).
 -export([exception/2]).
 -export([passthrough/1]).
 -export([history/1]).
@@ -317,6 +318,17 @@ delete(Mod, Func, Ari, Force) when is_list(Mod) ->
       Ari :: byte().
 delete(Mod, Func, Ari) ->
     delete(Mod, Func, Ari, false).
+
+%% @doc Returns the list of expectations.
+-spec expects(Mods) -> [{Mod, Func, Ari}] when
+      Mods :: Mod | [Mod],
+      Mod :: atom(),
+      Func :: atom(),
+      Ari :: byte().
+expects(Mod) when is_atom(Mod) ->
+    meck_proc:list_expects(Mod);
+expects(Mods) when is_list(Mods) ->
+    [Expect || Mod <- Mods, Expect <- expects(Mod)].
 
 %% @doc Throws an expected exception inside an expect fun.
 %%

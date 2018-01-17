@@ -23,6 +23,7 @@
 -export([start/2]).
 -export([set_expect/2]).
 -export([delete_expect/4]).
+-export([list_expects/1]).
 -export([get_history/1]).
 -export([wait/6]).
 -export([reset/1]).
@@ -123,6 +124,10 @@ set_expect(Mod, Expect) ->
 -spec delete_expect(Mod::atom(), Func::atom(), Ari::byte(), Force::boolean()) -> ok.
 delete_expect(Mod, Func, Ari, Force) ->
     gen_server(call, Mod, {delete_expect, Func, Ari, Force}).
+
+-spec list_expects(Mod::atom()) -> [{Mod::atom(), Func::atom(), Ari::byte}].
+list_expects(Mod) ->
+    gen_server(call, Mod, list_expects).
 
 -spec add_history_exception(
         Mod::atom(), CallerPid::pid(), Func::atom(), Args::[any()],
@@ -251,6 +256,9 @@ handle_call({delete_expect, Func, Ari, Force}, From,
         do_delete_expect(Mod, {Func, Ari}, Expects, ErasePassThrough),
     {noreply, S#state{expects = NewExpects,
                       reload = {CompilerPid, From}}};
+handle_call(list_expects, _From, S = #state{mod = Mod, expects = Expects}) ->
+    Functions = dict:fetch_keys(Expects),
+    {reply, [{Mod, Func, Ari} || {Func, Ari} <- Functions], S};
 handle_call(get_history, _From, S = #state{history = undefined}) ->
     {reply, [], S};
 handle_call(get_history, _From, S) ->
