@@ -408,6 +408,7 @@ delete_(Mod) ->
     ?assert(meck:validate(Mod)).
 
 expects_(Mod) ->
+    ?assertEqual([], meck:expects(Mod)),
     ok = meck:expect(Mod, test, 2, ok),
     ?assertEqual([{Mod, test, 2}], meck:expects(Mod)),
     ok = meck:expect(Mod, test2, 0, ok),
