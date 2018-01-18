@@ -73,6 +73,7 @@ meck_test_() ->
                            fun shortcut_opaque_/1,
                            fun shortcut_stacktrace_/1,
                            fun delete_/1,
+                           fun expects_/1,
                            fun called_false_no_args_/1,
                            fun called_true_no_args_/1,
                            fun called_true_two_functions_/1,
@@ -405,6 +406,12 @@ delete_(Mod) ->
     ?assertEqual(ok, meck:delete(Mod, test, 2)),
     ?assertError(undef, Mod:test(a, b)),
     ?assert(meck:validate(Mod)).
+
+expects_(Mod) ->
+    ok = meck:expect(Mod, test, 2, ok),
+    ?assertEqual([{Mod, test, 2}], meck:expects(Mod)),
+    ok = meck:expect(Mod, test2, 0, ok),
+    ?assertEqual([{Mod, test, 2}, {Mod, test2, 0}], lists:sort(meck:expects(Mod))).
 
 called_false_no_args_(Mod) ->
     Args = [],
@@ -1215,6 +1222,14 @@ multi_delete_test() ->
     ?assertEqual(ok, meck:delete(Mods, test, 0)),
     [?assertError(undef, M:test()) || M <- Mods],
     ?assert(meck:validate(Mods)),
+    ok = meck:unload(Mods).
+
+multi_expects_test() ->
+    Mods = [mod1, mod2, mod3],
+    ok = meck:new(Mods, [non_strict]),
+    ok = meck:expect(Mods, test, 0, ok),
+    ?assertEqual([{mod1, test, 0}, {mod2, test, 0}, {mod3, test, 0}],
+                 lists:sort(meck:expects(Mods))),
     ok = meck:unload(Mods).
 
 multi_reset_test() ->
