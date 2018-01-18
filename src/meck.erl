@@ -323,7 +323,7 @@ delete(Mod, Func, Ari) ->
 %% @doc Returns the list of expectations.
 %%
 %% Returns the list of MFAs that were replaced by expectations
-%% If `ExcludePassthrough` is on, only expectations that are not
+%% If `ExcludePassthrough' is on, only expectations that are not
 %% direct passthroughs are returned
 -spec expects(Mods, ExcludePassthrough) -> [{Mod, Func, Ari}] when
       Mods :: Mod | [Mod],
