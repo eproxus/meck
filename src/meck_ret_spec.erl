@@ -27,6 +27,7 @@
 -export([loop/1]).
 -export([raise/2]).
 -export([is_meck_exception/1]).
+-export([is_passthrough/1]).
 -export([retrieve_result/1]).
 -export([eval_result/4]).
 
@@ -73,6 +74,9 @@ is_meck_exception({meck_raise, MockedClass, MockedReason}) ->
     {true, MockedClass, MockedReason};
 is_meck_exception(_Reason) ->
     false.
+
+-spec is_passthrough(ret_spec()) -> boolean().
+is_passthrough(RetSpec) -> RetSpec == meck_passthrough.
 
 -spec retrieve_result(RetSpec::ret_spec()) ->
         {result_spec(), NewRetSpec::ret_spec() | unchanged}.
