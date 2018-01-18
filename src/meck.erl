@@ -36,6 +36,7 @@
 -export([delete/3]).
 -export([delete/4]).
 -export([expects/1]).
+-export([expects/2]).
 -export([exception/2]).
 -export([passthrough/1]).
 -export([history/1]).
@@ -320,15 +321,31 @@ delete(Mod, Func, Ari) ->
     delete(Mod, Func, Ari, false).
 
 %% @doc Returns the list of expectations.
+%%
+%% Returns the list of MFAs that were replaced by expectations
+%% If `ExcludePassthrough` is on, only expectations that are not
+%% direct passthroughs are returned
+-spec expects(Mods, ExcludePassthrough) -> [{Mod, Func, Ari}] when
+      Mods :: Mod | [Mod],
+      Mod :: atom(),
+      Func :: atom(),
+      Ari :: byte(),
+      ExcludePassthrough :: boolean().
+expects(Mod, ExcludePassthrough) when is_atom(Mod) ->
+    meck_proc:list_expects(Mod, ExcludePassthrough);
+expects(Mods, ExcludePassthrough) when is_list(Mods) ->
+    [Expect || Mod <- Mods, Expect <- expects(Mod, ExcludePassthrough)].
+
+%% @doc Returns the list of expectations.
+%%
+%% Returns the list of MFAs that were replaced by expectations
 -spec expects(Mods) -> [{Mod, Func, Ari}] when
       Mods :: Mod | [Mod],
       Mod :: atom(),
       Func :: atom(),
       Ari :: byte().
-expects(Mod) when is_atom(Mod) ->
-    meck_proc:list_expects(Mod);
-expects(Mods) when is_list(Mods) ->
-    [Expect || Mod <- Mods, Expect <- expects(Mod)].
+expects(Mod) ->
+    expects(Mod, false).
 
 %% @doc Throws an expected exception inside an expect fun.
 %%

@@ -25,6 +25,7 @@
 -export([new_passthrough/1]).
 -export([new_dummy/2]).
 -export([func_ari/1]).
+-export([is_passthrough/1]).
 -export([fetch_result/2]).
 
 %%%============================================================================
@@ -72,6 +73,12 @@ new_dummy({Func, Ari}, RetSpec) ->
 -spec func_ari(expect()) -> func_ari().
 func_ari({FuncAri, _Clauses}) ->
     FuncAri.
+
+-spec is_passthrough(expect()) -> boolean().
+is_passthrough({_FuncAri, [{_Matcher, RetSpec}]}) ->
+    meck_ret_spec:is_passthrough(RetSpec);
+is_passthrough(_) ->
+    false.
 
 -spec fetch_result(Args::[any()], expect()) ->
         {undefined, unchanged} |

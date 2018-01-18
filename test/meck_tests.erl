@@ -408,6 +408,7 @@ delete_(Mod) ->
     ?assert(meck:validate(Mod)).
 
 expects_(Mod) ->
+    ?assertEqual([], meck:expects(Mod)),
     ok = meck:expect(Mod, test, 2, ok),
     ?assertEqual([{Mod, test, 2}], meck:expects(Mod)),
     ok = meck:expect(Mod, test2, 0, ok),
@@ -1531,7 +1532,8 @@ meck_passthrough_test_() ->
     {foreach, fun setup_passthrough/0, fun teardown/1,
      [{with, [T]} || T <- [
                            fun delete_passthrough_/1,
-                           fun delete_passthrough_force_/1
+                           fun delete_passthrough_force_/1,
+                           fun expects_passthrough_/1
                           ]]}.
 
 setup_passthrough() ->
@@ -1554,6 +1556,13 @@ delete_passthrough_force_(Mod) ->
     ?assertEqual(ok, meck:delete(Mod, c, 2, true)),
     ?assertError(undef, Mod:test(a, b)),
     ?assert(meck:validate(Mod)).
+
+expects_passthrough_(Mod) ->
+    ok = meck:expect(Mod, test, 2, ok),
+    ?assertEqual([{Mod, a, 0}, {Mod, b, 0}, {Mod, c, 2}, {Mod, test, 2}],
+                 lists:sort(meck:expects(Mod, false))),
+    ?assertEqual([{Mod, test, 2}], meck:expects(Mod, true)).
+
 
 %%=============================================================================
 %% Internal Functions
