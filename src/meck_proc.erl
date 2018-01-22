@@ -23,6 +23,7 @@
 -export([start/2]).
 -export([set_expect/2]).
 -export([delete_expect/4]).
+-export([list_expects/2]).
 -export([get_history/1]).
 -export([wait/6]).
 -export([reset/1]).
@@ -123,6 +124,11 @@ set_expect(Mod, Expect) ->
 -spec delete_expect(Mod::atom(), Func::atom(), Ari::byte(), Force::boolean()) -> ok.
 delete_expect(Mod, Func, Ari, Force) ->
     gen_server(call, Mod, {delete_expect, Func, Ari, Force}).
+
+-spec list_expects(Mod::atom(), ExcludePassthrough::boolean()) ->
+    [{Mod::atom(), Func::atom(), Ari::byte}].
+list_expects(Mod, ExcludePassthrough) ->
+    gen_server(call, Mod, {list_expects, ExcludePassthrough}).
 
 -spec add_history_exception(
         Mod::atom(), CallerPid::pid(), Func::atom(), Args::[any()],
@@ -251,6 +257,17 @@ handle_call({delete_expect, Func, Ari, Force}, From,
         do_delete_expect(Mod, {Func, Ari}, Expects, ErasePassThrough),
     {noreply, S#state{expects = NewExpects,
                       reload = {CompilerPid, From}}};
+handle_call({list_expects, ExcludePassthrough}, _From, S = #state{mod = Mod, expects = Expects}) ->
+    Result =
+        case ExcludePassthrough of
+            false ->
+                [{Mod, Func, Ari} || {Func, Ari} <- dict:fetch_keys(Expects)];
+            true ->
+                [{Mod, Func, Ari} ||
+                    {{Func, Ari}, Expect} <- dict:to_list(Expects),
+                    not meck_expect:is_passthrough(Expect)]
+        end,
+    {reply, Result, S};
 handle_call(get_history, _From, S = #state{history = undefined}) ->
     {reply, [], S};
 handle_call(get_history, _From, S) ->

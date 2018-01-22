@@ -73,6 +73,7 @@ meck_test_() ->
                            fun shortcut_opaque_/1,
                            fun shortcut_stacktrace_/1,
                            fun delete_/1,
+                           fun expects_/1,
                            fun called_false_no_args_/1,
                            fun called_true_no_args_/1,
                            fun called_true_two_functions_/1,
@@ -405,6 +406,13 @@ delete_(Mod) ->
     ?assertEqual(ok, meck:delete(Mod, test, 2)),
     ?assertError(undef, Mod:test(a, b)),
     ?assert(meck:validate(Mod)).
+
+expects_(Mod) ->
+    ?assertEqual([], meck:expects(Mod)),
+    ok = meck:expect(Mod, test, 2, ok),
+    ?assertEqual([{Mod, test, 2}], meck:expects(Mod)),
+    ok = meck:expect(Mod, test2, 0, ok),
+    ?assertEqual([{Mod, test, 2}, {Mod, test2, 0}], lists:sort(meck:expects(Mod))).
 
 called_false_no_args_(Mod) ->
     Args = [],
@@ -1217,6 +1225,14 @@ multi_delete_test() ->
     ?assert(meck:validate(Mods)),
     ok = meck:unload(Mods).
 
+multi_expects_test() ->
+    Mods = [mod1, mod2, mod3],
+    ok = meck:new(Mods, [non_strict]),
+    ok = meck:expect(Mods, test, 0, ok),
+    ?assertEqual([{mod1, test, 0}, {mod2, test, 0}, {mod3, test, 0}],
+                 lists:sort(meck:expects(Mods))),
+    ok = meck:unload(Mods).
+
 multi_reset_test() ->
     % Given
     Mods = [mod1, mod2, mod3],
@@ -1516,7 +1532,8 @@ meck_passthrough_test_() ->
     {foreach, fun setup_passthrough/0, fun teardown/1,
      [{with, [T]} || T <- [
                            fun delete_passthrough_/1,
-                           fun delete_passthrough_force_/1
+                           fun delete_passthrough_force_/1,
+                           fun expects_passthrough_/1
                           ]]}.
 
 setup_passthrough() ->
@@ -1539,6 +1556,13 @@ delete_passthrough_force_(Mod) ->
     ?assertEqual(ok, meck:delete(Mod, c, 2, true)),
     ?assertError(undef, Mod:test(a, b)),
     ?assert(meck:validate(Mod)).
+
+expects_passthrough_(Mod) ->
+    ok = meck:expect(Mod, test, 2, ok),
+    ?assertEqual([{Mod, a, 0}, {Mod, b, 0}, {Mod, c, 2}, {Mod, test, 2}],
+                 lists:sort(meck:expects(Mod, false))),
+    ?assertEqual([{Mod, test, 2}], meck:expects(Mod, true)).
+
 
 %%=============================================================================
 %% Internal Functions
