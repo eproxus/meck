@@ -209,7 +209,7 @@ init([Mod, Options]) ->
     MergeExpects = proplists:get_bool(merge_expects, Options),
     EnableOnLoad = proplists:get_bool(enable_on_load, Options),
     Passthrough = proplists:get_bool(passthrough, Options),
-    Original = backup_original(Mod, NoPassCover, EnableOnLoad),
+    Original = backup_original(Mod, Passthrough, NoPassCover, EnableOnLoad),
     NoHistory = proplists:get_bool(no_history, Options),
     History = if NoHistory -> undefined; true -> [] end,
     CanExpect = resolve_can_expect(Mod, Exports, Options),
@@ -363,13 +363,13 @@ expect_type(Mod, Func, Ari) ->
         false -> normal
     end.
 
--spec backup_original(Mod::atom(), NoPassCover::boolean(), EnableOnLoad::boolean()) ->
+-spec backup_original(Mod::atom(), Passthrough::boolean(), NoPassCover::boolean(), EnableOnLoad::boolean()) ->
     {Cover:: false |
              {File::string(), Data::string(), CompiledOptions::[any()]},
      Binary:: no_binary |
               no_passthrough_cover |
               binary()}.
-backup_original(Mod, NoPassCover, EnableOnLoad) ->
+backup_original(Mod, Passthrough, NoPassCover, EnableOnLoad) ->
     Cover = get_cover_state(Mod),
     try
         Forms0 = meck_code:abstract_code(meck_code:beam_file(Mod)),
@@ -408,8 +408,11 @@ backup_original(Mod, NoPassCover, EnableOnLoad) ->
     catch
         throw:{object_code_not_found, _Module} ->
             {Cover, no_binary}; % TODO: What to do here?
-        throw:no_abstract_code                 ->
-            {Cover, no_binary} % TODO: What to do here?
+        throw:no_abstract_code ->
+            case Passthrough of
+                true  -> exit({abstract_code_not_found, Mod});
+                false -> {Cover, no_binary}
+            end
     end.
 
 -spec get_cover_state(Mod::atom()) ->

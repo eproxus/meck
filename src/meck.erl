@@ -193,6 +193,15 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%       function clause list, meaning that pattern matching will be performed
 %%       in the order the expectations were added.</dd>
 %% </dl>
+%%
+%% Possible exceptions:
+%% <dl>
+%%   <dt>`error:{abstract_code_not_found, Mod}'</dt>
+%%   <dd>The option `passthrough' was used but the original module has no
+%%       abstract code which can be called. Make sure the module is compiled
+%%       with the compiler option `debug_info'.</dd>
+%% </dl>
+
 -spec new(Mods, Options) -> ok when
       Mods :: Mod | [Mod],
       Mod :: atom(),

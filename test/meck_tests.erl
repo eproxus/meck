@@ -896,6 +896,16 @@ original_has_no_object_code_test() ->
     ok = file:delete("meck_on_disk.beam"),
     ok = meck:unload(meck_on_disk).
 
+passthrough_with_no_object_code_test() ->
+    {ok, Mod, Beam} = compile:forms([{attribute, 1, module, no_abstract_code}]),
+    ok = file:write_file("no_abstract_code.beam", Beam),
+    {module, Mod} = code:load_binary(Mod, "no_abstract_code.beam", Beam),
+    ?assertError(
+        {abstract_code_not_found, Mod},
+        meck:new(no_abstract_code, [passthrough, no_link])
+    ),
+    ok = file:delete("no_abstract_code.beam").
+
 passthrough_nonexisting_module_test() ->
     ok = meck:new(mymod, [passthrough, non_strict]),
     ok = meck:expect(mymod, test, fun() -> ok end),
