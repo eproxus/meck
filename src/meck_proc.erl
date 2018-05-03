@@ -228,7 +228,7 @@ init([Mod, Options]) ->
                     history = History}}
     catch
         exit:{error_loading_module, Mod, sticky_directory} ->
-            {stop, module_is_sticky}
+            {stop, {module_is_sticky, Mod}}
     end.
 
 %% @hidden

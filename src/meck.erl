@@ -200,6 +200,9 @@ new(Mod) when is_list(Mod) -> lists:foreach(fun new/1, Mod), ok.
 %%   <dd>The module to be mocked does not exist. This error exists to prevent
 %%       mocking of misspelled module names. To bypass this and create a new
 %%       mocked module anyway, use the option `non_strict'.</dd>
+%%   <dt>`error:{module_is_sticky, Mod}'</dt>
+%%   <dd>The module to be mocked resides in a sticky directory. To unstick the
+%%       module and mock it anyway, use the option `unstick'.</dd>
 %%   <dt>`error:{abstract_code_not_found, Mod}'</dt>
 %%   <dd>The option `passthrough' was used but the original module has no
 %%       abstract code which can be called. Make sure the module is compiled

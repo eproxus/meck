@@ -1360,7 +1360,7 @@ can_mock_sticky_module_not_yet_loaded_({Mod, _}) ->
 
 cannot_mock_sticky_module_without_unstick_({Mod, _}) ->
     error_logger:tty(false),
-    ?assertError(module_is_sticky, meck:new(Mod, [no_link])),
+    ?assertError({module_is_sticky, Mod}, meck:new(Mod, [no_link])),
     error_logger:tty(true).
 
 can_mock_non_sticky_module_test() ->
