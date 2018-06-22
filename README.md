@@ -271,7 +271,7 @@ donations][coinbase] are greatly appreciated!
 [hex]: https://hex.pm/packages/meck
 [hex version badge]: https://img.shields.io/hexpm/v/meck.svg?style=flat-square
 [hex license badge]: https://img.shields.io/hexpm/l/meck.svg?style=flat-square
-[erlang version badge]: https://img.shields.io/badge/erlang-R15B03%20to%2020.0-blue.svg?style=flat-square
+[erlang version badge]: https://img.shields.io/badge/erlang-R15B03%20to%2021.0-blue.svg?style=flat-square
 [build tool]: https://img.shields.io/badge/build%20tool-rebar3-orange.svg?style=flat-square
 
 <!-- Links -->
