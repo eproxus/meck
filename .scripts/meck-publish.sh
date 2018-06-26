@@ -18,7 +18,7 @@ fi
 
 VSN="$1"
 
-# Update version in .app file
+# Update version
 sed -i "" -e "s/{vsn, .*}/{vsn, \"$VSN\"}/g" src/meck.app.src
 sed -i "" -e "s/@version .*/@version $VSN/g" doc/overview.edoc
 git add src/meck.app.src
@@ -27,12 +27,17 @@ git add doc/overview.edoc
 # Commit, tag and push
 git commit -m "Version $VSN"
 git tag -s "$VSN" -m "Version $VSN"
-
 git push && git push --tags
+
+# Clean and publish package and docs
+rm -rf ebin
+rm -rf src/**/*.beam
+rm -rf test/**/*.beam
 rebar3 hex publish
 rebar3 hex docs
 
-github_changelog_generator -u eproxus -p meck
+# Generate and push changelog
+github_changelog_generator
 git add CHANGELOG.md
 git commit -m "Update Changelog for version $VSN"
 git push

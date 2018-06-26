@@ -1,3 +1,4 @@
-issues-wo-labels=false
-pr-wo-labels=false
+user=eproxus
+project=meck
 unreleased=false
+exclude-labels=duplicate,invalid,wontfix,question,help wanted,decision needed,verification needed
