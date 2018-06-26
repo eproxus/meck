@@ -1,5 +1,13 @@
 # Change Log
 
+## [0.8.10](https://github.com/eproxus/meck/tree/0.8.10) (2018-06-26)
+[Full Changelog](https://github.com/eproxus/meck/compare/0.8.9...0.8.10)
+
+**Merged pull requests:**
+
+- Test meck on travis-ci with Erlang/OTP 21.0 [\#190](https://github.com/eproxus/meck/pull/190) ([michalwski](https://github.com/michalwski))
+- Add meck:expects/1,2 [\#187](https://github.com/eproxus/meck/pull/187) ([elbrujohalcon](https://github.com/elbrujohalcon))
+
 ## [0.8.9](https://github.com/eproxus/meck/tree/0.8.9) (2017-11-27)
 [Full Changelog](https://github.com/eproxus/meck/compare/0.8.8...0.8.9)
 
@@ -23,7 +31,7 @@
 
 **Merged pull requests:**
 
-- Always add debug\_info to compile opts for mocks [\#180](https://github.com/eproxus/meck/pull/180) ([antipax](https://github.com/antipax))
+- Always add debug\_info to compile opts for mocks [\#180](https://github.com/eproxus/meck/pull/180) ([ericentin](https://github.com/ericentin))
 
 ## [0.8.7](https://github.com/eproxus/meck/tree/0.8.7) (2017-06-29)
 [Full Changelog](https://github.com/eproxus/meck/compare/0.8.6...0.8.7)
@@ -116,7 +124,6 @@
 
 - Split tests into several test suites [\#83](https://github.com/eproxus/meck/issues/83)
 - Better documentation [\#79](https://github.com/eproxus/meck/issues/79)
-- Use right function in exceptions [\#26](https://github.com/eproxus/meck/issues/26)
 
 **Merged pull requests:**
 
