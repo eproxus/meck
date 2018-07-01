@@ -1,0 +1,7 @@
+-ifdef(OTP_RELEASE).
+-define(GET_STACKTRACE, []).
+-define(WITH_STACKTRACE(T, R, S), T:R:S ->).
+-else.
+-define(GET_STACKTRACE, erlang:get_stacktrace()).
+-define(WITH_STACKTRACE(T, R, S), T:R -> S = erlang:get_stacktrace(),).
+-endif.
