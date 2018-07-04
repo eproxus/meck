@@ -153,6 +153,23 @@ list([H|T]) -> {cons, ?LINE, H, list(T)}.
 
 var_name(A) -> list_to_atom("A"++integer_to_list(A)).
 
+%% workaround for the removal of erlang:get_stacktrace/0 beginning in Erlang 21.
+%% There is no good solution if you want BOTH
+%% a) be able to compile with both pre- and post-21 compilers
+%% b) no warning (e.g. if you use warnings_as_errors)
+%% this is one of(?) the less bad hacks.
+%% `OTP_RELEASE' was introduced in 21, so if it is defined, we use post-21
+%% behaviour, otherwise pre-21.
+%% the macro `try_with_stack' returns either {ok, Result} or
+%% {Class, Reason, Stacktrace}.
+-ifdef(OTP_RELEASE). %% this implies 21 or higher
+-define(try_with_stack(X),
+        try {ok, X} catch C:R:S -> {C, R, S} end).
+-else.
+-define(try_with_stack(X),
+        try {ok, X} catch C:R -> {C, R, erlang:get_stacktrace()} end).
+-endif.
+
 %% @hidden
 -spec exec(CallerPid::pid(), Mod::atom(), Func::atom(), Args::[any()]) ->
         Result::any().
@@ -160,42 +177,46 @@ exec(Pid, Mod, Func, Args) ->
     try meck_proc:get_result_spec(Mod, Func, Args) of
         undefined ->
             meck_proc:invalidate(Mod),
-            raise(Pid, Mod, Func, Args, error, function_clause);
+            raise(Pid, Mod, Func, Args, error, function_clause, []);
         ResultSpec ->
             put(?CURRENT_CALL, {Mod, Func}),
-            try
-                Result = meck_ret_spec:eval_result(Mod, Func, Args, ResultSpec),
-                meck_proc:add_history(Mod, Pid, Func, Args, Result),
-                Result
-            catch
-                Class:Reason ->
-                    handle_exception(Pid, Mod, Func, Args, Class, Reason)
-            after
-                erase(?CURRENT_CALL)
+            case ?try_with_stack(do_eval(Pid, Mod, Func, Args, ResultSpec)) of
+                {ok, Result} ->
+                    erase(?CURRENT_CALL),
+                    Result;
+                {Class, Reason, Stack} ->
+                    erase(?CURRENT_CALL),
+                    handle_exception(Pid, Mod, Func, Args, Class, Reason, Stack)
             end
     catch
         error:{not_mocked, Mod} ->
             apply(Mod, Func, Args)
     end.
 
+do_eval(Pid, Mod, Func, Args, ResultSpec) ->
+    Result = meck_ret_spec:eval_result(Mod, Func, Args, ResultSpec),
+    meck_proc:add_history(Mod, Pid, Func, Args, Result),
+    Result.
+
 -spec handle_exception(CallerPid::pid(), Mod::atom(), Func::atom(),
                        Args::[any()], Class:: exit | error | throw,
-                       Reason::any()) ->
+                       Reason::any(),
+                       Stack::list()) ->
         no_return().
-handle_exception(Pid, Mod, Func, Args, Class, Reason) ->
+handle_exception(Pid, Mod, Func, Args, Class, Reason, Stack) ->
     case meck_ret_spec:is_meck_exception(Reason) of
         {true, MockedClass, MockedReason} ->
-            raise(Pid, Mod, Func, Args, MockedClass, MockedReason);
+            raise(Pid, Mod, Func, Args, MockedClass, MockedReason, Stack);
         _ ->
             meck_proc:invalidate(Mod),
-            raise(Pid, Mod, Func, Args, Class, Reason)
+            raise(Pid, Mod, Func, Args, Class, Reason, Stack)
     end.
 
 -spec raise(CallerPid::pid(), Mod::atom(), Func::atom(), Args::[any()],
-            Class:: exit | error | throw, Reason::any()) ->
+            Class:: exit | error | throw, Reason::any(), Stack::list()) ->
         no_return().
-raise(Pid, Mod, Func, Args, Class, Reason) ->
-    StackTrace = inject(Mod, Func, Args, erlang:get_stacktrace()),
+raise(Pid, Mod, Func, Args, Class, Reason, Stack) ->
+    StackTrace = inject(Mod, Func, Args, Stack),
     meck_proc:add_history_exception(Mod, Pid, Func, Args,
                                     {Class, Reason, StackTrace}),
     erlang:raise(Class, Reason, StackTrace).
