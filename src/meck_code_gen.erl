@@ -61,22 +61,22 @@ get_current_call() ->
 
 attribute({Key, _Value}, Attrs)
     when Key =:= vsn;
-	 Key =:= deprecated;
-	 Key =:= optional_callbacks;
+         Key =:= deprecated;
+         Key =:= optional_callbacks;
      Key =:= dialyzer ->
     Attrs;
 attribute({Key, Value}, Attrs)
   when (Key =:= behaviour orelse Key =:= behavior)
        andalso is_list(Value) ->
     lists:foldl(fun(Behavior, Acc) -> [?attribute(Key, Behavior) | Acc] end,
-		Attrs, Value);
+                Attrs, Value);
 attribute({Key, Value}, Attrs) ->
     [?attribute(Key, Value) | Attrs].
 
 attributes(Mod) ->
     try
-	lists:foldl(fun attribute/2, [],
-		    proplists:get_value(attributes, Mod:module_info(), []))
+        lists:foldl(fun attribute/2, [],
+                    proplists:get_value(attributes, Mod:module_info(), []))
     catch
         error:undef -> []
     end.
