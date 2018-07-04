@@ -64,7 +64,8 @@ makes sense:
 2. Document any external API functions changed or added via EDoc.
 3. Run the existing tests to make sure you didn't break anything.
 3. Add working tests that illustrate and cover the changes, or detects an issue
-   to be fixed. A good example is to create a failing test case that exposes the issue you are trying to fix, before fixing it.
+   to be fixed. A good example is to create a failing test case that exposes
+   the issue you are trying to fix, before fixing it.
 4. Make sure the code and commit follow the [style guides](#styleguides).
 5. (Optional) Add type specifications and run Dialyzer where it makes sense.
 
@@ -75,14 +76,16 @@ makes sense:
 Commit messages should be limited to 50 characters without a period on the
 subject line and be written in imperative mood.
 
-Longer explanations should be in the body, two lines below the message, wrapped at 72 characters.
+Longer explanations should be in the body, two lines below the message, wrapped
+at 72 characters.
 
 See [How to Write a Git Commit Message](http://chris.beams.io/posts/git-commit/).
 
 ### Code
 
 * Lines should be no longer than 80 characters. This is isn't some arbitrary
-  length based on nostalgia, it's just a choice of fitting limit if you want to have several files open at once next to each other on a modern wide screen
+  length based on nostalgia, it's just a choice of fitting limit if you want to
+  have several files open at once next to each other on a modern wide screen
   monitor.
 * Functions should be exported one by one in their own export statement. This
   is so that one export can easily be rearranged or removed without messing
