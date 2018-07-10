@@ -160,14 +160,12 @@ var_name(A) -> list_to_atom("A"++integer_to_list(A)).
 %% this is one of(?) the less bad hacks.
 %% `OTP_RELEASE' was introduced in 21, so if it is defined, we use post-21
 %% behaviour, otherwise pre-21.
-%% the macro `try_with_stack' returns either {ok, Result} or
-%% {Class, Reason, Stacktrace}.
 -ifdef(OTP_RELEASE). %% this implies 21 or higher
--define(try_with_stack(X),
-        try {ok, X} catch C:R:S -> {C, R, S} end).
+-define(EXCEPTION(C,R,S), C:R:S).
+-define(GET_STACK(S),S).
 -else.
--define(try_with_stack(X),
-        try {ok, X} catch C:R -> {C, R, erlang:get_stacktrace()} end).
+-define(EXCEPTION(C,R,_), C:R).
+-define(GET_STACK(_),erlang:get_stacktrace()).
 -endif.
 
 %% @hidden
@@ -180,13 +178,13 @@ exec(Pid, Mod, Func, Args) ->
             raise(Pid, Mod, Func, Args, error, function_clause, []);
         ResultSpec ->
             put(?CURRENT_CALL, {Mod, Func}),
-            case ?try_with_stack(do_eval(Pid, Mod, Func, Args, ResultSpec)) of
-                {ok, Result} ->
-                    erase(?CURRENT_CALL),
-                    Result;
-                {Class, Reason, Stack} ->
-                    erase(?CURRENT_CALL),
-                    handle_exception(Pid, Mod, Func, Args, Class, Reason, Stack)
+            try
+                do_eval(Pid, Mod, Func, Args, ResultSpec)
+            catch
+                ?EXCEPTION(C,R,S) ->
+                    handle_exception(Pid, Mod, Func, Args, C, R, ?GET_STACK(S))
+            after
+                erase(?CURRENT_CALL)
             end
     catch
         error:{not_mocked, Mod} ->
