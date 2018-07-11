@@ -3,6 +3,7 @@
 [![Hex.pm License][hex license badge]][hex]
 [![Erlang Versions][erlang version badge]][travis]
 [![Build Tool][build tool]][hex]
+[![Donations][liberapay badge]][liberapay]
 
 Meck
 ====
@@ -256,13 +257,18 @@ features or fixes for meck.
 Should you find yourself using Meck and have issues, comments or feedback please
 [create an issue here on GitHub][issues].
 
-Meck has been greatly improved by [many contributors]
-(https://github.com/eproxus/meck/graphs/contributors)!
+Meck has been greatly improved by [many contributors](https://github.com/eproxus/meck/graphs/contributors)!
 
 ### Donations
 
-If you or your company use Meck and find it useful, [Bitcoin
-donations][coinbase] are greatly appreciated!
+If you or your company use Meck and find it useful, [donations][liberapay] are greatly appreciated!
+
+<noscript>
+  <a href="https://liberapay.com/eproxus/donate">
+    <img alt="Donate using Liberapay"
+         src="https://liberapay.com/assets/widgets/donate.svg">
+  </a>
+</noscript>
 
 
 <!-- Badges -->
@@ -273,6 +279,7 @@ donations][coinbase] are greatly appreciated!
 [hex license badge]: https://img.shields.io/hexpm/l/meck.svg?style=flat-square
 [erlang version badge]: https://img.shields.io/badge/erlang-R15B03%20to%2021.0-blue.svg?style=flat-square
 [build tool]: https://img.shields.io/badge/build%20tool-rebar3-orange.svg?style=flat-square
+[liberapay badge]: https://img.shields.io/liberapay/receives/eproxus.svg?logo=liberapay&style=flat-square
 
 <!-- Links -->
 [release_notes_0.8]: https://github.com/eproxus/meck/wiki/0.8-Release-Notes
@@ -280,4 +287,4 @@ donations][coinbase] are greatly appreciated!
 [rebar_3]: https://github.com/erlang/rebar3
 [issues]: http://github.com/eproxus/meck/issues
 [commit_messages]: http://chris.beams.io/posts/git-commit/
-[coinbase]: https://www.coinbase.com/alind
+[liberapay]: https://liberapay.com/eproxus/
