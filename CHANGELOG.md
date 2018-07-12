@@ -1,5 +1,12 @@
 # Change Log
 
+## [0.8.11](https://github.com/eproxus/meck/tree/0.8.11) (2018-07-12)
+[Full Changelog](https://github.com/eproxus/meck/compare/0.8.10...0.8.11)
+
+**Merged pull requests:**
+
+- OTP 21 compatibility when using stack traces [\#193](https://github.com/eproxus/meck/pull/193) ([massemanet](https://github.com/massemanet))
+
 ## [0.8.10](https://github.com/eproxus/meck/tree/0.8.10) (2018-06-26)
 [Full Changelog](https://github.com/eproxus/meck/compare/0.8.9...0.8.10)
 
