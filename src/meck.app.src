@@ -1,6 +1,6 @@
 {application, meck, [
     {description, "A mocking framework for Erlang"},
-    {vsn, "0.8.10"},
+    {vsn, "0.8.11"},
     {modules, []},
     {registered, []},
     {applications, [kernel, stdlib, tools]},
