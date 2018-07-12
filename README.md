@@ -5,8 +5,7 @@
 [![Build Tool][build tool]][hex]
 [![Donations][liberapay badge]][liberapay]
 
-Meck
-====
+# Meck
 
 A mocking library for Erlang.
 
@@ -17,8 +16,7 @@ A mocking library for Erlang.
   * [Caveats](#caveats)
   * [Contribute](#contribute)
 
-Features
---------
+## Features
 
 See what's new in [0.8 Release Notes][release_notes_0.8].
 
@@ -36,11 +34,11 @@ See what's new in [0.8 Release Notes][release_notes_0.8].
     when a crash occurs (disable with option `no_link`)
   * Mocking of sticky modules (using the option `unstick`)
 
-Examples
---------
+## Examples
+
 Here's an example of using Meck in the Erlang shell:
 
-```erl
+```erlang
 Eshell V5.8.4  (abort with ^G)
 1> meck:new(dog, [non_strict]). % non_strict is used to create modules that don't exist
 ok
@@ -60,7 +58,7 @@ Exceptions can be anticipated by Meck (resulting in validation still passing).
 This is intended to be used to test code that can and should handle certain
 exceptions indeed does take care of them:
 
-```erl
+```erlang
 5> meck:expect(dog, meow, fun() -> meck:exception(error, not_a_cat) end).
 ok
 6> catch dog:meow().
@@ -81,7 +79,7 @@ just to demonstrate the behavior, in real test code the exception would normally
 come from the code under test (which should, if not expected, invalidate the
 mocked module):
 
-```erl
+```erlang
 8> meck:expect(dog, jump, fun(Height) when Height > 3 ->
                                   erlang:error(too_high);
                              (Height) ->
@@ -118,7 +116,7 @@ When the option `passthrough` is used when calling `new/2` all functions in the
 original module will be kept in the mock. These can later be overridden by
 calling `expect/3` or `expect/4`.
 
-```erl
+```erlang
 Eshell V5.8.4  (abort with ^G)
 1> meck:new(string, [unstick, passthrough]).
 ok
@@ -131,7 +129,7 @@ override only a certain behavior of a function (this usage is compatible with
 the `passthrough` option). `passthrough/1` will always call the original
 function with the same name as the expect is defined in):
 
-```erl
+```erlang
 Eshell V5.8.4  (abort with ^G)
 1> meck:new(string, [unstick]).
 ok
@@ -145,24 +143,16 @@ ok
 "test"
 ```
 
-Use
----
+## Use
 
 Meck is best used via [Rebar 3][rebar_3]. Add Meck to the test dependencies
-in your `rebar.config` for your project:
+in your `rebar.config`:
 
 ```erlang
-{profiles, [
-    {test, [
-        {deps, [
-            {meck, "0.8.8"}
-        ]}
-    ]}
-]}.
+{profiles, [{test, [{deps, [meck]}]}]}.
 ```
 
-Manual Build
-------------
+### Manual Build
 
 Meck uses [Rebar 3][rebar_3]. To build Meck go to the Meck directory
 and simply type:
@@ -216,7 +206,7 @@ either be problematic to mock or not possible at all:
 Also, a meck expectation set up for a function _f_ does not apply to the module-
 local invocation of _f_ within the mocked module. Consider the following module:
 
-```
+```erlang
 -module(test).
 -export([a/0, b/0, c/0]).
 
@@ -233,7 +223,7 @@ c() ->
 Note how the module-local call to `c/0` in `a/0` stays unchanged even though the
 expectation changes the externally visible behaviour of `c/0`:
 
-```
+```erlang
 3> meck:new(test, [passthrough]).
 ok
 4> meck:expect(test,c,0,changed).
@@ -246,8 +236,7 @@ changed
 changed
 ```
 
-Contribute
-----------
+## Contribute
 
 Patches are greatly appreciated! For a much nicer history, please [write good
 commit messages][commit_messages]. Use a branch name prefixed by `feature/`
