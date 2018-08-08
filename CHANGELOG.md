@@ -1,5 +1,12 @@
 # Change Log
 
+## [0.8.12](https://github.com/eproxus/meck/tree/0.8.12) (2018-08-08)
+[Full Changelog](https://github.com/eproxus/meck/compare/0.8.11...0.8.12)
+
+**Fixed bugs:**
+
+- History item is not kept while module compiler is running [\#194](https://github.com/eproxus/meck/issues/194)
+
 ## [0.8.11](https://github.com/eproxus/meck/tree/0.8.11) (2018-07-12)
 [Full Changelog](https://github.com/eproxus/meck/compare/0.8.10...0.8.11)
 
