@@ -19,16 +19,16 @@
 -include_lib("eunit/include/eunit.hrl").
 
 history_test_() ->
-    {foreach, fun setup/0, fun teardown/1,
-     [fun num_calls_with_arity/0,
-      fun capture_different_positions/0,
-      fun capture_different_args_specs/0,
-      fun result_different_positions/0,
-      fun result_different_args_specs/0,
-      fun result_exception/0,
-      fun result_different_caller/0
-     ]
-    }.
+    {foreach, fun setup/0, fun teardown/1, [
+        fun num_calls_with_arity/0,
+        fun capture_different_positions/0,
+        fun capture_different_args_specs/0,
+        fun result_different_positions/0,
+        fun result_different_args_specs/0,
+        fun result_exception/0,
+        fun result_different_caller/0,
+        fun history_kept_while_reloading/0
+    ]}.
 
 setup() ->
     %% Given
@@ -160,3 +160,25 @@ result_different_caller() ->
     %% Then
     ?assertMatch(2003, meck_history:result(2, self(), test, foo, 3)),
     ?assertMatch(2002, meck_history:result(last, Pid, test, foo, 3)).
+
+history_kept_while_reloading() ->
+    NumCalls = 10,
+    meck:new(historical, [non_strict, passtrough]),
+    meck:expect(historical, test_fn, fun(Arg) -> {mocked, Arg} end),
+    Test = self(),
+    Caller = spawn(fun() ->
+        io:format("~nCalls: ~p~n", [lists:reverse(lists:foldl(fun(N, Acc) ->
+            timer:sleep(1),
+            Result = historical:test_fn(N),
+            [{self(), {historical, test_fn, [N]}, Result}|Acc]
+        end, [], lists:seq(1, NumCalls)))]),
+        Test ! {done, self()}
+    end),
+    [
+        meck:expect(historical, test_fn, fun(Arg) -> {mocked2, Arg} end)
+        || _ <- lists:seq(1, 5)
+    ],
+
+    receive {done, Caller} -> ok after 1000 -> error(caller_timeout) end,
+    io:format("History: ~p~n", [meck:history(historical)]),
+    ?assertEqual(NumCalls, meck:num_calls(historical, test_fn, '_')).

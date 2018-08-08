@@ -300,20 +300,13 @@ handle_cast(invalidate, S) ->
     {noreply, S#state{valid = false}};
 handle_cast({add_history, HistoryRecord}, S = #state{history = undefined,
                                                      trackers = Trackers}) ->
-    UpdTracker = update_trackers(HistoryRecord, Trackers),
-    {noreply, S#state{trackers = UpdTracker}};
+    UpdTrackers = update_trackers(HistoryRecord, Trackers),
+    {noreply, S#state{trackers = UpdTrackers}};
 handle_cast({add_history, HistoryRecord}, S = #state{history = History,
-                                                     trackers = Trackers,
-                                                     reload = Reload}) ->
-    case Reload of
-        undefined ->
-            UpdTrackers = update_trackers(HistoryRecord, Trackers),
-            {noreply, S#state{history = [HistoryRecord | History],
-                              trackers = UpdTrackers}};
-        _ ->
-            % Skip Item if the mocked module compiler is running.
-            {noreply, S}
-    end;
+                                                     trackers = Trackers}) ->
+    UpdTrackers = update_trackers(HistoryRecord, Trackers),
+    {noreply, S#state{history = [HistoryRecord | History],
+                      trackers = UpdTrackers}};
 handle_cast(_Msg, S)  ->
     {noreply, S}.
 
