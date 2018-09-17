@@ -81,14 +81,22 @@ compile_and_load_forms(AbsCode, Opts) ->
 
 -spec compile_options(binary() | module()) -> compile_options().
 compile_options(BeamFile) when is_binary(BeamFile) ->
-    case beam_lib:chunks(BeamFile, [compile_info]) of
+    CompileInfo = case beam_lib:chunks(BeamFile, [compile_info]) of
         {ok, {_, [{compile_info, Info}]}} ->
           filter_options(proplists:get_value(options, Info));
         _ ->
             []
-    end;
-compile_options(Module) ->
-  filter_options(proplists:get_value(options, Module:module_info(compile))).
+    end,
+    DebugInfo = case beam_lib:chunks(BeamFile, [debug_info]) of
+        {ok, {_, [{debug_info,{debug_info_v1, _Backend, {_AbstrCode, CompilerOpts}}}]}} ->
+          CompilerOpts;
+        _ ->
+            []
+    end,
+    lists:usort(CompileInfo ++ DebugInfo);
+compile_options(Module) when is_atom(Module) ->
+  {Module, BeamFile, _Filename} = code:get_object_code(Module),
+  compile_options(BeamFile).
 
 enable_on_load(Forms, false) ->
     Map = fun({attribute,L,on_load,{F,A}}) -> {attribute,L,export,[{F,A}]};

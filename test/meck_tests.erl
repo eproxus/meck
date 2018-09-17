@@ -1044,6 +1044,7 @@ cover_options_({_OldPath, Src, Module}) ->
 -define(compile_options, []).
 -else.
 -define(compile_options, [
+    debug_info,
     {i, test_include()},
     {d, 'TEST', true}
 ]).
@@ -1066,7 +1067,7 @@ cover_options_fail_({_OldPath, Src, Module}) ->
         proplists:delete(outdir, lists:sort(meck_code:compile_options(Module)))
     ),
     {ok, _} = cover:compile_beam(Module),
-    ?assertEqual(?compile_options, meck_code:compile_options(Module)),
+    ?assertEqual(?compile_options, proplists:delete(outdir, lists:sort(CompilerOptions))),
     a      = Module:a(),
     b      = Module:b(),
     {1, 2} = Module:c(1, 2),
