@@ -1044,6 +1044,7 @@ cover_options_({_OldPath, Src, Module}) ->
 -define(compile_options, []).
 -else.
 -define(compile_options, [
+    debug_info,
     {i, test_include()},
     {d, 'TEST', true}
 ]).
