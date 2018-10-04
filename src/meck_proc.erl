@@ -375,8 +375,8 @@ backup_original(Mod, Passthrough, NoPassCover, EnableOnLoad) ->
         %% passed back along with `Cover'.
         %%
         %% `no_passthrough_cover' - there is no coverage on the
-        %% original module OR passthrough coverage has been disabled
-        %% via the `no_passthrough_cover' option
+        %% original module OR passthrough is not enabled OR passthrough
+        %% coverage has been disabled via the `no_passthrough_cover' option
         %%
         %% `no_binary' - something went wrong while trying to compile
         %% the original module in `backup_original'
@@ -387,7 +387,7 @@ backup_original(Mod, Passthrough, NoPassCover, EnableOnLoad) ->
         %% to use the code server to access this binary without first
         %% saving it to disk.  Instead, it's passed around as state.
         Binary2 = if
-            (Cover == false) orelse NoPassCover ->
+            (Cover == false) orelse (Passthrough == false) orelse NoPassCover ->
                 no_passthrough_cover;
             true ->
                 meck_cover:compile_beam(NewName, Binary),
