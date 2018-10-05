@@ -13,7 +13,7 @@ otp_release:
 
 script: rebar3 eunit
 install:
-  - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
+  - case $TRAVIS_OTP_RELEASE in R*) wget https://github.com/erlang/rebar3/releases/download/3.5.0/rebar3 ;; *) wget https://s3.amazonaws.com/rebar3/rebar3; esac && chmod +x rebar3
 script:
   - ./rebar3 as prod compile
   # - ./rebar3 as check xref
