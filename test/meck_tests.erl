@@ -1040,14 +1040,6 @@ cover_options_({_OldPath, Src, Module}) ->
     % 2 instead of 3, as above
     ?assertEqual({ok, {Module, {2,0}}}, cover:analyze(Module, module)).
 
--ifdef(cover_empty_compile_opts).
--define(compile_options, []).
--else.
--define(compile_options, [
-    {i, test_include()},
-    {d, 'TEST', true}
-]).
--endif.
 cover_options_fail_({_OldPath, Src, Module}) ->
     %% This may look like the test above but there is a subtle
     %% difference.  When `cover:compile_beam' is called it squashes
@@ -1066,7 +1058,10 @@ cover_options_fail_({_OldPath, Src, Module}) ->
         proplists:delete(outdir, lists:sort(meck_code:compile_options(Module)))
     ),
     {ok, _} = cover:compile_beam(Module),
-    ?assertEqual(?compile_options, meck_code:compile_options(Module)),
+    ?assertEqual(
+        [{i, test_include()}, {d, 'TEST', true}],
+        meck_code:compile_options(Module)
+    ),
     a      = Module:a(),
     b      = Module:b(),
     {1, 2} = Module:c(1, 2),

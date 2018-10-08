@@ -48,11 +48,7 @@
 %%% Definitions
 %%%============================================================================
 
--ifdef(non_namespaced_types). % For older Erlang versions
--type meck_dict() :: dict().
--else.
 -type meck_dict() :: dict:dict().
--endif.
 
 -record(state, {mod :: atom(),
                 can_expect :: any | [{Mod::atom(), Ari::byte()}],
