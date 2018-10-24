@@ -39,12 +39,13 @@ rename_module(File, Name) ->
     ok.
 
 %% @doc Dump cover data for `Mod' into a .coverdata file in the current
-%% directory. Return the absolute file name.
+%% directory. Return the absolute path to the backup file.
 dump_coverdata(Mod) ->
     {ok, CWD} = file:get_cwd(),
-    File = filename:join(CWD, atom_to_list(Mod) ++ ".coverdata"),
-    ok = cover:export(File, Mod),
-    File.
+    File = lists:concat([Mod, ".", os:getpid(), ".coverdata"]),
+    Path = filename:join(CWD, File),
+    ok = cover:export(Path, Mod),
+    Path.
 
 %%=============================================================================
 %% Internal functions
