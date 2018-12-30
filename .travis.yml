@@ -3,8 +3,8 @@ language: erlang
 sudo: false
 os: linux
 otp_release:
-  - 21.0.2
-  - 20.3.8.2
+  - 21.2
+  - 20.3
   - 19.3
   - 18.3
   - 17.5
