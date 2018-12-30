@@ -1078,7 +1078,13 @@ cover_options_fail_({_OldPath, Src, Module}) ->
 test_file(Module, Ext) ->
     filename:join(test_dir(), atom_to_list(Module) ++ Ext).
 
-test_dir() -> filename:dirname(?FILE).
+test_dir() ->
+    case code:which(?MODULE) of
+        Filename when is_list(Filename) ->
+            filename:dirname(Filename);
+        Atom when is_atom(Atom) ->
+            error({test_dir_not_found, ?MODULE, Atom})
+    end.
 
 test_include() -> filename:join(test_dir(), "include").
 
