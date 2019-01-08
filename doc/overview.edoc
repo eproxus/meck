@@ -16,7 +16,7 @@
 
 @author Adam Lindberg <eproxus@gmail.com>
 @copyright 2010-2017 Adam Lindberg, 2010-2011 Erlang Solutions Ltd
-@version 0.8.12
+@version 0.8.13
 @title meck, a Mocking Library for Erlang
 
 @doc
