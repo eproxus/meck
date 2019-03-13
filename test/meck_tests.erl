@@ -811,6 +811,15 @@ expect_ret_specs_(Mod) ->
 
 %% --- Tests with own setup ----------------------------------------------------
 
+validate_options_test() ->
+    Mod = validate_options,
+    try
+        meck:new(Mod, passthrought),
+        throw(failed)
+    catch
+        error:function_clause -> ok
+    end.
+
 merge_expects_module_test() ->
     Mod = merge_mod,
     meck:new(Mod, [non_strict, merge_expects]),
