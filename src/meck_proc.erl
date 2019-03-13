@@ -204,6 +204,8 @@ validate_options([enable_on_load|Options]) -> validate_options(Options);
 validate_options([passthrough|Options]) -> validate_options(Options);
 validate_options([no_history|Options]) -> validate_options(Options);
 validate_options([non_strict|Options]) -> validate_options(Options);
+validate_options([stub_all|Options]) -> validate_options(Options);
+validate_options([{stub_all, _}|Options]) -> validate_options(Options);
 validate_options([UnknownOption|_]) -> erlang:error({bad_arg, UnknownOption}).
 
 %% @hidden
