@@ -194,7 +194,23 @@ stop(Mod) ->
 %%%============================================================================
 
 %% @hidden
+validate_options([]) -> ok;
+validate_options([no_link|Options]) -> validate_options(Options);
+validate_options([spawn_opt|Options]) -> validate_options(Options);
+validate_options([unstick|Options]) -> validate_options(Options);
+validate_options([no_passthrough_cover|Options]) -> validate_options(Options);
+validate_options([merge_expects|Options]) -> validate_options(Options);
+validate_options([enable_on_load|Options]) -> validate_options(Options);
+validate_options([passthrough|Options]) -> validate_options(Options);
+validate_options([no_history|Options]) -> validate_options(Options);
+validate_options([non_strict|Options]) -> validate_options(Options);
+validate_options([stub_all|Options]) -> validate_options(Options);
+validate_options([{stub_all, _}|Options]) -> validate_options(Options);
+validate_options([UnknownOption|_]) -> erlang:error({bad_arg, UnknownOption}).
+
+%% @hidden
 init([Mod, Options]) ->
+    validate_options(Options),
     Exports = normal_exports(Mod),
     WasSticky = case proplists:get_bool(unstick, Options) of
         true -> {module, Mod} = code:ensure_loaded(Mod),
