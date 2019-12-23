@@ -43,6 +43,7 @@
 -export([handle_info/2]).
 -export([terminate/2]).
 -export([code_change/3]).
+-export([format_status/2]).
 
 %%%============================================================================
 %%% Definitions
@@ -344,6 +345,15 @@ terminate(_Reason, #state{mod = Mod, original = OriginalState,
 
 %% @hidden
 code_change(_OldVsn, S, _Extra) -> {ok, S}.
+
+%% @hidden
+format_status(normal, [_Pdict, State]) -> State;
+format_status(terminate, [_Pdict, State]) ->
+  #{
+    mod         => State#state.mod,
+    passthrough => State#state.passthrough,
+    original    => State#state.original
+  }.
 
 %%%============================================================================
 %%% Internal functions
