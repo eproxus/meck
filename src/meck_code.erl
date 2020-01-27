@@ -122,9 +122,15 @@ load_binary(Name, Binary) ->
 % parse transforms have already been applied to the abstract code in the
 % module, and often are not always available when compiling the forms, so
 % filter them out of the options
+%
+% The -MMD option (makedep_side_effect) needs to be removed, otherwise
+% the compiler will attempt to generate a dependency file.
 filter_options (Options) ->
     case Options of
         undefined -> [];
-        _ -> lists:filter(fun({parse_transform,_}) -> false; (_) -> true end, Options)
+        _ -> lists:filter(
+               fun({parse_transform,_}) -> false;
+                  (makedep_side_effect)  -> false;
+                  (_)                    -> true
+               end, Options)
     end.
-
