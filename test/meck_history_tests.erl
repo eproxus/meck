@@ -163,7 +163,7 @@ result_different_caller() ->
 
 history_kept_while_reloading() ->
     NumCalls = 10,
-    meck:new(historical, [non_strict, passtrough]),
+    meck:new(historical, [non_strict, passthrough]),
     meck:expect(historical, test_fn, fun(Arg) -> {mocked, Arg} end),
     Test = self(),
     Caller = spawn(fun() ->

@@ -3,13 +3,11 @@ language: erlang
 sudo: false
 os: linux
 otp_release:
-  - 21.0.2
-  - 20.3.8.2
+  - 21.2
+  - 20.3
   - 19.3
   - 18.3
   - 17.5
-  - R16B03-1
-  - R15B03
 
 script: rebar3 eunit
 install:

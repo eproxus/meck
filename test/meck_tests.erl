@@ -811,6 +811,15 @@ expect_ret_specs_(Mod) ->
 
 %% --- Tests with own setup ----------------------------------------------------
 
+validate_options_test() ->
+    Mod = validate_options,
+    try
+        meck:new(Mod, passthrought),
+        throw(failed)
+    catch
+        error:function_clause -> ok
+    end.
+
 merge_expects_module_test() ->
     Mod = merge_mod,
     meck:new(Mod, [non_strict, merge_expects]),
@@ -1040,14 +1049,6 @@ cover_options_({_OldPath, Src, Module}) ->
     % 2 instead of 3, as above
     ?assertEqual({ok, {Module, {2,0}}}, cover:analyze(Module, module)).
 
--ifdef(cover_empty_compile_opts).
--define(compile_options, []).
--else.
--define(compile_options, [
-    {i, test_include()},
-    {d, 'TEST', true}
-]).
--endif.
 cover_options_fail_({_OldPath, Src, Module}) ->
     %% This may look like the test above but there is a subtle
     %% difference.  When `cover:compile_beam' is called it squashes
@@ -1066,7 +1067,10 @@ cover_options_fail_({_OldPath, Src, Module}) ->
         proplists:delete(outdir, lists:sort(meck_code:compile_options(Module)))
     ),
     {ok, _} = cover:compile_beam(Module),
-    ?assertEqual(?compile_options, meck_code:compile_options(Module)),
+    ?assertEqual(
+        [{i, test_include()}, {d, 'TEST', true}],
+        meck_code:compile_options(Module)
+    ),
     a      = Module:a(),
     b      = Module:b(),
     {1, 2} = Module:c(1, 2),
@@ -1083,7 +1087,13 @@ cover_options_fail_({_OldPath, Src, Module}) ->
 test_file(Module, Ext) ->
     filename:join(test_dir(), atom_to_list(Module) ++ Ext).
 
-test_dir() -> filename:dirname(?FILE).
+test_dir() ->
+    case code:which(?MODULE) of
+        Filename when is_list(Filename) ->
+            filename:dirname(Filename);
+        Atom when is_atom(Atom) ->
+            error({test_dir_not_found, ?MODULE, Atom})
+    end.
 
 test_include() -> filename:join(test_dir(), "include").
 

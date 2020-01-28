@@ -266,7 +266,7 @@ If you or your company use Meck and find it useful, [donations][liberapay] are g
 [hex]: https://hex.pm/packages/meck
 [hex version badge]: https://img.shields.io/hexpm/v/meck.svg?style=flat-square
 [hex license badge]: https://img.shields.io/hexpm/l/meck.svg?style=flat-square
-[erlang version badge]: https://img.shields.io/badge/erlang-R15B03%20to%2021.0-blue.svg?style=flat-square
+[erlang version badge]: https://img.shields.io/badge/erlang-17--21-blue.svg?style=flat-square
 [build tool]: https://img.shields.io/badge/build%20tool-rebar3-orange.svg?style=flat-square
 [liberapay badge]: https://img.shields.io/liberapay/receives/eproxus.svg?logo=liberapay&style=flat-square
 

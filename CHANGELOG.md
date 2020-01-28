@@ -1,5 +1,21 @@
 # Change Log
 
+## [0.8.13](https://github.com/eproxus/meck/tree/0.8.13) (2019-01-08)
+[Full Changelog](https://github.com/eproxus/meck/compare/0.8.12...0.8.13)
+
+**Implemented enhancements:**
+
+- Remove compatibility for Erlang R15 and R16 [\#198](https://github.com/eproxus/meck/issues/198)
+
+**Fixed bugs:**
+
+- Crash when mocking Elixir 1.8-rc.0 compiled module [\#201](https://github.com/eproxus/meck/issues/201)
+
+**Merged pull requests:**
+
+- Exclude from\_core option from compile\_info when compiling [\#202](https://github.com/eproxus/meck/pull/202) ([josevalim](https://github.com/josevalim))
+- Isolate backup \*.coverdata from other beam instances [\#200](https://github.com/eproxus/meck/pull/200) ([dcsommer](https://github.com/dcsommer))
+
 ## [0.8.12](https://github.com/eproxus/meck/tree/0.8.12) (2018-08-08)
 [Full Changelog](https://github.com/eproxus/meck/compare/0.8.11...0.8.12)
 
@@ -67,7 +83,7 @@
 - Mock a module only from the perspective of a specific module [\#34](https://github.com/eproxus/meck/issues/34)
 - meck:app [\#16](https://github.com/eproxus/meck/issues/16)
 - Mock a module only from the perspective of a specific caller \(calling process\) [\#3](https://github.com/eproxus/meck/issues/3)
-- Add 19.2 to versions tested by TravisCI [\#168](https://github.com/eproxus/meck/pull/168) ([RackerJohnMadrid](https://github.com/RackerJohnMadrid))
+- Add 19.2 to versions tested by TravisCI [\#168](https://github.com/eproxus/meck/pull/168) ([WramblinWreck](https://github.com/WramblinWreck))
 - Add `meck:result/4-5' that returns the result value of a particular function [\#163](https://github.com/eproxus/meck/pull/163) ([amutake](https://github.com/amutake))
 - fix \#88 [\#162](https://github.com/eproxus/meck/pull/162) ([yutopp](https://github.com/yutopp))
 
