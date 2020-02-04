@@ -121,7 +121,7 @@ load_binary(Name, Binary) ->
 
 % parse transforms have already been applied to the abstract code in the
 % module, and often are not always available when compiling the forms, so
-% filter them out of the options
+% filter them out of the options.
 %
 % Furthermore, since Erlang/OTP 20, a code may be compiled from core but
 % still have abstract code, so we make sure to remove the from_core option
