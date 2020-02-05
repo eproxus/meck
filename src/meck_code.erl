@@ -126,8 +126,16 @@ load_binary(Name, Binary) ->
 % Furthermore, since Erlang/OTP 20, a code may be compiled from core but
 % still have abstract code, so we make sure to remove the from_core option
 % as we always compile it as a form.
+%
+% The -MMD option (makedep_side_effect) needs to be removed, otherwise
+% the compiler will attempt to generate a dependency file.
 filter_options (Options) ->
     case Options of
         undefined -> [];
-        _ -> lists:filter(fun({parse_transform,_}) -> false; (from_core) -> false; (_) -> true end, Options)
+        _ -> lists:filter(
+               fun({parse_transform,_})  -> false;
+                  (makedep_side_effect)  -> false;
+                  (from_core)            -> false;
+                  (_)                    -> true
+               end, Options)
     end.
