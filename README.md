@@ -1,7 +1,7 @@
-[![Travis][travis badge]][travis]
+[![GitHub Actions][actions badge]][actions]
 [![Hex.pm Version][hex version badge]][hex]
 [![Hex.pm License][hex license badge]][hex]
-[![Erlang Versions][erlang version badge]][travis]
+[![Erlang Versions][erlang versions badge]][erlang versions]
 [![Build Tool][build tool]][hex]
 [![Donations][liberapay badge]][liberapay]
 
@@ -261,12 +261,13 @@ If you or your company use Meck and find it useful, [donations][liberapay] are g
 
 
 <!-- Badges -->
-[travis]: https://travis-ci.org/eproxus/meck
-[travis badge]: https://img.shields.io/travis/eproxus/meck/master.svg?style=flat-square
+[actions badge]: https://img.shields.io/github/workflow/status/eproxus/meck/CI?style=flat-square
+[actions]: https://github.com/eproxus/meck/actions?query=workflow%3ACI
 [hex]: https://hex.pm/packages/meck
 [hex version badge]: https://img.shields.io/hexpm/v/meck.svg?style=flat-square
 [hex license badge]: https://img.shields.io/hexpm/l/meck.svg?style=flat-square
-[erlang version badge]: https://img.shields.io/badge/erlang-17--21-blue.svg?style=flat-square
+[erlang versions badge]: https://img.shields.io/badge/erlang-18--22-blue.svg?style=flat-square
+[erlang versions]: https://github.com/eproxus/meck/blob/master/.github/workflows/erlang.yml#L13-L18
 [build tool]: https://img.shields.io/badge/build%20tool-rebar3-orange.svg?style=flat-square
 [liberapay badge]: https://img.shields.io/liberapay/receives/eproxus.svg?logo=liberapay&style=flat-square
 
