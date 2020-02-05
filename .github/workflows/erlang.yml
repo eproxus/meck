@@ -1,19 +1,15 @@
-name: Erlang CI
-
-on: [push]
+on: push
 
 jobs:
-
-  build:
-
+  test:
     runs-on: ubuntu-latest
-
     container:
-      image: erlang:22.0.7
-
+      image: erlang:${{matrix.otp}}
+    name: OTP ${{matrix.otp}}
+    strategy:
+      matrix:
+        otp: [22.0.7]
     steps:
-    - uses: actions/checkout@v2
-    - name: Compile
-      run: rebar3 compile
-    - name: Run tests
-      run: rebar3 do eunit, ct
+      - uses: actions/checkout@v2
+      - run: rebar3 compile
+      - run: rebar3 do eunit, ct
