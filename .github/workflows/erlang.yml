@@ -1,3 +1,5 @@
+name: CI
+
 on: push
 
 jobs:
@@ -8,8 +10,15 @@ jobs:
     name: OTP ${{matrix.otp}}
     strategy:
       matrix:
-        otp: [22.0.7]
+        otp: 
+          - 22.2.6
+          - 21.3.8.13
+          - 20.3.8.25
+          - 19.3.6.13
+          - 18.3.4.11
     steps:
       - uses: actions/checkout@v2
       - run: rebar3 compile
+        name: Compile
       - run: rebar3 do eunit, ct
+        name: Test
