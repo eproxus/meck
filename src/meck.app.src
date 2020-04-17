@@ -3,7 +3,7 @@
     {vsn, "0.8.13"},
     {modules, []},
     {registered, []},
-    {applications, [kernel, stdlib, tools]},
+    {applications, [kernel, stdlib, tools, compiler]},
     {env, []},
 
     % Hex.pm
