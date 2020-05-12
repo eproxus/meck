@@ -1547,6 +1547,27 @@ wait_purge_expired_tracker_test() ->
     %% Clean
     meck:unload().
 
+mocked_test() ->
+  %% At start, no modules should be mocked:
+  [] = meck:mocked(),
+
+  %% Mocking a new module adds it to the list of mocked modules:
+  meck:new(mocked_test, [non_strict]),
+  [mocked_test] = meck:mocked(),
+
+  %% Mocking with implicit `meck:new` also adds to the list of mocked modules:
+  meck:expect(meck_test_module, c, 2, ok),
+  [meck_test_module, mocked_test] = lists:sort(meck:mocked()),
+
+  meck:new([foo, bar], [non_strict]),
+  [bar, foo, meck_test_module, mocked_test] = lists:sort(meck:mocked()),
+
+  ok = meck:unload([foo, meck_test_module]),
+  [bar, mocked_test] = lists:sort(meck:mocked()),
+
+  meck:unload(),
+  %% After unload all, no modules should be mocked again
+  [] = meck:mocked().
 
 meck_passthrough_test_() ->
     {foreach, fun setup_passthrough/0, fun teardown/1,
