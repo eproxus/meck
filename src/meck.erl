@@ -54,6 +54,7 @@
 -export([wait/4]).
 -export([wait/5]).
 -export([wait/6]).
+-export([mocked/0]).
 
 %% Syntactic sugar
 -export([loop/1]).
@@ -460,7 +461,15 @@ history(Mod, OptCallerPid)
 -spec unload() -> Unloaded when
       Unloaded :: [Mod],
       Mod :: atom().
-unload() -> lists:foldl(fun unload_if_mocked/2, [], registered()).
+unload() ->
+    foldl_mocks(fun(Mod, Acc) ->
+        try
+            unload(Mod),
+            [Mod | Acc]
+        catch error:{not_mocked, Mod} ->
+            Acc
+        end
+    end, []).
 
 %% @doc Unload a mocked module or a list of mocked modules.
 %%
@@ -723,6 +732,11 @@ capture(Occur, Mod, Func, OptArgsSpec, ArgNum, OptCallerPid) ->
 capture(Occur, Mod, Func, OptArgsSpec, ArgNum) ->
     meck_history:capture(Occur, '_', Mod, Func, OptArgsSpec, ArgNum).
 
+%% @doc Returns the currently mocked modules.
+-spec mocked() -> list(atom()).
+mocked() ->
+    foldl_mocks(fun(M, Acc) -> [M | Acc] end, []).
+
 %%%============================================================================
 %%% Internal functions
 %%%============================================================================
@@ -732,25 +746,18 @@ wait_for_exit(Mod) ->
     MonitorRef = erlang:monitor(process, meck_util:proc_name(Mod)),
     receive {'DOWN', MonitorRef, _Type, _Object, _Info} -> ok end.
 
--spec unload_if_mocked(Mod::atom() | string(), Unloaded::[atom()]) ->
-        NewUnloaded::[atom()].
-unload_if_mocked(Mod, Unloaded) when is_atom(Mod) ->
-    unload_if_mocked(atom_to_list(Mod), Unloaded);
-unload_if_mocked(ModName, Unloaded) when length(ModName) > 5 ->
-    case lists:split(length(ModName) - 5, ModName) of
-        {Name, "_meck"} ->
-            Mocked = erlang:list_to_existing_atom(Name),
-            try
-                unload(Mocked)
-            catch error:{not_mocked, Mocked} ->
-                    ok
-            end,
-            [Mocked | Unloaded];
-        _Else ->
-            Unloaded
-    end;
-unload_if_mocked(_P, Unloaded) ->
-    Unloaded.
+-spec foldl_mocks(Fun, AccIn) -> AccOut when
+    Fun :: fun((Elem :: module(), AccIn) -> AccOut),
+    AccIn :: term(),
+    AccOut :: term().
+foldl_mocks(Fun, Acc0) when is_function(Fun, 2) ->
+    lists:foldl(fun(Mod, Acc)  ->
+        ModName = atom_to_list(Mod),
+        case lists:split(max(length(ModName) - 5, 0), ModName) of
+            {Name, "_meck"} -> Fun(erlang:list_to_existing_atom(Name), Acc);
+            _Else -> Acc
+        end
+    end, Acc0, erlang:registered()).
 
 -spec check_expect_result(ok | {error, Reason::any()}) -> ok.
 check_expect_result(ok) -> ok;
