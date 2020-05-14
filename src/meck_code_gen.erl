@@ -24,6 +24,8 @@
 %% Exported to be accessible from generated modules.
 -export([exec/4]).
 
+-include("meck.hrl").
+
 %%%============================================================================
 %%% Definitions
 %%%============================================================================
@@ -168,29 +170,6 @@ exec(Pid, Mod, Func, Args) ->
             apply(Mod, Func, Args)
     end.
 
-%% workaround for the removal of erlang:get_stacktrace/0 beginning
-%% in Erlang 21.
-%% There is no good solution if you want BOTH
-%% a) be able to compile with both pre- and post-21 compilers
-%% b) no warning (e.g. if you use warnings_as_errors)
-%% this is one of(?) the less bad hacks.
-%% `OTP_RELEASE' was introduced in 21, so if it is defined, we use post-21
-%% behaviour, otherwise pre-21.
-%% Note that in the EXCEPTION macro, you can match on Class and Reason,
-%% but not on StackToken. I.e. this works;
-%% ?EXCEPTION(throw,R,S)
-%% but not this;
-%% ?EXCEPTION(C,R,[])
-%% StackToken is used to make the macros hygienic (i.e. to not leak variable
-%% bindings)
--ifdef(OTP_RELEASE). %% this implies 21 or higher
--define(EXCEPTION(Class, Reason, StackToken), Class:Reason:StackToken).
--define(GET_STACK(StackToken), StackToken).
--else.
--define(EXCEPTION(Class, Reason, _), Class:Reason).
--define(GET_STACK(_), erlang:get_stacktrace()).
--endif.
-
 -spec eval(Pid::pid(), Mod::atom(), Func::atom(), Args::[any()],
            ResultSpec::any()) -> Result::any() | no_return().
 eval(Pid, Mod, Func, Args, ResultSpec) ->
@@ -200,9 +179,9 @@ eval(Pid, Mod, Func, Args, ResultSpec) ->
         meck_proc:add_history(Mod, Pid, Func, Args, Result),
         Result
     catch
-        ?EXCEPTION(Class, Reason, StackToken) ->
+        ?_exception_(Class, Reason, StackToken) ->
             handle_exception(Pid, Mod, Func, Args,
-                             Class, Reason, ?GET_STACK(StackToken))
+                             Class, Reason, ?_get_stacktrace_(StackToken))
     after
         erase(?CURRENT_CALL)
     end.
