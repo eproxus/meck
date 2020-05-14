@@ -103,13 +103,14 @@ get_result_spec(Mod, Func, Args) ->
 set_expect(Mod, Expect) ->
     Proc = meck_util:proc_name(Mod),
     try
-        gen_server:call(Proc, {set_expect, Expect})
+        gen_server:call(Proc, {set_expect, Expect}, infinity)
     catch
         exit:{noproc, _Details} ->
             Options = [Mod, [passthrough]],
             case gen_server:start({local, Proc}, ?MODULE, Options, []) of
                 {ok, Pid} ->
-                    Result = gen_server:call(Proc, {set_expect, Expect}),
+                    Result = gen_server:call(Proc, {set_expect, Expect},
+                                             infinity),
                     true = erlang:link(Pid),
                     Result;
                 {error, {{undefined_module, Mod}, _StackTrace}} ->
