@@ -462,7 +462,7 @@ history(Mod, OptCallerPid)
       Unloaded :: [Mod],
       Mod :: atom().
 unload() ->
-    foldl_mocks(fun(Mod, Acc) ->
+    fold_mocks(fun(Mod, Acc) ->
         try
             unload(Mod),
             [Mod | Acc]
@@ -735,7 +735,7 @@ capture(Occur, Mod, Func, OptArgsSpec, ArgNum) ->
 %% @doc Returns the currently mocked modules.
 -spec mocked() -> list(atom()).
 mocked() ->
-    foldl_mocks(fun(M, Acc) -> [M | Acc] end, []).
+    fold_mocks(fun(M, Acc) -> [M | Acc] end, []).
 
 %%%============================================================================
 %%% Internal functions
@@ -746,11 +746,11 @@ wait_for_exit(Mod) ->
     MonitorRef = erlang:monitor(process, meck_util:proc_name(Mod)),
     receive {'DOWN', MonitorRef, _Type, _Object, _Info} -> ok end.
 
--spec foldl_mocks(Fun, AccIn) -> AccOut when
+-spec fold_mocks(Fun, AccIn) -> AccOut when
     Fun :: fun((Elem :: module(), AccIn) -> AccOut),
     AccIn :: term(),
     AccOut :: term().
-foldl_mocks(Fun, Acc0) when is_function(Fun, 2) ->
+fold_mocks(Fun, Acc0) when is_function(Fun, 2) ->
     lists:foldl(fun(Mod, Acc)  ->
         ModName = atom_to_list(Mod),
         case lists:split(max(length(ModName) - 5, 0), ModName) of
