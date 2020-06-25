@@ -48,4 +48,3 @@ rm -rf ebin
 rm -rf src/**/*.beam
 rm -rf test/**/*.beam
 rebar3 hex publish
-rebar3 hex docs
