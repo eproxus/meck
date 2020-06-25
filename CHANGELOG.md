@@ -7,7 +7,10 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [0.9.0] - 2020-06-25
+
 ### Added
+
 - Support Erlang 23.0 [8c16751](https://github.com/eproxus/meck/commit/8c16751613c7e4ed594e0675004b1c8f68ea8ddd)
 - Add a new function `mocked/0` that returns which modules are currently mocked [\#210](https://github.com/eproxus/meck/pull/210)
 
@@ -313,7 +316,8 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 - dialyzer unmatched return errors [\#24](https://github.com/eproxus/meck/issues/24)
 
-[Unreleased]: https://github.com/eproxus/meck/compare/0.8.13...HEAD
+[Unreleased]: https://github.com/eproxus/meck/compare/0.9.0...HEAD
+[0.9.0]: https://github.com/eproxus/meck/compare/0.8.13...0.9.0
 [0.8.13]: https://github.com/eproxus/meck/compare/0.8.12...0.8.13
 [0.8.12]: https://github.com/eproxus/meck/compare/0.8.11...0.8.12
 [0.8.11]: https://github.com/eproxus/meck/compare/0.8.10...0.8.11
