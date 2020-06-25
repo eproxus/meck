@@ -115,7 +115,7 @@
 %% a pattern based argument specification that consists solely of wildcards,
 %% and has the length of arity (e.g.: 3 is equivalent to ['_', '_', '_']).
 
--opaque ret_spec() :: meck_ret_spec:ret_spec().
+-type ret_spec() :: meck_ret_spec:ret_spec().
 %% Opaque data structure that specifies a value or a set of values to be returned
 %% by a mock stub function defined by either {@link expect/3} and {@link expect/4}.
 %% Values of `ret_spec()' are constructed by {@link seq/1}, {@link loop/1},
