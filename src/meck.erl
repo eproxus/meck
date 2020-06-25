@@ -119,9 +119,9 @@
 %% Opaque data structure that specifies a value or a set of values to be returned
 %% by a mock stub function defined by either {@link expect/3} and {@link expect/4}.
 %% Values of `ret_spec()' are constructed by {@link seq/1}, {@link loop/1},
-%% {@link val/1}, and {@link raise/2} functions. They are used to specify
-%% return values in {@link expect/3} and {@link expect/4} functions, and also
-%% as a parameter of the `stub_all' option of {@link new/2} function.
+%% {@link val/1}, {@link exec/1}, and {@link raise/2} functions. They are used
+%% to specify return values in {@link expect/3} and {@link expect/4} functions,
+%% and also as a parameter of the `stub_all' option of {@link new/2} function.
 %%
 %% Note that any Erlang term `X' is a valid `ret_spec()' equivalent to
 %% `meck:val(X)'.
