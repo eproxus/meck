@@ -49,6 +49,3 @@ rm -rf src/**/*.beam
 rm -rf test/**/*.beam
 rebar3 hex publish
 rebar3 hex docs
-
-# Push changelog
-chandler push "$VSN"
