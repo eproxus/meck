@@ -15,7 +15,6 @@ check_path() {
 check_path git
 check_path sed
 check_path rebar3 "http://www.rebar3.org"
-check_path github_changelog_generator "https://github.com/github-changelog-generator/github-changelog-generator"
 check_path chandler "https://github.com/mattbrictson/chandler"
 
 if [ -z "$1" ]; then
@@ -51,9 +50,5 @@ rm -rf test/**/*.beam
 rebar3 hex publish
 rebar3 hex docs
 
-# Generate and push changelog
-github_changelog_generator
-git add CHANGELOG.md
-git commit -m "Update changelog for version $VSN"
-git push
+# Push changelog
 chandler push "$VSN"
