@@ -856,6 +856,43 @@ merge_expects_ret_specs_test() ->
     ?assertEqual(c, Mod:f(1, 1)),
     meck:unload(Mod).
 
+merge_expects_passthrough_test() ->
+  meck:new(meck_test_module, [passthrough, merge_expects]),
+  %% When
+  meck:expect(meck_test_module, c, [1, 1], meck:seq([a, b, c])),
+  %% Then
+  ?assertEqual({a, b}, meck_test_module:c(a, b)),
+  ?assertEqual(a, meck_test_module:c(1, 1)),
+  ?assertEqual(b, meck_test_module:c(1, 1)),
+  ?assertEqual(c, meck_test_module:c(1, 1)),
+
+  %% When
+  meck:expect(meck_test_module, c, [1, '_'], meck:loop([d, e])),
+  %% Then
+  ?assertEqual({a, b}, meck_test_module:c(a, b)),
+  ?assertEqual(d, meck_test_module:c(1, 2)),
+  ?assertEqual(e, meck_test_module:c(1, 2)),
+  ?assertEqual(d, meck_test_module:c(1, 2)),
+  ?assertEqual(e, meck_test_module:c(1, 2)),
+  %% And
+  ?assertEqual(c, meck_test_module:c(1, 1)),
+
+  %% When
+  meck:expect(meck_test_module, c, ['_', '_'], meck:val(f)),
+  %% Then
+  ?assertEqual(f, meck_test_module:c(a, b)),
+  %% And
+  ?assertEqual(d, meck_test_module:c(1, 2)),
+  ?assertEqual(e, meck_test_module:c(1, 2)),
+  ?assertEqual(d, meck_test_module:c(1, 2)),
+  ?assertEqual(e, meck_test_module:c(1, 2)),
+  ?assertEqual(c, meck_test_module:c(1, 1)),
+
+  meck:delete(meck_test_module, c, 2),
+  ?assertEqual({1, 1}, meck_test_module:c(1, 1)),
+
+  meck:unload(meck_test_module).
+
 undefined_module_test() ->
     %% When/Then
     ?assertError({{undefined_module, blah}, _}, meck:new(blah, [no_link])).
