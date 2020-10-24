@@ -248,27 +248,35 @@ handle_call({get_result_spec, Func, Args}, _From, S) ->
     {ResultSpec, NewExpects} = do_get_result_spec(S#state.expects, Func, Args),
     {reply, ResultSpec, S#state{expects = NewExpects}};
 handle_call({set_expect, Expect}, From,
-            S = #state{mod = Mod, expects = Expects, merge_expects = MergeExpects}) ->
+            S = #state{mod = Mod, expects = Expects, passthrough = Passthrough,
+                       merge_expects = MergeExpects, can_expect = CanExpect}) ->
     check_if_being_reloaded(S),
     FuncAri = {Func, Ari} = meck_expect:func_ari(Expect),
     case validate_expect(Mod, Func, Ari, S#state.can_expect) of
         ok ->
-            {NewExpects, CompilerPid} = store_expect(Mod, FuncAri, Expect,
-                                                     Expects, MergeExpects),
-            {noreply, S#state{expects = NewExpects,
-                              reload = {CompilerPid, From}}};
+            case store_expect(Mod, FuncAri, Expect, Expects,
+                              MergeExpects, Passthrough, CanExpect) of
+                {no_compile, NewExpects} ->
+                    {reply, ok, S#state{expects = NewExpects}};
+                {CompilerPid, NewExpects} ->
+                    {noreply, S#state{expects = NewExpects,
+                                      reload = {CompilerPid, From}}}
+            end;
         {error, Reason} ->
             {reply, {error, Reason}, S}
     end;
 handle_call({delete_expect, Func, Ari, Force}, From,
             S = #state{mod = Mod, expects = Expects,
-                       passthrough = PassThrough}) ->
+                       passthrough = PassThrough, can_expect = CanExpect}) ->
     check_if_being_reloaded(S),
     ErasePassThrough = Force orelse (not PassThrough),
-    {NewExpects, CompilerPid} =
-        do_delete_expect(Mod, {Func, Ari}, Expects, ErasePassThrough),
-    {noreply, S#state{expects = NewExpects,
-                      reload = {CompilerPid, From}}};
+    case do_delete_expect(Mod, {Func, Ari}, Expects, ErasePassThrough,
+                          PassThrough, CanExpect) of
+        {no_compile, NewExpects} ->
+            {reply, ok, S#state{expects = NewExpects}};
+        {CompilerPid, NewExpects} ->
+            {noreply, S#state{expects = NewExpects, reload = {CompilerPid, From}}}
+    end;
 handle_call({list_expects, ExcludePassthrough}, _From, S = #state{mod = Mod, expects = Expects}) ->
     Result =
         case ExcludePassthrough of
@@ -485,6 +493,8 @@ gen_server(Func, Mod, Msg) ->
 -spec check_if_being_reloaded(#state{}) -> ok.
 check_if_being_reloaded(#state{reload = undefined}) ->
     ok;
+check_if_being_reloaded(#state{passthrough = true}) ->
+    ok;
 check_if_being_reloaded(_S) ->
     erlang:error(concurrent_reload).
 
@@ -519,25 +529,39 @@ validate_expect(Mod, Func, Ari, CanExpect) ->
     end.
 
 -spec store_expect(Mod::atom(), meck_expect:func_ari(),
-                   meck_expect:expect(), Expects::meck_dict(), boolean()) ->
-        {NewExpects::meck_dict(), CompilerPid::pid()}.
-store_expect(Mod, FuncAri, Expect, Expects, true) ->
+                   meck_expect:expect(), Expects::meck_dict(),
+                   MergeExpects::boolean(), Passthrough::boolean(),
+                   CanExpect::term()) ->
+        {CompilerPidOrNoCompile::no_compile | pid(), NewExpects::meck_dict()}.
+store_expect(Mod, FuncAri, Expect, Expects, true, PassThrough, CanExpect) ->
     NewExpects = case dict:is_key(FuncAri, Expects) of
         true ->
             {FuncAri, ExistingClauses} = dict:fetch(FuncAri, Expects),
             {FuncAri, NewClauses} = Expect,
-            dict:store(FuncAri, {FuncAri, ExistingClauses ++ NewClauses}, Expects);
+            ToStore = case PassThrough of
+                          false ->
+                              ExistingClauses ++ NewClauses;
+                          true ->
+                              RevExistingClauses = lists:reverse(ExistingClauses),
+                              [PassthroughClause | OldClauses] = RevExistingClauses,
+                              lists:reverse(OldClauses,
+                                            NewClauses ++ [PassthroughClause])
+                      end,
+            dict:store(FuncAri, {FuncAri, ToStore}, Expects);
         false -> dict:store(FuncAri, Expect, Expects)
     end,
-    compile_expects(Mod, NewExpects);
-store_expect(Mod, FuncAri, Expect, Expects, false) ->
+    {compile_expects_if_needed(Mod, NewExpects, PassThrough, CanExpect),
+     NewExpects};
+store_expect(Mod, FuncAri, Expect, Expects, false, PassThrough, CanExpect) ->
     NewExpects =  dict:store(FuncAri, Expect, Expects),
-    compile_expects(Mod, NewExpects).
+    {compile_expects_if_needed(Mod, NewExpects, PassThrough, CanExpect),
+     NewExpects}.
 
 -spec do_delete_expect(Mod::atom(), meck_expect:func_ari(),
-                       Expects::meck_dict(), ErasePassThrough::boolean()) ->
+                       Expects::meck_dict(), ErasePassThrough::boolean(),
+                       Passthrough::boolean(), CanExpect::term()) ->
         {NewExpects::meck_dict(), CompilerPid::pid()}.
-do_delete_expect(Mod, FuncAri, Expects, ErasePassThrough) ->
+do_delete_expect(Mod, FuncAri, Expects, ErasePassThrough, Passthrough, CanExpect) ->
     NewExpects = case ErasePassThrough of
                      true  ->
                          dict:erase(FuncAri, Expects);
@@ -546,20 +570,27 @@ do_delete_expect(Mod, FuncAri, Expects, ErasePassThrough) ->
                                     meck_expect:new_passthrough(FuncAri),
                                     Expects)
                  end,
-    compile_expects(Mod, NewExpects).
+    {compile_expects_if_needed(Mod, NewExpects, Passthrough, CanExpect),
+     NewExpects}.
+
+-spec compile_expects_if_needed(Mod::atom(), Expects::meck_dict(),
+                                Passthrough::boolean(), CanExpect::term()) ->
+        CompilerPidOrNoCompile::no_compile | pid().
+compile_expects_if_needed(_Mod, _Expects, true, CanExpect) when CanExpect =/= any ->
+    no_compile;
+compile_expects_if_needed(Mod, Expects, _, _) ->
+    compile_expects(Mod, Expects).
 
 -spec compile_expects(Mod::atom(), Expects::meck_dict()) ->
-        {NewExpects::meck_dict(), CompilerPid::pid()}.
+        CompilerPid::pid().
 compile_expects(Mod, Expects) ->
     %% If the recompilation is made by the server that executes a module
     %% no module that is called from meck_code:compile_and_load_forms/2
     %% can be mocked by meck.
-    CompilerPid =
-        erlang:spawn_link(fun() ->
-                                  Forms = meck_code_gen:to_forms(Mod, Expects),
-                                  meck_code:compile_and_load_forms(Forms)
-                          end),
-    {Expects, CompilerPid}.
+    erlang:spawn_link(fun() ->
+                              Forms = meck_code_gen:to_forms(Mod, Expects),
+                              meck_code:compile_and_load_forms(Forms)
+                      end).
 
 restore_original(Mod, {false, _Bin}, WasSticky, _BackupCover) ->
     restick_original(Mod, WasSticky),
