@@ -22,6 +22,11 @@
 -export([rename_module/2]).
 -export([dump_coverdata/1]).
 
+-ignore_xref({cover, compile_beams, 1}).
+-ignore_xref({cover, compile_beam, 2}).
+-ignore_xref({cover, get_term, 1}).
+-ignore_xref({cover, write, 2}).
+
 %%=============================================================================
 %% Interface exports
 %%=============================================================================
