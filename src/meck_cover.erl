@@ -69,6 +69,7 @@ dump_coverdata(Mod) ->
 %% access to `compile_beam/2' which allows passing a binary.
 %% In OTP 18.0 the internal API of cover changed a bit and
 %% compile_beam/2 was replaced by compile_beams/1.
+-dialyzer({no_missing_calls, alter_cover/0}). % for cover:compile_beams/1
 alter_cover() ->
     CoverExports = cover:module_info(exports),
     case {lists:member({compile_beams,1}, CoverExports),
@@ -96,6 +97,7 @@ alter_cover() ->
     end.
 
 %% wrap cover's pre-18.0 internal API to simulate the new API
+-dialyzer({no_missing_calls, compile_beam_wrapper/1}). % for cover:compile_beam/2
 compile_beam_wrapper(ModFiles) ->
     [cover:compile_beam(Mod, Bin)||{Mod, Bin} <- ModFiles].
 
@@ -129,6 +131,7 @@ read_cover_file(File) ->
     ok = file:close(Fd),
     Terms.
 
+-dialyzer({no_missing_calls, get_terms/2}). % for cover:get_term/1
 get_terms(Fd, Terms) ->
     case cover:get_term(Fd) of
         eof -> Terms;
@@ -140,5 +143,6 @@ write_terms(File, Terms) ->
     lists:foreach(write_term(Fd), Terms),
     ok.
 
+-dialyzer({no_missing_calls, write_term/1}). % for cover:write/2
 write_term(Fd) ->
     fun(Term) -> cover:write(Term, Fd) end.

@@ -122,7 +122,7 @@ delete_expect(Mod, Func, Ari, Force) ->
     gen_server(call, Mod, {delete_expect, Func, Ari, Force}).
 
 -spec list_expects(Mod::atom(), ExcludePassthrough::boolean()) ->
-    [{Mod::atom(), Func::atom(), Ari::byte}].
+    [{Mod::atom(), Func::atom(), Ari::byte()}].
 list_expects(Mod, ExcludePassthrough) ->
     gen_server(call, Mod, {list_expects, ExcludePassthrough}).
 
