@@ -679,7 +679,7 @@ exec(Fun) -> meck_ret_spec:exec(Fun).
 -spec is(MatcherImpl) -> matcher() when
       MatcherImpl :: Predicate | HamcrestMatcher,
       Predicate :: fun((any()) -> any()),
-      HamcrestMatcher :: hamcrest:matchspec().
+      HamcrestMatcher :: meck_matcher:hamcrest_matchspec().
 is(MatcherImpl) ->
     meck_matcher:new(MatcherImpl).
 
