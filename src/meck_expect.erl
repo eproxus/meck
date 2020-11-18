@@ -39,7 +39,7 @@
                         meck_ret_spec:ret_spec()}.
 
 -type func_ari() :: {Func::atom(), Ari::byte()}.
--opaque expect() :: {func_ari(), [func_clause()]}.
+-type expect() :: {func_ari(), [func_clause()]}.
 
 %%%============================================================================
 %%% API

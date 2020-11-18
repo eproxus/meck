@@ -189,7 +189,7 @@ eval(Pid, Mod, Func, Args, ResultSpec) ->
 -spec handle_exception(CallerPid::pid(), Mod::atom(), Func::atom(),
                        Args::[any()], Class:: exit | error | throw,
                        Reason::any(),
-                       Stack::list()) ->
+                       Stack::meck_history:stack_trace()) ->
         no_return().
 handle_exception(Pid, Mod, Func, Args, Class, Reason, Stack) ->
     case meck_ret_spec:is_meck_exception(Reason) of
@@ -201,7 +201,7 @@ handle_exception(Pid, Mod, Func, Args, Class, Reason, Stack) ->
     end.
 
 -spec raise(CallerPid::pid(), Mod::atom(), Func::atom(), Args::[any()],
-            Class:: exit | error | throw, Reason::any(), Stack::list()) ->
+            Class:: exit | error | throw, Reason::any(), Stack::meck_history:stack_trace()) ->
         no_return().
 raise(Pid, Mod, Func, Args, Class, Reason, Stack) ->
     StackTrace = inject(Mod, Func, Args, Stack),
@@ -209,6 +209,7 @@ raise(Pid, Mod, Func, Args, Class, Reason, Stack) ->
                                     {Class, Reason, StackTrace}),
     erlang:raise(Class, Reason, StackTrace).
 
+-dialyzer({no_match, inject/4}). % for meck_history:stack_trace in older Erlang/OTP versions
 -spec inject(Mod::atom(), Func::atom(), Args::[any()],
              meck_history:stack_trace()) ->
         NewStackTrace::meck_history:stack_trace().
