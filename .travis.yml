@@ -13,9 +13,9 @@ script: rebar3 eunit
 install:
   - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
 script:
-  - ./rebar3 as prod compile
-  # - ./rebar3 as check xref
-  # - ./rebar3 as check dialyzer
+  - ./rebar3 compile
+  - ./rebar3 xref
+  - ./rebar3 dialyzer
   - ./rebar3 eunit
   - ./rebar3 edoc
 
