@@ -406,7 +406,7 @@ backup_original(Mod, Passthrough, NoPassCover, EnableOnLoad) ->
             (Cover == false) orelse NoPassCover ->
                 no_passthrough_cover;
             true ->
-                meck_cover:compile_beam(NewName, Binary),
+                _ = meck_cover:compile_beam(NewName, Binary),
                 Binary
         end,
         {Cover, Binary2}
