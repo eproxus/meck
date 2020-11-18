@@ -27,12 +27,15 @@
 -export([is_matcher/1]).
 -export([match_ignore/2]).
 
+-ignore_xref({hamcrest, is_matcher, 1}).
+-ignore_xref({hamcrest, assert_that, 2}).
+
 %%%============================================================================
 %%% Definitions
 %%%============================================================================
 
 -record('$meck.matcher', {type :: predicate | hamcrest,
-                          impl :: predicate() | hamcrest:matchspec()}).
+                          impl :: predicate() | hamcrest_matchspec()}).
 
 %%%============================================================================
 %%% Types
@@ -40,12 +43,14 @@
 
 -type predicate() :: fun((X::any()) -> any()).
 -type matcher() :: #'$meck.matcher'{}.
+-type hamcrest_matchspec() :: tuple(). %% #'hamcrest.matchspec'{}
+-export_type([hamcrest_matchspec/0]).
 
 %%%============================================================================
 %%% API
 %%%============================================================================
 
--spec new(predicate() | hamcrest:matchspec()) -> matcher().
+-spec new(predicate() | hamcrest_matchspec()) -> matcher().
 new(Predicate) when is_function(Predicate) ->
     {arity, 1} = erlang:fun_info(Predicate, arity),
     #'$meck.matcher'{type = predicate, impl = Predicate};
@@ -68,7 +73,7 @@ is_matcher(_Other) -> false.
 match_ignore(Value, #'$meck.matcher'{type = predicate, impl = Predicate}) ->
     Predicate(Value) == true;
 match_ignore(Value, #'$meck.matcher'{type = hamcrest, impl = HamcrestMatcher}) ->
-    (catch hamcrest:assert_that(Value, HamcrestMatcher)) == true;
+    (catch erlang:apply(hamcrest, assert_that, [Value, HamcrestMatcher])) == true;
 match_ignore(_Value, _NotMatcher) ->
     true.
 
@@ -78,6 +83,6 @@ match_ignore(_Value, _NotMatcher) ->
 
 -spec is_hamcrest_matcher(any()) -> boolean().
 is_hamcrest_matcher(Something) ->
-    try hamcrest:is_matcher(Something)
+    try erlang:apply(hamcrest, is_matcher, [Something])
     catch _Class:_Reason -> false
     end.
