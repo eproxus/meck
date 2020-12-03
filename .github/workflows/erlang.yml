@@ -20,5 +20,7 @@ jobs:
       - uses: actions/checkout@v2
       - run: rebar3 compile
         name: Compile
+      - run: rebar3 do xref, dialyzer
+        name: Check
       - run: rebar3 do eunit, ct
         name: Test
