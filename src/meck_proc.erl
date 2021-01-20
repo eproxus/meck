@@ -560,7 +560,7 @@ store_expect(Mod, FuncAri, Expect, Expects, false, PassThrough, CanExpect) ->
 -spec do_delete_expect(Mod::atom(), meck_expect:func_ari(),
                        Expects::meck_dict(), ErasePassThrough::boolean(),
                        Passthrough::boolean(), CanExpect::term()) ->
-        {NewExpects::meck_dict(), CompilerPid::pid()}.
+        {CompilerPid::no_compile | pid(), NewExpects::meck_dict()}.
 do_delete_expect(Mod, FuncAri, Expects, ErasePassThrough, Passthrough, CanExpect) ->
     NewExpects = case ErasePassThrough of
                      true  ->
