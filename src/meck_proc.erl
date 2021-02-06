@@ -596,12 +596,12 @@ restore_original(Mod, {false, _Bin}, WasSticky, _BackupCover) ->
     restick_original(Mod, WasSticky),
     ok;
 restore_original(Mod, {{File, OriginalCover, Options}, _Bin}, WasSticky, BackupCover) ->
-    case filename:extension(File) of
-        ".erl" ->
-            {ok, Mod} = cover:compile_module(File, Options);
-        ".beam" ->
-            cover:compile_beam(File)
-    end,
+    {ok, Mod} = case filename:extension(File) of
+                    ".erl" ->
+                        cover:compile_module(File, Options);
+                    ".beam" ->
+                        cover:compile_beam(File)
+                end,
     restick_original(Mod, WasSticky),
     if BackupCover =/= undefined ->
         %% Import the cover data for `<name>_meck_original' but since it was
