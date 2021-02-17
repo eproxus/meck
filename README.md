@@ -131,16 +131,21 @@ function with the same name as the expect is defined in):
 
 ```erlang
 Eshell V5.8.4  (abort with ^G)
-1> meck:new(string, [unstick]).
+1> meck:new(string, [unstick, passthrough]).
 ok
-2> meck:expect(string, strip, fun(String) -> meck:passthrough([String]) end).
+2> meck:expect(string, strip, fun
+    ("foo") -> "bar";
+    (String) -> meck:passthrough([String])
+end).
 ok
 3> string:strip("  test  ").
 "test"
-4> meck:unload(string).
+4> string:strip("foo").
+"bar"
+5> meck:unload(string).
 ok
-5> string:strip("  test  ").
-"test"
+5> string:strip("foo").
+"foo"
 ```
 
 ## Use
