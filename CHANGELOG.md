@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- Module references in typespecs are not included when renaming modules [\#206](https://github.com/eproxus/meck/issues/206)
+
 ## [0.9.0] - 2020-06-25
 
 ### Added

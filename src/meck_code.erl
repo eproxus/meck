@@ -29,7 +29,7 @@
 -export([compile_and_load_forms/2]).
 -export([compile_options/1]).
 -export([enable_on_load/2]).
--export([rename_module/2]).
+-export([rename_module/3]).
 
 %% Types
 -type erlang_form() :: term().
@@ -98,16 +98,9 @@ enable_on_load(Forms, false) ->
 enable_on_load(Forms, _) ->
     Forms.
 
--spec rename_module(erlang_form(), module()) -> erlang_form().
-rename_module([{attribute, Line, module, OldAttribute}|T], NewName) ->
-    case OldAttribute of
-        {_OldName, Variables} ->
-            [{attribute, Line, module, {NewName, Variables}}|T];
-        _OldName ->
-            [{attribute, Line, module, NewName}|T]
-    end;
-rename_module([H|T], NewName) ->
-    [H|rename_module(T, NewName)].
+-spec rename_module(erlang_form(), module(), module()) -> erlang_form().
+rename_module(Forms, Old, New) ->
+    lists:map(fun(F) -> rename_module_in_form(F, Old, New) end, Forms).
 
 %%=============================================================================
 %% Internal functions
@@ -139,3 +132,17 @@ filter_options (Options) ->
                   (_)                    -> true
                end, Options)
     end.
+
+rename_module_in_form({attribute, Line, AttrName, AttrData}, Old, New) ->
+    {attribute, Line, AttrName,
+        rename_module_in_attribute(AttrName, AttrData, Old, New)
+    };
+rename_module_in_form(Form, _Old, _New) ->
+    Form.
+
+rename_module_in_attribute(module, Old, Old, New) ->
+    New;
+rename_module_in_attribute(spec, {{Old, Fun, Arity}, Spec}, Old, New) ->
+    {{New, Fun, Arity}, Spec};
+rename_module_in_attribute(_AttrName, AttrData, _Old, _New) ->
+    AttrData.

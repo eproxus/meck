@@ -389,7 +389,7 @@ backup_original(Mod, Passthrough, NoPassCover, EnableOnLoad) ->
         Forms = meck_code:enable_on_load(Forms0, EnableOnLoad),
         NewName = meck_util:original_name(Mod),
         CompileOpts = [debug_info | meck_code:compile_options(meck_code:beam_file(Mod))],
-        Renamed = meck_code:rename_module(Forms, NewName),
+        Renamed = meck_code:rename_module(Forms, Mod, NewName),
         Binary = meck_code:compile_and_load_forms(Renamed, CompileOpts),
 
         %% At this point we care about `Binary' if and only if we want
