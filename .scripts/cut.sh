@@ -15,7 +15,6 @@ check_path() {
 check_path git
 check_path sed
 check_path rebar3 "http://www.rebar3.org"
-check_path chandler "https://github.com/mattbrictson/chandler"
 
 if [ -z "$1" ]; then
     # Missing tag name
