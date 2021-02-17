@@ -9,7 +9,8 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ### Fixed
 
-- Module references in typespecs are not included when renaming modules [\#206](https://github.com/eproxus/meck/issues/206)
+- Module references in type specs were not included when renaming modules [\#206](https://github.com/eproxus/meck/issues/206)
+- The passthrough clause was not always the last clause in an expect with multiple clauses [\#216](https://github.com/eproxus/meck/pull/216)
 
 ## [0.9.0] - 2020-06-25
 
