@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [0.9.1] - 2021-02-17
+
 ### Fixed
 
 - Module references in type specs were not included when renaming modules [\#206](https://github.com/eproxus/meck/issues/206)
@@ -321,7 +323,8 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 - dialyzer unmatched return errors [\#24](https://github.com/eproxus/meck/issues/24)
 
-[Unreleased]: https://github.com/eproxus/meck/compare/0.9.0...HEAD
+[Unreleased]: https://github.com/eproxus/meck/compare/0.9.1...HEAD
+[0.9.1]: https://github.com/eproxus/meck/compare/0.9.0...0.9.1
 [0.9.0]: https://github.com/eproxus/meck/compare/0.8.13...0.9.0
 [0.8.13]: https://github.com/eproxus/meck/compare/0.8.12...0.8.13
 [0.8.12]: https://github.com/eproxus/meck/compare/0.8.11...0.8.12
