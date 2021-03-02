@@ -241,6 +241,28 @@ changed
 changed
 ```
 
+### Common Test
+
+When using `meck` under Erlang/OTP's Common Test, one should pay special
+attention to this bit in the chapter on
+[Writing Tests](https://erlang.org/doc/apps/common_test/write_test_chapter.html):
+
+> `init_per_suite` and `end_per_suite` execute on dedicated Erlang processes,
+> just like the test cases do.
+
+Common Test runs `init_per_suite` in an isolated process which terminates when
+done, before the test case runs. A mock that is created there will also
+terminate and unload itself before the test case runs. This is because it is
+linked to the process creating it. This can be especially tricky to detect if
+`passthrough` is used when creating the mock, since it is hard to know if it is
+the mock responding to function calls or the original module.
+
+To avoid this, you can pass the `no_link` flag to `meck:new/2` which will unlink
+the mock from the process that created it. When using `no_link` you should make
+sure that `meck:unload/1` is called properly (for all test outcomes, or
+crashes) so that a left-over mock does not interfere with subsequent test
+cases.
+
 ## Contribute
 
 Patches are greatly appreciated! For a much nicer history, please [write good
