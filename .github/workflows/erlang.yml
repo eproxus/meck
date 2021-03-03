@@ -10,7 +10,8 @@ jobs:
     name: OTP ${{matrix.otp}}
     strategy:
       matrix:
-        otp: 
+        otp:
+          - 24
           - 23
           - 22
           - 21
