@@ -1,0 +1,8 @@
+title: Meck
+description: A mocking library for Erlang
+google_analytics: UA-336094-3
+show_downloads: true
+theme: jekyll-theme-minimal
+
+gems:
+  - jekyll-mentions
