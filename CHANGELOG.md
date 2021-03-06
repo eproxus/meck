@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [0.9.2] - 2021-03-06
+
+### Fixed
+
+- Fix a Dialyzer warning on OTP 24 [\#223](https://github.com/eproxus/meck/pull/223)
+
 ## [0.9.1] - 2021-02-17
 
 ### Fixed
@@ -323,7 +329,8 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 - dialyzer unmatched return errors [\#24](https://github.com/eproxus/meck/issues/24)
 
-[Unreleased]: https://github.com/eproxus/meck/compare/0.9.1...HEAD
+[Unreleased]: https://github.com/eproxus/meck/compare/0.9.2...HEAD
+[0.9.2]: https://github.com/eproxus/meck/compare/0.9.1...0.9.2
 [0.9.1]: https://github.com/eproxus/meck/compare/0.9.0...0.9.1
 [0.9.0]: https://github.com/eproxus/meck/compare/0.8.13...0.9.0
 [0.8.13]: https://github.com/eproxus/meck/compare/0.8.12...0.8.13
