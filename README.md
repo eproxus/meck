@@ -2,7 +2,7 @@
 [![Hex.pm Version][hex version badge]][hex]
 [![Hex.pm License][hex license badge]][hex]
 [![Erlang Versions][erlang versions badge]][erlang versions]
-[![Build Tool][build tool]][hex]
+[![Sponsors][sponsors badge]][sponsors]
 [![Donations][liberapay badge]][liberapay]
 
 # Meck
@@ -277,15 +277,22 @@ Meck has been greatly improved by [many contributors](https://github.com/eproxus
 
 ### Donations
 
-If you or your company use Meck and find it useful, [donations][liberapay] are greatly appreciated!
+If you or your company use Meck and find it useful, a [sponsorship][sponsors] or [donations][liberapay] are greatly appreciated!
 
 <noscript>
-  <a href="https://liberapay.com/eproxus/donate">
-    <img alt="Donate using Liberapay"
-         src="https://liberapay.com/assets/widgets/donate.svg">
-  </a>
+  <span>
+   <a href="https://github.com/sponsors/eproxus">
+   <img alt="Sponsor on GitHub"
+        src="https://img.shields.io/github/sponsors/eproxus?label=Sponsor&color=EA4AAA&logo=GitHub%20Sponsors&style=social">
+   </a>
+  </span>
+  <span>
+    <a href="https://liberapay.com/eproxus/donate">
+      <img alt="Donate using Liberapay"
+           src="https://liberapay.com/assets/widgets/donate.svg">
+    </a>
+  </span>
 </noscript>
-
 
 <!-- Badges -->
 [actions badge]: https://img.shields.io/github/workflow/status/eproxus/meck/CI?style=flat-square
@@ -295,7 +302,7 @@ If you or your company use Meck and find it useful, [donations][liberapay] are g
 [hex license badge]: https://img.shields.io/hexpm/l/meck.svg?style=flat-square
 [erlang versions badge]: https://img.shields.io/badge/erlang-19--23-blue.svg?style=flat-square
 [erlang versions]: https://github.com/eproxus/meck/blob/master/.github/workflows/erlang.yml#L13-L18
-[build tool]: https://img.shields.io/badge/build%20tool-rebar3-orange.svg?style=flat-square
+[sponsors badge]: https://img.shields.io/github/sponsors/eproxus?color=EA4AAA&logo=GitHub%20Sponsors&style=flat-square
 [liberapay badge]: https://img.shields.io/liberapay/receives/eproxus.svg?logo=liberapay&style=flat-square
 
 <!-- Links -->
@@ -304,4 +311,5 @@ If you or your company use Meck and find it useful, [donations][liberapay] are g
 [rebar_3]: https://github.com/erlang/rebar3
 [issues]: http://github.com/eproxus/meck/issues
 [commit_messages]: http://chris.beams.io/posts/git-commit/
+[sponsors]: https://github.com/sponsors/eproxus
 [liberapay]: https://liberapay.com/eproxus/
