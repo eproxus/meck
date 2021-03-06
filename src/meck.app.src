@@ -7,7 +7,6 @@
     {env, []},
 
     % Hex.pm
-    {maintainers, ["Adam Lindberg"]},
     {licenses, ["Apache 2.0"]},
     {links, [
         {"Changelog", "https://github.com/eproxus/meck/blob/master/CHANGELOG.md"},
