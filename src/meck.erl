@@ -744,7 +744,14 @@ mocked() ->
 -spec wait_for_exit(Mod::atom()) -> ok.
 wait_for_exit(Mod) ->
     MonitorRef = erlang:monitor(process, meck_util:proc_name(Mod)),
-    receive {'DOWN', MonitorRef, _Type, _Object, _Info} -> ok end.
+    receive {'DOWN', MonitorRef, _Type, _Object, _Info} -> ok end,
+    case init:get_argument(mode) of
+        error ->
+            ok;
+        {ok, [["embedded"]]} ->
+            {module, Mod} = code:load_file(Mod),
+            ok
+    end.
 
 -spec fold_mocks(Fun, AccIn) -> AccOut when
     Fun :: fun((Elem :: module(), AccIn) -> AccOut),
