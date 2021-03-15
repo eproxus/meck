@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- Leave module loaded state as it was [\#228](https://github.com/eproxus/meck/pull/228)
+
 ## [0.9.2] - 2021-03-06
 
 ### Fixed

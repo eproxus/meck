@@ -928,6 +928,20 @@ unload_all_test() ->
     ?assertEqual(lists:sort(Mods), lists:sort(meck:unload())),
     [?assertEqual(false, code:is_loaded(M)) || M <- Mods].
 
+reload_module_test() ->
+    false = code:purge(meck_test_module),
+    ?assertEqual({module, meck_test_module}, code:load_file(meck_test_module)),
+    ok = meck:new(meck_test_module),
+    ?assertEqual(ok, meck:unload(meck_test_module)),
+    ?assertMatch({file, _}, code:is_loaded(meck_test_module)),
+    false = code:purge(meck_test_module),
+    true = code:delete(meck_test_module),
+    ?assertEqual(false, code:is_loaded(meck_test_module)),
+    ok = meck:new(meck_test_module),
+    ?assertMatch({file, _}, code:is_loaded(meck_test_module)),
+    ?assertEqual(ok, meck:unload(meck_test_module)),
+    ?assertEqual(false, code:is_loaded(meck_test_module)).
+
 original_no_file_test() ->
     {ok, Mod, Beam} = compile:forms([{attribute, 1, module, meck_not_on_disk}]),
     {module, Mod} = code:load_binary(Mod, "", Beam),

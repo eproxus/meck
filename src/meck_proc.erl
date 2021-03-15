@@ -61,7 +61,8 @@
                 passthrough = false :: boolean(),
                 reload :: {Compiler::pid(), {From::pid(), Tag::any()}} |
                           undefined,
-                trackers = [] :: [tracker()]}).
+                trackers = [] :: [tracker()],
+                restore = false :: boolean()}).
 
 -record(tracker, {opt_func :: '_' | atom(),
                   args_matcher :: meck_args_matcher:args_matcher(),
@@ -211,6 +212,7 @@ validate_options([UnknownOption|_]) -> erlang:error({bad_arg, UnknownOption}).
 %% @hidden
 init([Mod, Options]) ->
     validate_options(Options),
+    Restore = code:is_loaded(Mod) =/= false,
     Exports = normal_exports(Mod),
     WasSticky = case proplists:get_bool(unstick, Options) of
         true -> {module, Mod} = code:ensure_loaded(Mod),
@@ -237,7 +239,8 @@ init([Mod, Options]) ->
                     was_sticky = WasSticky,
                     merge_expects = MergeExpects,
                     passthrough = Passthrough,
-                    history = History}}
+                    history = History,
+                    restore = Restore}}
     catch
         exit:{error_loading_module, Mod, sticky_directory} ->
             {stop, {module_is_sticky, Mod}}
@@ -344,11 +347,20 @@ handle_info(_Info, S) ->
 
 %% @hidden
 terminate(_Reason, #state{mod = Mod, original = OriginalState,
-                          was_sticky = WasSticky}) ->
+                          was_sticky = WasSticky, restore = Restore}) ->
     BackupCover = export_original_cover(Mod, OriginalState),
     cleanup(Mod),
     restore_original(Mod, OriginalState, WasSticky, BackupCover),
-    ok.
+    case Restore andalso false =:= code:is_loaded(Mod) of
+        true ->
+            % We make a best effort to reload the module here. Since this runs
+            % in a terminating process there is nothing we can do to recover if
+            % the loading fails.
+            _ = code:load_file(Mod),
+            ok;
+        _ ->
+            ok
+    end.
 
 %% @hidden
 code_change(_OldVsn, S, _Extra) -> {ok, S}.
