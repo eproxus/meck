@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 - Leave module loaded state as it was [\#228](https://github.com/eproxus/meck/pull/228)
 
+### Fixed
+
+- Fix misleading not_mocked errors when when unloading a mock [\#231](https://github.com/eproxus/meck/pull/231)
+
 ## [0.9.2] - 2021-03-06
 
 ### Fixed

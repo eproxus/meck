@@ -188,7 +188,9 @@ invalidate(Mod) ->
 
 -spec stop(Mod::atom()) -> ok.
 stop(Mod) ->
-    gen_server(call, Mod, stop).
+    %% To avoid timeout due to slow original restoration. gen_server:stop/1
+    %% would be better, but some tests are then tricky to fix.
+    gen_server(call, Mod, stop, infinity).
 
 %%%============================================================================
 %%% gen_server callbacks
@@ -495,6 +497,12 @@ init_expects(Exports, Options) ->
                         dict:store(meck_expect:func_ari(Expect), Expect, D)
                 end,
                 dict:new(), Expects).
+
+-spec gen_server(Method:: call, Mod::atom(), Msg :: stop, timeout()) -> any().
+gen_server(call, Mod, stop, infinity) ->
+    Name = meck_util:proc_name(Mod),
+    try gen_server:call(Name, stop, infinity)
+    catch exit:_Reason -> erlang:error({not_mocked, Mod}) end.
 
 -spec gen_server(Method:: call | cast, Mod::atom(), Msg::tuple() | atom()) -> any().
 gen_server(Func, Mod, Msg) ->
