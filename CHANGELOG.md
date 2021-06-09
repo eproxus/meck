@@ -15,6 +15,12 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 - Fix misleading not_mocked errors when when unloading a mock [\#231](https://github.com/eproxus/meck/pull/231)
 
+### Removed
+
+- Compatibility for Erlang versions below 22. Meck will follow the compatible
+  Erlang versions of Rebar 3 for future releases. Older versions might still
+  work but there is no guarantee and no support.
+
 ## [0.9.2] - 2021-03-06
 
 ### Fixed
