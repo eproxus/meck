@@ -301,7 +301,7 @@ If you or your company use Meck and find it useful, a [sponsorship][sponsors] or
 [hex version badge]: https://img.shields.io/hexpm/v/meck.svg?style=flat-square
 [hex license badge]: https://img.shields.io/hexpm/l/meck.svg?style=flat-square
 [erlang versions badge]: https://img.shields.io/badge/erlang-22--24-blue.svg?style=flat-square
-[erlang versions]: https://github.com/eproxus/meck/blob/master/.github/workflows/erlang.yml#L13-L18
+[erlang versions]: https://github.com/eproxus/meck/blob/master/.github/workflows/erlang.yml#L15-L17
 [sponsors badge]: https://img.shields.io/github/sponsors/eproxus?color=EA4AAA&logo=GitHub%20Sponsors&style=flat-square
 [liberapay badge]: https://img.shields.io/liberapay/receives/eproxus.svg?logo=liberapay&style=flat-square
 
