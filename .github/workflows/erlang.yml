@@ -1,27 +1,51 @@
-name: CI
+name: Continuous Integration
 
-on: [push, pull_request]
+on:
+  - push
+  - pull_request
+  - workflow_dispatch
 
 jobs:
-  test:
+  ci:
     runs-on: ubuntu-latest
-    container:
-      image: erlang:${{matrix.otp}}
-    name: OTP ${{matrix.otp}}
+    name: Erlang ${{matrix.otp}} / rebar ${{matrix.rebar3}}
     strategy:
       matrix:
         otp:
-          - 24
-          - 23
-          - 22
-          - 21
-          - 20
-          - 19
+          - '24'
+          - '23'
+          - '22'
+          - '21'
+          - '20'
+          - '19'
+        rebar3:
+          - '3'
     steps:
+
       - uses: actions/checkout@v2
-      - run: rebar3 compile
-        name: Compile
-      - run: rebar3 do xref, dialyzer
-        name: Check
-      - run: rebar3 do eunit, ct
-        name: Test
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+          rebar3-version: ${{matrix.rebar3}}
+
+      - uses: actions/cache@v2
+        env:
+          cache-name: rebar3
+        with:
+          path: |
+            ~/.cache/rebar3
+            _build
+          key: ci-${{runner.os}}-${{env.cache-name}}-otp_${{matrix.otp}}-rebar_${{matrix.rebar3}}-${{hashFiles('rebar.lock')}}
+          restore-keys: |
+            ci-${{runner.os}}-${{env.cache-name}}-otp_${{matrix.otp}}-rebar_${{matrix.rebar3}}
+            ci-${{runner.os}}-${{env.cache-name}}-otp_${{matrix.otp}}
+
+      - name: Compile
+        run: rebar3 do clean, compile
+
+      - name: Analyze
+        run: rebar3 do xref, dialyzer
+
+      - name: Test
+        run: rebar3 do eunit, ct
