@@ -1376,6 +1376,12 @@ can_mock_sticky_modules_test() ->
     ?assert(code:is_sticky(meck_test_module)),
     code:unstick_mod(meck_test_module).
 
+meck_reentrant_test() ->
+    meck:new(string, [unstick, passthrough]),
+    meck:expect(string, strip, 
+        fun(String) -> meck:passthrough([string:reverse(String)]) end),
+    ?assertEqual(string:strip("  ABC  "), "CBA"),
+    meck:unload(string).
 
 sticky_directory_test_() ->
     {foreach, fun sticky_setup/0, fun sticky_teardown/1,
