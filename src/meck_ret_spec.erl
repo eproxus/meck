@@ -92,7 +92,12 @@ eval_result(_Mod, _Func, Args, {meck_exec, Fun}) when is_function(Fun) ->
 eval_result(_Mod, _Func, _Args, MockedEx = {meck_raise, _Class, _Reason}) ->
     erlang:throw(MockedEx);
 eval_result(Mod, Func, Args, meck_passthrough) ->
-    erlang:apply(meck_util:original_name(Mod), Func, Args).
+    {Mod, Func} = meck_code_gen:pop_current_call(), 
+    try 
+        erlang:apply(meck_util:original_name(Mod), Func, Args)
+    after
+        meck_code_gen:push_current_call({Mod, Func})
+    end.
 
 %%%============================================================================
 %%% Internal functions

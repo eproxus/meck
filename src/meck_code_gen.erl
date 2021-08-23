@@ -19,7 +19,7 @@
 
 %% API
 -export([to_forms/2]).
--export([get_current_call/0]).
+-export([pop_current_call/0, push_current_call/1]).
 
 %% Exported to be accessible from generated modules.
 -export([exec/4]).
@@ -53,9 +53,15 @@ to_forms(Mod, Expects) ->
     {Exports, Functions} = functions(Mod, Expects),
     [?attribute(module, Mod)] ++ attributes(Mod) ++ Exports ++ Functions.
 
--spec get_current_call() -> {Mod::atom(), Func::atom()}.
-get_current_call() ->
-    get(?CURRENT_CALL).
+-spec pop_current_call() -> {Mod::atom(), Func::atom()}.
+pop_current_call() ->
+    [Top | Rest]  = get(?CURRENT_CALL),
+    put(?CURRENT_CALL, Rest),
+    Top.
+
+-spec push_current_call({Mod::atom(), Func::atom()}) -> ok.    
+push_current_call(Call) ->
+    put(?CURRENT_CALL, [Call | get(?CURRENT_CALL)]).
 
 %%%============================================================================
 %%% Internal functions
@@ -173,8 +179,7 @@ exec(Pid, Mod, Func, Args) ->
 -spec eval(Pid::pid(), Mod::atom(), Func::atom(), Args::[any()],
            ResultSpec::any()) -> Result::any() | no_return().
 eval(Pid, Mod, Func, Args, ResultSpec) ->
-    PreviousCall = get(?CURRENT_CALL),
-    put(?CURRENT_CALL, {Mod, Func}),
+    push_current_call({Mod, Func}),
     try
         Result = meck_ret_spec:eval_result(Mod, Func, Args, ResultSpec),
         meck_proc:add_history(Mod, Pid, Func, Args, Result),
@@ -184,7 +189,7 @@ eval(Pid, Mod, Func, Args, ResultSpec) ->
             handle_exception(Pid, Mod, Func, Args,
                              Class, Reason, ?_get_stacktrace_(StackToken))
     after
-        put(?CURRENT_CALL, PreviousCall)
+        pop_current_call()
     end.
 
 -spec handle_exception(CallerPid::pid(), Mod::atom(), Func::atom(),

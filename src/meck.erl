@@ -384,8 +384,12 @@ exception(Class, Reason) when Class == throw; Class == error; Class == exit ->
       Args :: [any()],
       Result :: any().
 passthrough(Args) when is_list(Args) ->
-    {Mod, Func} = meck_code_gen:get_current_call(),
-    erlang:apply(meck_util:original_name(Mod), Func, Args).
+    {Mod, Func} = meck_code_gen:pop_current_call(),
+    try 
+        erlang:apply(meck_util:original_name(Mod), Func, Args)
+    after 
+        meck_code_gen:push_current_call({Mod, Func})
+    end.
 
 %% @doc Validate the state of the mock module(s).
 %%
