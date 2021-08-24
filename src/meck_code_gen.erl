@@ -173,6 +173,7 @@ exec(Pid, Mod, Func, Args) ->
 -spec eval(Pid::pid(), Mod::atom(), Func::atom(), Args::[any()],
            ResultSpec::any()) -> Result::any() | no_return().
 eval(Pid, Mod, Func, Args, ResultSpec) ->
+    PreviousCall = get(?CURRENT_CALL),
     put(?CURRENT_CALL, {Mod, Func}),
     try
         Result = meck_ret_spec:eval_result(Mod, Func, Args, ResultSpec),
@@ -183,7 +184,7 @@ eval(Pid, Mod, Func, Args, ResultSpec) ->
             handle_exception(Pid, Mod, Func, Args,
                              Class, Reason, ?_get_stacktrace_(StackToken))
     after
-        erase(?CURRENT_CALL)
+        put(?CURRENT_CALL, PreviousCall)
     end.
 
 -spec handle_exception(CallerPid::pid(), Mod::atom(), Func::atom(),

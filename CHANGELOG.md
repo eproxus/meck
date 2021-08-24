@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 ### Fixed
 
 - Fix misleading not_mocked errors when when unloading a mock [\#231](https://github.com/eproxus/meck/pull/231)
+- Fix calling mocked modules from expectations fun [\#232](https://github.com/eproxus/meck/pull/232)
 
 ### Removed
 
