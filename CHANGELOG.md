@@ -182,7 +182,7 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ### Added
 
-- Suport Erlang 17.0 and Erlang R16B03-1 [\#118](https://github.com/eproxus/meck/pull/118) ([myers](https://github.com/myers))
+- Support Erlang 17.0 and Erlang R16B03-1 [\#118](https://github.com/eproxus/meck/pull/118) ([myers](https://github.com/myers))
 
   Add Erlang 17.0 to the test matrix [\#122](https://github.com/eproxus/meck/pull/122) ([myers](https://github.com/myers))
 - Implicit new [\#80](https://github.com/eproxus/meck/issues/80)
