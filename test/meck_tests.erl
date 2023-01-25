@@ -91,6 +91,7 @@ meck_test_() ->
                            fun num_calls_with_pid_no_args_/1,
                            fun called_wildcard_/1,
                            fun sequence_/1,
+                           fun sequence_fun_/1,
                            fun expect_args_sequence_/1,
                            fun expect_arity_sequence_/1,
                            fun expect_complex_sequence_/1,
@@ -548,6 +549,15 @@ sequence_(Mod) ->
                  [Mod:s(a, b) || _ <- lists:seq(1, length(Sequence))]),
     ?assertEqual([e, e, e, e, e],
                  [Mod:s(a, b) || _ <- lists:seq(1, 5)]),
+    ?assert(meck:validate(Mod)).
+
+sequence_fun_(Mod) ->
+    Sequence = [fun(A) -> A + 1 end, fun(A) -> A + 2 end, fun(_A) -> 1 end],
+    ?assertEqual(ok, meck:sequence(Mod, s, 1, Sequence)),
+    ?assertEqual([2,4,1],
+                 [Mod:s(N) || N <- lists:seq(1, length(Sequence))]),
+    ?assertEqual([1,1,1,1],
+                 [Mod:s(N) || N <- lists:seq(1, 4)]),
     ?assert(meck:validate(Mod)).
 
 sequence_multi_(Mod) ->
