@@ -295,7 +295,7 @@ If you or your company use Meck and find it useful, a [sponsorship][sponsors] or
 </noscript>
 
 <!-- Badges -->
-[actions badge]: https://img.shields.io/github/workflow/status/eproxus/meck/Continuous%20Integration?style=flat-square
+[actions badge]: https://img.shields.io/github/actions/workflow/status/eproxus/meck/erlang.yml?branch=master&style=flat-square
 [actions]: https://github.com/eproxus/meck/actions/workflows/erlang.yml
 [hex]: https://hex.pm/packages/meck
 [hex version badge]: https://img.shields.io/hexpm/v/meck.svg?style=flat-square
