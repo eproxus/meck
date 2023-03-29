@@ -191,16 +191,26 @@ Both are expected due to the way Erlang currently prints errors. The important
 line you should look for is `All XX tests passed`, if that appears all is
 correct.
 
-Caveats
--------
+## Caveats
 
-Meck will have trouble mocking certain modules since Meck works by recompiling
-and reloading modules. Since Erlang have a flat module namespace, replacing a
-module has to be done globally in the Erlang VM. This means certain modules
-cannot be mocked. The following is a non-exhaustive list of modules that can
-either be problematic to mock or not possible at all:
+### Global Namespace
+
+Meck will have trouble mocking certain modules since it works by recompiling
+and reloading modules in the global Erlang module namespace. Replacing a
+module affects the whole Erlang VM and any running processes using that
+module. This means certain modules cannot be mocked or will cause trouble.
+
+In general, if a module is used by running processes or include Native
+Implemented Functions (NIFs) they will be hard or impossible to mock. You may
+be lucky and it could work, until it breaks one day.
+
+The following is a non-exhaustive
+list of modules that can either be problematic to mock or not possible at
+all:
 
 * `erlang`
+* `supervisor`
+* All `gen_` family of modules (`gen_server`, `gen_statem` etc.)
 * `os`
 * `crypto`
 * `compile`
@@ -208,7 +218,9 @@ either be problematic to mock or not possible at all:
 * `timer` (possible to mock, but used by some test frameworks, like Elixir's
   ExUnit)
 
-Also, a meck expectation set up for a function _f_ does not apply to the module-
+### Local Functions
+
+A meck expectation set up for a function _f_ does not apply to the module-
 local invocation of _f_ within the mocked module. Consider the following module:
 
 ```erlang
