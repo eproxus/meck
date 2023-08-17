@@ -649,7 +649,7 @@ val(Value) -> meck_ret_spec:val(Value).
 %% will raise the specified exception.
 -spec raise(Class, Reason) -> ret_spec() when
       Class :: throw | error | exit,
-      Reason :: term.
+      Reason :: term().
 raise(Class, Reason) -> meck_ret_spec:raise(Class, Reason).
 
 %% @doc Creates a {@link ret_spec()} that makes the original module function be
