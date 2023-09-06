@@ -1,13 +1,24 @@
-[![GitHub Actions][actions badge]][actions]
-[![Hex.pm Version][hex version badge]][hex]
-[![Hex.pm License][hex license badge]][hex]
-[![Erlang Versions][erlang versions badge]][erlang versions]
-[![Sponsors][sponsors badge]][sponsors]
-[![Donations][liberapay badge]][liberapay]
+<h1 align="center">Meck</h1>
+<p align="center">A mocking library for Erlang</p>
 
-# Meck
+<p align="center">
+  <a href="https://github.com/eproxus/meck/actions/workflows/erlang.yml">
+    <img alt="GitHub Actions" src="https://img.shields.io/github/actions/workflow/status/eproxus/meck/erlang.yml?branch=master&style=flat-square"/>
+  </a>
+  <a href="https://hex.pm/packages/meck">
+    <img alt="Hex.pm version" src="https://img.shields.io/hexpm/v/meck?style=flat-square"/>
+  </a>
+  <a href="LICENSE">
+    <img alt="Hex.pm license" src="https://img.shields.io/hexpm/l/meck?style=flat-square"/>
+  </a>
+  <a href="https://github.com/eproxus/meck/blob/master/.github/workflows/erlang.yml#L15-L17">
+    <img alt="Erlang versions" src="https://img.shields.io/badge/erlang-23+-blue.svg?style=flat-square"/>
+  </a>
+  <a href="https://github.com/sponsors/eproxus">
+    <img alt="hex.pm license" src="https://img.shields.io/github/sponsors/eproxus?style=flat-square&color=%23ec6cb9"/>
+  </a>
+</p>
 
-A mocking library for Erlang.
 
   * [Features](#features)
   * [Examples](#examples)
@@ -305,17 +316,6 @@ If you or your company use Meck and find it useful, a [sponsorship][sponsors] or
     </a>
   </span>
 </noscript>
-
-<!-- Badges -->
-[actions badge]: https://img.shields.io/github/actions/workflow/status/eproxus/meck/erlang.yml?branch=master&style=flat-square
-[actions]: https://github.com/eproxus/meck/actions/workflows/erlang.yml
-[hex]: https://hex.pm/packages/meck
-[hex version badge]: https://img.shields.io/hexpm/v/meck.svg?style=flat-square
-[hex license badge]: https://img.shields.io/hexpm/l/meck.svg?style=flat-square
-[erlang versions badge]: https://img.shields.io/badge/erlang-23--25-blue.svg?style=flat-square
-[erlang versions]: https://github.com/eproxus/meck/blob/master/.github/workflows/erlang.yml#L15-L17
-[sponsors badge]: https://img.shields.io/github/sponsors/eproxus?color=EA4AAA&logo=GitHub%20Sponsors&style=flat-square
-[liberapay badge]: https://img.shields.io/liberapay/receives/eproxus.svg?logo=liberapay&style=flat-square
 
 <!-- Links -->
 [release_notes_0.8]: https://github.com/eproxus/meck/wiki/0.8-Release-Notes
