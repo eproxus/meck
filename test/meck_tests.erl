@@ -1329,8 +1329,8 @@ multi_reset_test() ->
     mod1:test1(),
     mod1:test1(),
     % Then
-    ?assertMatch([{_Pid, {mod1, test1, []}, ok},
-                  {_Pid, {mod1, test1, []}, ok}], meck:history(mod1)),
+    ?assertMatch([{_, {mod1, test1, []}, ok},
+                  {_, {mod1, test1, []}, ok}], meck:history(mod1)),
     ?assertMatch([], meck:history(mod2)),
     ?assertMatch([], meck:history(mod3)).
 
