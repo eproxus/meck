@@ -11,8 +11,8 @@
   <a href="LICENSE">
     <img alt="Hex.pm license" src="https://img.shields.io/hexpm/l/meck?style=flat-square"/>
   </a>
-  <a href="https://github.com/eproxus/meck/blob/master/.github/workflows/erlang.yml#L15-L17">
-    <img alt="Erlang versions" src="https://img.shields.io/badge/erlang-23+-blue.svg?style=flat-square"/>
+  <a href="https://github.com/eproxus/meck/blob/master/.github/workflows/erlang.yml#L14">
+    <img alt="Erlang versions" src="https://img.shields.io/badge/erlang-24+-blue.svg?style=flat-square"/>
   </a>
   <a href="https://github.com/sponsors/eproxus">
     <img alt="hex.pm license" src="https://img.shields.io/github/sponsors/eproxus?style=flat-square&color=%23ec6cb9"/>
