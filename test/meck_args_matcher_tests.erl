@@ -43,9 +43,9 @@ from_empty_args_test() ->
     ?assertMatch(true,  meck_args_matcher:match([], ArgsMatcher)),
     ?assertMatch(false, meck_args_matcher:match([1, 2, 3], ArgsMatcher)).
 
-from_map_args_test() ->
-    ArgsMatcher = meck_args_matcher:new([1, 2, #{a => 2, b => 3, c => 4}]),
-    ?assertMatch(true,  meck_args_matcher:match([1, 2, #{a => 2, b => 3, c => 4}], ArgsMatcher)).
+from_map_args_with_different_keys_test() ->
+    ArgsMatcher = meck_args_matcher:new([#{a => 1, b => 2}]),
+    ?assertMatch(false,  meck_args_matcher:match([#{a => 1, b => 2, c => 3}], ArgsMatcher)).
 
 matcher_featured_test() ->
     ArgsSpec = [meck:is(fun(X) -> X == 1 end),
