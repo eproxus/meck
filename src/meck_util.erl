@@ -27,23 +27,58 @@
 %%% Types
 %%%============================================================================
 
--type match_spec_item() :: {Pattern::tuple(), Guards::[any()], Result::[any()]}.
+-type match_spec_item() :: {Pattern :: tuple(), Guards :: [any()], Result :: [any()]}.
 
 %%%============================================================================
 %%% API
 %%%============================================================================
 
--spec proc_name(Mod::atom()) -> MockMod::atom().
-proc_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck").
+-spec proc_name(Mod :: atom()) -> MockMod :: atom().
+proc_name(Name) ->
+  list_to_atom(atom_to_list(Name) ++ "_meck").
 
--spec original_name(Mod::atom()) -> OrigMod::atom().
-original_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck_original").
+-spec original_name(Mod :: atom()) -> OrigMod :: atom().
+original_name(Name) ->
+  list_to_atom(atom_to_list(Name) ++ "_meck_original").
 
--spec match_spec_item(Pattern::tuple()) -> match_spec_item().
-match_spec_item({[MapPattern]} = Pattern) when is_map(MapPattern) ->
-    MapSize = maps:size(MapPattern),
-    {{['$1']},[{'andalso',{is_map,'$1'},{'==',{map_size,'$1'}, MapSize}}], ['$_']};
-
+-spec match_spec_item(Pattern :: tuple()) -> match_spec_item().
+match_spec_item({ListPattern} = Pattern) when is_list(ListPattern) ->
+  case lists:any(fun(Arg) -> is_map(Arg) end, ListPattern) of
+    true ->
+      match_spec_with_map_item(ListPattern);
+    _ ->
+      {Pattern, [], ['$_']}
+  end;
 match_spec_item(Pattern) ->
-    Res = {Pattern, [], ['$_']},
-    Res.
+  {Pattern, [], ['$_']}.
+
+-spec match_spec_with_map_item(ListPattern :: list()) -> match_spec_item().
+match_spec_with_map_item(ListPattern) ->
+  WithIndex =
+    lists:zip(
+      lists:seq(0, length(ListPattern) - 1), ListPattern),
+  MatchSpecHead =
+    lists:map(fun({Index, Arg}) ->
+                 case is_map(Arg) of
+                   true -> index_to_spec_var(Index);
+                   false -> Arg
+                 end
+              end,
+              WithIndex),
+  MatchSpecGuards =
+    lists:foldl(fun({Index, Arg}, Acc) ->
+                   case is_map(Arg) of
+                     true ->
+                       IndexVar = index_to_spec_var(Index),
+                       [{'andalso', {is_map, IndexVar}, {'==', {map_size, IndexVar}, map_size(Arg)}}
+                        | Acc];
+                     false -> Acc
+                   end
+                end,
+                [],
+                WithIndex),
+  {{MatchSpecHead}, MatchSpecGuards, ['$_']}.
+
+index_to_spec_var(Index) ->
+  List = "$" ++ integer_to_list(Index + 1),
+  list_to_atom(List).

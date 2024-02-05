@@ -48,6 +48,12 @@ from_map_args_with_different_keys_test() ->
     ?assertMatch(true,  meck_args_matcher:match([#{a => 1, b => 2}], ArgsMatcher)),
     ?assertMatch(false,  meck_args_matcher:match([#{a => 1, b => 2, c => 3}], ArgsMatcher)).
 
+from_some_map_args_test() ->
+    ArgsMatcher = meck_args_matcher:new([1, #{a => 1, b => 2}]),
+    ?assertMatch(true,  meck_args_matcher:match([1, #{a => 1, b => 2}], ArgsMatcher)),
+    ?assertMatch(false,  meck_args_matcher:match([2, #{a => 1, b => 2}], ArgsMatcher)),
+    ?assertMatch(false,  meck_args_matcher:match([1, #{a => 1, b => 2, c => 3}], ArgsMatcher)).
+
 matcher_featured_test() ->
     ArgsSpec = [meck:is(fun(X) -> X == 1 end),
                 2,
