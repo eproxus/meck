@@ -40,5 +40,10 @@ proc_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck").
 original_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck_original").
 
 -spec match_spec_item(Pattern::tuple()) -> match_spec_item().
+match_spec_item({[MapPattern]} = Pattern) when is_map(MapPattern) ->
+    MapSize = maps:size(MapPattern),
+    {{['$1']},[{'andalso',{is_map,'$1'},{'==',{map_size,'$1'}, MapSize}}], ['$_']};
+
 match_spec_item(Pattern) ->
-    {Pattern, [], ['$_']}.
+    Res = {Pattern, [], ['$_']},
+    Res.
