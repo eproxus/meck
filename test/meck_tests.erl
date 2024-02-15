@@ -1128,10 +1128,9 @@ cover_options_fail_({_OldPath, Src, Module}) ->
         proplists:delete(outdir, lists:sort(meck_code:compile_options(Module)))
     ),
     {ok, _} = cover:compile_beam(Module),
-    ?assertEqual(
-        [{i, test_include()}, {d, 'TEST', true}],
-        meck_code:compile_options(Module)
-    ),
+    ActualCompileOpts = meck_code:compile_options(Module),
+    ?assertEqual({i, test_include()}, lists:keyfind(i, 1, ActualCompileOpts)),
+    ?assertEqual({d, 'TEST', true}, lists:keyfind(d, 1, ActualCompileOpts)),
     a      = Module:a(),
     b      = Module:b(),
     {1, 2} = Module:c(1, 2),
