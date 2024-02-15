@@ -7,22 +7,21 @@ on:
 
 jobs:
   ci:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     name: Erlang ${{matrix.otp}} / rebar ${{matrix.rebar3}}
     strategy:
       matrix:
-        otp: ['24', '25', '26']
-        rebar3: ['3']
+        otp: ["25", "26", "27"]
+        rebar3: ["3"]
     steps:
-
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.otp}}
           rebar3-version: ${{matrix.rebar3}}
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         env:
           cache-name: rebar3
         with:
