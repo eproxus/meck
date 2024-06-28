@@ -1181,6 +1181,30 @@ cover_passthrough_test() ->
     ?assertEqual({ok, {meck_test_module, {2,1}}},
                  cover:analyze(meck_test_module, module)).
 
+cover_no_meck_original_in_cover_export_test() ->
+    {ok, _} = cover:compile("test/meck_test_module.erl"),
+
+    passthrough_test([]),
+
+    Filename =
+        lists:flatten(
+            io_lib:format(
+                "tmp_~b_~p.coverdata",
+                [rand:uniform(100_000), meck_util:original_name(meck_test_module)]
+            )
+        ),
+    try
+        ok = cover:export(Filename),
+        ok = cover:import(Filename)
+    after
+        _ = file:delete(Filename)
+    end,
+
+    ?assertNot(
+        lists:member(meck_util:original_name(meck_test_module), cover:imported_modules()),
+        "the meck generated module should not be in the exported cover data"
+    ).
+
 cover_path_test() ->
     {ok, _} = cover:compile("test/meck_test_module.erl"),
     ?assertEqual({ok, {meck_test_module, {0,3}}},

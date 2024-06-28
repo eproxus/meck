@@ -660,7 +660,13 @@ cleanup(Mod) ->
     code:purge(Mod),
     code:delete(Mod),
     code:purge(meck_util:original_name(Mod)),
-    code:delete(meck_util:original_name(Mod)).
+    Res = code:delete(meck_util:original_name(Mod)),
+
+    % `cover:export` might still export the meck generated module, 
+    % make sure that does not happen.
+    _ = cover:reset(meck_util:original_name(Mod)),
+
+    Res.
 
 -spec times_called(OptFunc::'_' | atom(),
                    meck_args_matcher:args_matcher(),
