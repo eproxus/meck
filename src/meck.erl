@@ -728,9 +728,11 @@ capture(Occur, Mod, Func, OptArgsSpec, ArgNum, OptCallerPid) ->
       Func::atom(),
       OptArgsSpec :: args_spec(),
       ArgNum :: pos_integer(),
-      ArgValue :: any().
-capture(Occur, Mod, Func, OptArgsSpec, ArgNum) ->
-    meck_history:capture(Occur, '_', Mod, Func, OptArgsSpec, ArgNum).
+      ArgValue :: any() | result.
+capture(Occur, Mod, Func, OptArgsSpec, ArgNum) when is_integer(ArgNum), ArgNum >= 1 ->
+    meck_history:capture(Occur, '_', Mod, Func, OptArgsSpec, ArgNum);
+capture(Occur, Mod, Func, OptArgsSpec, _ArgNum = result) ->
+    meck_history:result(Occur, '_', Mod, Func, OptArgsSpec).
 
 %% @doc Returns the currently mocked modules.
 -spec mocked() -> list(atom()).
