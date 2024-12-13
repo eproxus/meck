@@ -7,20 +7,27 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.0] - 2024-06-28
+
 ### Added
 
-- Leave module loaded state as it was [\#228](https://github.com/eproxus/meck/pull/228)
+- Official support for Erlang 27.0
+- Reload modules that were loaded before mocking ([\#228](https://github.com/eproxus/meck/pull/228))
 
 ### Fixed
 
-- Fix misleading not_mocked errors when when unloading a mock [\#231](https://github.com/eproxus/meck/pull/231)
+- Fix misleading not_mocked errors when unloading a mock [\#231](https://github.com/eproxus/meck/pull/231)
 - Fix calling mocked modules from expectations fun [\#232](https://github.com/eproxus/meck/pull/232)
+- Fix spec of meck:raise/2
+- Increase meck_proc stop timeout to infinity to prevent confusing errors
+- Code coverage leak from temporary backup modules in Erlang.mk [\#246](https://github.com/eproxus/meck/pull/246)
 
 ### Removed
 
-- Compatibility for Erlang versions below 22. Meck will follow the compatible
-  Erlang versions of Rebar 3 for future releases. Older versions might still
-  work but there is no guarantee and no support.
+- Compatibility for Erlang versions below 22. Meck will follow the officially
+  supported Erlang versions for future releases (latest major and two previous
+  versions). Older versions might still work but there is no guarantee and no
+  support.
 
 ## [0.9.2] - 2021-03-06
 
