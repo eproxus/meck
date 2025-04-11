@@ -54,6 +54,7 @@
 -export([wait/4]).
 -export([wait/5]).
 -export([wait/6]).
+-export([wait_for/6]).
 -export([mocked/0]).
 
 %% Syntactic sugar
@@ -600,6 +601,10 @@ wait(Times, Mod, OptFunc, OptArgsSpec, OptCallerPid, Timeout)
        is_integer(Timeout) andalso Timeout >= 0 ->
     ArgsMatcher = meck_args_matcher:new(OptArgsSpec),
     meck_proc:wait(Mod, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout).
+
+wait_for({Cond, CondState}, Mod, OptFunc, OptArgsSpec, OptCallerPid, Timeout) when is_function(Cond, 2) ->
+    ArgsMatcher = meck_args_matcher:new(OptArgsSpec),
+    meck_proc:wait_for(Mod, {Cond, CondState}, OptFunc, ArgsMatcher, OptCallerPid, Timeout).
 
 %% @doc Erases the call history for a mocked module or a list of mocked modules.
 %%

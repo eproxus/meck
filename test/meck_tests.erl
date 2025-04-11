@@ -1634,6 +1634,63 @@ wait_purge_expired_tracker_test() ->
     %% Clean
     meck:unload().
 
+wait_for_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    Pid = erlang:spawn(fun() ->
+        test:foo(1, 1),
+        test:foo(1, 2)
+    end),
+    %% Then
+    Cond = fun([_A, B], Expected) ->
+            case Expected -- [B] of
+                [] -> {halt, ok};
+                Remaining -> {cont, Remaining}
+            end
+        end,
+    meck:wait_for(
+        {Cond, [1, 2]},
+        test,
+        foo,
+        ['_', '_'],
+        Pid,
+        1
+    ),
+    %% Clean
+    meck:unload().
+
+wait_for_fails_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    Pid = erlang:spawn(fun() ->
+        test:foo(1, 1),
+        test:foo(1, 2)
+    end),
+    %% Then
+    Cond = fun([_A, B], Expected) ->
+            case Expected -- [B] of
+                [] -> {halt, ok};
+                Remaining -> {cont, Remaining}
+            end
+        end,
+    ?assertError(
+        timeout,
+        meck:wait_for(
+            {Cond, [1, 2, 3]},
+            test,
+            foo,
+            ['_', '_'],
+            Pid,
+            1
+        )
+    ),
+    %% Clean
+    meck:unload().
+
 mocked_test() ->
   %% At start, no modules should be mocked:
   [] = meck:mocked(),

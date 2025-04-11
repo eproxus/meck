@@ -26,6 +26,7 @@
 -export([list_expects/2]).
 -export([get_history/1]).
 -export([wait/6]).
+-export([wait_for/6]).
 -export([reset/1]).
 -export([validate/1]).
 -export([stop/1]).
@@ -64,10 +65,13 @@
                 trackers = [] :: [tracker()],
                 restore = false :: boolean()}).
 
+-type cond_state() :: term().
+-type cond_fun() :: fun((Args :: [term()], cond_state()) -> cond_state()).
+
 -record(tracker, {opt_func :: '_' | atom(),
                   args_matcher :: meck_args_matcher:args_matcher(),
                   opt_caller_pid :: '_' | pid(),
-                  countdown :: non_neg_integer(),
+                  awaiting :: {cond_fun(), cond_state()},
                   reply_to :: {Caller::pid(), Tag::any()},
                   expire_at :: erlang:timestamp()}).
 
@@ -158,14 +162,24 @@ get_history(Mod) ->
            Timeout::non_neg_integer()) ->
         ok.
 wait(Mod, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout) ->
-    EffectiveTimeout = case Timeout of
-                           0 ->
-                               infinity;
-                           _Else ->
-                               Timeout
-                       end,
+    Cond = fun
+        (_, T) when T =:= 0 ->
+            {halt, ok};
+        (_, T) ->
+            {cont, T - 1}
+    end,
+    wait_for(Mod, {Cond, Times - 1}, OptFunc, ArgsMatcher, OptCallerPid, Timeout).
+
+wait_for(Mod, {Cond, CondState}, OptFunc, ArgsMatcher, OptCallerPid, Timeout) ->
+    EffectiveTimeout =
+        case Timeout of
+            0 ->
+                infinity;
+            _Else ->
+                Timeout
+        end,
     Name = meck_util:proc_name(Mod),
-    try gen_server:call(Name, {wait, Times, OptFunc, ArgsMatcher, OptCallerPid,
+    try gen_server:call(Name, {wait_for, {Cond, CondState}, OptFunc, ArgsMatcher, OptCallerPid,
                                Timeout},
                         EffectiveTimeout)
     of
@@ -304,18 +318,34 @@ handle_call(get_history, _From, S = #state{history = undefined}) ->
     {reply, [], S};
 handle_call(get_history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
-handle_call({wait, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout}, From,
+handle_call({wait_for, {Cond, CondState1}, OptFunc, ArgsMatcher, OptCallerPid, Timeout}, From,
             S = #state{history = History, trackers = Trackers}) ->
-    case times_called(OptFunc, ArgsMatcher, OptCallerPid, History) of
-        CalledSoFar when CalledSoFar >= Times ->
+    Filter = meck_history:new_filter(OptCallerPid, OptFunc, ArgsMatcher),
+    Result = lists:foldl(
+        fun(HistoryRec, {cont, CondState} = Acc) ->
+            case Filter(HistoryRec) of
+                true ->
+                    {_Pid, {_M, _F, Args}, _Result} = HistoryRec,
+                    Cond(Args, CondState);
+                false ->
+                    Acc
+            end;
+            (_HistoryRec, {halt, _Reply} = Acc) ->
+                Acc
+        end,
+        {cont, CondState1},
+        History
+    ),
+    case Result of
+        {halt, _Reply} ->
             {reply, ok, S};
-        _CalledSoFar when Timeout =:= 0 ->
+        {cont, _} when Timeout =:= 0 ->
             {reply, {error, timeout}, S};
-        CalledSoFar ->
+        {cont, CondState2} ->
             Tracker = #tracker{opt_func = OptFunc,
                                args_matcher = ArgsMatcher,
                                opt_caller_pid = OptCallerPid,
-                               countdown = Times - CalledSoFar,
+                               awaiting = {Cond, CondState2},
                                reply_to = From,
                                expire_at = timeout_to_timestamp(Timeout)},
             {noreply, S#state{trackers = [Tracker | Trackers]}}
@@ -693,22 +723,6 @@ cleanup(Mod) ->
 
     Res.
 
--spec times_called(OptFunc::'_' | atom(),
-                   meck_args_matcher:args_matcher(),
-                   OptCallerPid::'_' | pid(),
-                   meck_history:history()) ->
-        non_neg_integer().
-times_called(OptFunc, ArgsMatcher, OptCallerPid, History) ->
-    Filter = meck_history:new_filter(OptCallerPid, OptFunc, ArgsMatcher),
-    lists:foldl(fun(HistoryRec, Acc) ->
-                        case Filter(HistoryRec) of
-                            true ->
-                                Acc + 1;
-                            _Else ->
-                                Acc
-                        end
-                end, 0, History).
-
 -spec update_trackers(meck_history:history_record(), [tracker()]) ->
         UpdTracker::[tracker()].
 update_trackers(HistoryRecord, Trackers) ->
@@ -738,7 +752,7 @@ update_tracker(Func, Args, CallerPid,
                #tracker{opt_func = OptFunc,
                         args_matcher = ArgsMatcher,
                         opt_caller_pid = OptCallerPid,
-                        countdown = Countdown,
+                        awaiting = {Cond, CondState},
                         reply_to = ReplyTo,
                         expire_at = ExpireAt} = Tracker)
   when (OptFunc =:= '_' orelse Func =:= OptFunc) andalso
@@ -750,17 +764,20 @@ update_tracker(Func, Args, CallerPid,
             case is_expired(ExpireAt) of
                 true ->
                     expired;
-                false when Countdown == 1 ->
-                    gen_server:reply(ReplyTo, ok),
-                    expired;
                 false ->
-                    Tracker#tracker{countdown = Countdown - 1}
+                    case Cond(Args, CondState) of
+                        {halt, Result} ->
+                            gen_server:reply(ReplyTo, Result),
+                            expired;
+                        {cont, CondState2} ->
+                            Tracker#tracker{awaiting = {Cond, CondState2}}
+                    end
             end
     end;
 update_tracker(_Func, _Args, _CallerPid, Tracker) ->
     Tracker.
 
--spec timeout_to_timestamp(Timeout::non_neg_integer()) -> erlang:timestamp().
+-spec timeout_to_timestamp(Timeout :: non_neg_integer()) -> erlang:timestamp().
 timeout_to_timestamp(Timeout) ->
     {MacroSecs, Secs, MicroSecs} = os:timestamp(),
     MicroSecs2 = MicroSecs + Timeout * 1000,
