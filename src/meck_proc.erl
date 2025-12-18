@@ -26,7 +26,6 @@
 -export([list_expects/2]).
 -export([get_history/1]).
 -export([wait/6]).
--export([wait_for/6]).
 -export([reset/1]).
 -export([validate/1]).
 -export([stop/1]).
@@ -65,6 +64,7 @@
                 trackers = [] :: [tracker()],
                 restore = false :: boolean()}).
 
+-type condition() :: {cond_fun(), cond_state()}.
 -type cond_state() :: term().
 -type cond_fun() :: fun((Args :: [term()], cond_state()) -> cond_state()).
 
@@ -155,7 +155,7 @@ get_history(Mod) ->
     gen_server(call, Mod, get_history).
 
 -spec wait(Mod::atom(),
-           Times::non_neg_integer(),
+           Times::non_neg_integer() | Condition::condition(),
            OptFunc::'_' | atom(),
            meck_args_matcher:args_matcher(),
            OptCallerPid::'_' | pid(),
@@ -168,9 +168,8 @@ wait(Mod, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout) ->
         (_, T) ->
             {cont, T - 1}
     end,
-    wait_for(Mod, {Cond, Times - 1}, OptFunc, ArgsMatcher, OptCallerPid, Timeout).
-
-wait_for(Mod, {Cond, CondState}, OptFunc, ArgsMatcher, OptCallerPid, Timeout) ->
+    wait(Mod, {Cond, Times - 1}, OptFunc, ArgsMatcher, OptCallerPid, Timeout);
+wait(Mod, {Cond, CondState}, OptFunc, ArgsMatcher, OptCallerPid, Timeout) ->
     EffectiveTimeout =
         case Timeout of
             0 ->
