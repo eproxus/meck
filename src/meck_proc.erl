@@ -71,7 +71,7 @@
 -record(tracker, {opt_func :: '_' | atom(),
                   args_matcher :: meck_args_matcher:args_matcher(),
                   opt_caller_pid :: '_' | pid(),
-                  awaiting :: {cond_fun(), cond_state()},
+                  condition :: condition(),
                   reply_to :: {Caller::pid(), Tag::any()},
                   expire_at :: erlang:timestamp()}).
 
@@ -344,7 +344,7 @@ handle_call({wait_for, {Cond, CondState1}, OptFunc, ArgsMatcher, OptCallerPid, T
             Tracker = #tracker{opt_func = OptFunc,
                                args_matcher = ArgsMatcher,
                                opt_caller_pid = OptCallerPid,
-                               awaiting = {Cond, CondState2},
+                               condition = {Cond, CondState2},
                                reply_to = From,
                                expire_at = timeout_to_timestamp(Timeout)},
             {noreply, S#state{trackers = [Tracker | Trackers]}}
@@ -751,7 +751,7 @@ update_tracker(Func, Args, CallerPid,
                #tracker{opt_func = OptFunc,
                         args_matcher = ArgsMatcher,
                         opt_caller_pid = OptCallerPid,
-                        awaiting = {Cond, CondState},
+                        condition = {Cond, CondState},
                         reply_to = ReplyTo,
                         expire_at = ExpireAt} = Tracker)
   when (OptFunc =:= '_' orelse Func =:= OptFunc) andalso
@@ -769,7 +769,7 @@ update_tracker(Func, Args, CallerPid,
                             gen_server:reply(ReplyTo, Result),
                             expired;
                         {cont, CondState2} ->
-                            Tracker#tracker{awaiting = {Cond, CondState2}}
+                            Tracker#tracker{condition = {Cond, CondState2}}
                     end
             end
     end;
