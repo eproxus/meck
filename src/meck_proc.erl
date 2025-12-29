@@ -68,7 +68,7 @@
                   args_matcher :: meck_args_matcher:args_matcher(),
                   opt_caller_pid :: '_' | pid(),
                   countdown :: non_neg_integer(),
-                  reply_to :: {Caller::pid(), Tag::any()},
+                  reply_to :: gen_server:from(),
                   expire_at :: erlang:timestamp()}).
 
 %%%============================================================================
