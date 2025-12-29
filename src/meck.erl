@@ -130,6 +130,11 @@
 %% It is used in {@link expect/3} and {@link expect/4} to define a function
 %% clause of complex multi-clause expectations.
 
+-type condition_state() :: term().
+-type condition_fun() :: fun((Args :: [term()], condition_state()) -> condition_state()).
+-type condition() :: {condition_fun(), condition_state()}.
+%% It is used in {@link wait/5} and {@link wait/6} to define a condition.
+
 %%%============================================================================
 %%% Interface exports
 %%%============================================================================
@@ -545,7 +550,7 @@ num_calls(Mod, OptFun, OptArgsSpec, OptPid) ->
 %% arguments matching `OptArgsSpec', or `Timeout' has elapsed. In the latter
 %% case the call fails with `error:timeout'.
 %%
-%% The number of calls is counted starting from the most resent call to
+%% The number of calls is counted starting from the most recent call to
 %% {@link reset/1} on the mock or from the mock creation, whichever occurred
 %% latter. If a matching call has already occurred, then the function returns
 %% `ok' immediately.
@@ -559,35 +564,66 @@ num_calls(Mod, OptFun, OptArgsSpec, OptPid) ->
 wait(Mod, OptFunc, OptArgsSpec, Timeout) ->
     wait(1, Mod, OptFunc, OptArgsSpec, '_', Timeout).
 
-%% @doc Blocks until either function `Mod:Func' is called at least `Times' with
-%% arguments matching `OptArgsSpec', or `Timeout' has elapsed. In the latter
-%% case the call fails with `error:timeout'.
+%% @doc Blocks until function `Mod:Func' is called with arguments matching
+%% `OptArgsSpec' and matching the `Condition`.
 %%
-%% The number of calls is counted starting from the most resent call to
+%% Times out if instead `Timeout' has elapsed. In this case the call fails with
+%% `error:timeout'.
+%%
+%% `Condition` is a tuple: `{CondFunc, CondState}`.
+%%
+%% On each call to `Mod:Func`, `CondFunc(Args, CondState)` is called.
+%%
+%% The condition function must return either `{halt, ok}` or
+%% `{cont, NextCondState}`.
+%%
+%% In the former case, the condition is considered satisfied, and `wait`
+%% returns. In the latter case, `wait` waits for further calls to `Mod:Func`.
+%%
+%% For backwards-compatibility, the condition can be specified as an integer.
+%% This counts the number of calls to the function.
+%%
+%% The number of calls is counted starting from the most recent call to
 %% {@link reset/1} on the mock or from the mock creation, whichever occurred
 %% latter. If `Times' number of matching calls has already occurred, then the
 %% function returns `ok' immediately.
 %%
-%% @equiv wait(Times, Mod, OptFunc, OptArgsSpec, '_', Timeout)
--spec wait(Times, Mod, OptFunc, OptArgsSpec, Timeout) -> ok when
-      Times :: pos_integer(),
+%% @equiv wait(Condition, Mod, OptFunc, OptArgsSpec, '_', Timeout)
+-spec wait(Condition, Mod, OptFunc, OptArgsSpec, Timeout) -> ok when
+      Condition :: condition(),
       Mod :: atom(),
       OptFunc :: '_' | atom(),
       OptArgsSpec :: '_' | args_spec(),
       Timeout :: non_neg_integer().
-wait(Times, Mod, OptFunc, OptArgsSpec, Timeout) ->
-    wait(Times, Mod, OptFunc, OptArgsSpec, '_', Timeout).
+wait(Condition, Mod, OptFunc, OptArgsSpec, Timeout) ->
+    wait(Condition, Mod, OptFunc, OptArgsSpec, '_', Timeout).
 
-%% @doc Blocks until either function `Mod:Func' is called at least `Times' with
-%% arguments matching `OptArgsSpec' by process `OptCallerPid', or `Timeout' has
-%% elapsed. In the latter case the call fails with `error:timeout'.
+
+%% @doc Blocks until function `Mod:Func' is called with arguments matching
+%% `OptArgsSpec' and matching the `Condition`.
 %%
-%% The number of calls is counted starting from the most resent call to
+%% Times out if instead `Timeout' has elapsed. In this case the call fails with
+%% `error:timeout'.
+%%
+%% `Condition` is a tuple: `{CondFunc, CondState}`.
+%%
+%% On each call to `Mod:Func`, `CondFunc(Args, CondState)` is called.
+%%
+%% The condition function must return either `{halt, ok}` or
+%% `{cont, NextCondState}`.
+%%
+%% In the former case, the condition is considered satisfied, and `wait`
+%% returns. In the latter case, `wait` waits for further calls to `Mod:Func`.
+%%
+%% For backwards-compatibility, the condition can be specified as an integer.
+%% This counts the number of calls to the function.
+%%
+%% The number of calls is counted starting from the most recent call to
 %% {@link reset/1} on the mock or from the mock creation, whichever occurred
-%% latter. If `Times' number of matching call has already occurred, then the
+%% latter. If `Times' number of matching calls has already occurred, then the
 %% function returns `ok' immediately.
--spec wait(Times, Mod, OptFunc, OptArgsSpec, OptCallerPid, Timeout) -> ok when
-      Times :: pos_integer(),
+-spec wait(Condition, Mod, OptFunc, OptArgsSpec, OptCallerPid, Timeout) -> ok when
+      Condition :: pos_integer() | condition(),
       Mod :: atom(),
       OptFunc :: '_' | atom(),
       OptArgsSpec :: '_' | args_spec(),
