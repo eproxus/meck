@@ -1562,6 +1562,34 @@ wait_called_another_proc_test() ->
     %% Clean
     meck:unload().
 
+wait_already_called_reset_more_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    test:foo(1, 2),
+    meck:reset(test),
+    test:foo(1, 2),
+    test:foo(1, 2),
+    %% Then
+    ?assertMatch(ok, meck:wait(1, test, foo, [1, '_'], 100)),
+    %% Clean
+    meck:unload().
+
+wait_already_called_reset_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    test:foo(1, 2),
+    meck:reset(test),
+    %% Then
+    ?assertError(timeout, meck:wait(2, test, foo, [1, '_'], 0)),
+    %% Clean
+    meck:unload().
+
 wait_timeout_test() ->
     %% Given
     meck:new(test, [non_strict]),
