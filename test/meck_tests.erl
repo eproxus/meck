@@ -1771,6 +1771,47 @@ called_for_all(Expected) ->
         end,
     {ConditionFun, Expected}.
 
+wait_for_all_condition_already_called_reset_more_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 1),
+    test:foo(1, 2),
+    meck:reset(test),
+    test:foo(1, 1),
+    test:foo(1, 2),
+    %% Then
+    ?assertMatch(ok, meck:wait(called_for_all([1, 2]), test, foo, [1, '_'], 100)),
+    %% Clean
+    meck:unload().
+
+wait_for_all_condition_already_called_reset_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 1),
+    test:foo(1, 2),
+    meck:reset(test),
+    %% Then
+    ?assertError(timeout, meck:wait(called_for_all([1, 2]), test, foo, [1, '_'], 0)),
+    %% Clean
+    meck:unload().
+
+wait_for_all_condition_already_called_reset_2_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 1),
+    meck:reset(test),
+    test:foo(1, 2),
+    %% Then
+    ?assertError(timeout, meck:wait(called_for_all([1, 2]), test, foo, [1, '_'], 0)),
+    %% Clean
+    meck:unload().
+
 mocked_test() ->
   %% At start, no modules should be mocked:
   [] = meck:mocked(),
