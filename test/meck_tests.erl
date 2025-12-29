@@ -1590,6 +1590,42 @@ wait_already_called_reset_test() ->
     %% Clean
     meck:unload().
 
+wait_reset_on_different_processes_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    Fun = fun() ->
+        test:foo(1, 2)
+    end,
+    {_Pid1, MRef1} = erlang:spawn_monitor(Fun),
+    ?assertTerminated(MRef1, normal, 300),
+    meck:reset(test),
+    {_Pid2, MRef2} = erlang:spawn_monitor(Fun),
+    %% Then
+    ?assertMatch(ok, meck:wait(1, test, foo, [1, '_'], '_', 10)),
+    ?assertTerminated(MRef2, normal, 300),
+    %% Clean
+    meck:unload().
+
+wait_reset_on_different_processes_2_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    Fun = fun() ->
+        test:foo(1, 2)
+    end,
+    {_Pid1, MRef1} = erlang:spawn_monitor(Fun),
+    ?assertTerminated(MRef1, normal, 300),
+    meck:reset(test),
+    {_Pid2, MRef2} = erlang:spawn_monitor(Fun),
+    %% Then
+    ?assertError(timeout, meck:wait(2, test, foo, [1, '_'], '_', 10)),
+    ?assertTerminated(MRef2, normal, 300),
+    %% Clean
+    meck:unload().
+
 wait_timeout_test() ->
     %% Given
     meck:new(test, [non_strict]),
