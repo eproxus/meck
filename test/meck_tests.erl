@@ -1848,6 +1848,24 @@ wait_for_all_condition_already_called_reset_2_test() ->
     %% Clean
     meck:unload().
 
+wait_for_all_condition_already_called_reset_2_another_process_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 1),
+    meck:reset(test),
+    Fun = fun() ->
+        timer:sleep(50),
+        test:foo(1, 2)
+    end,
+    {_Pid1, MRef1} = erlang:spawn_monitor(Fun),
+    ?assertTerminated(MRef1, normal, 300),
+    %% Then
+    ?assertError(timeout, meck:wait(called_for_all([1, 2]), test, foo, [1, '_'], 100)),
+    %% Clean
+    meck:unload().
+
 mocked_test() ->
   %% At start, no modules should be mocked:
   [] = meck:mocked(),
