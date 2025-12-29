@@ -48,6 +48,10 @@
 %%% Definitions
 %%%============================================================================
 
+-type condition_state() :: term().
+-type condition_fun() :: fun((Args :: [term()], condition_state()) -> condition_state()).
+-type condition() :: {condition_fun(), condition_state()}.
+
 -type meck_dict() :: dict:dict().
 
 -record(state, {mod :: atom(),
@@ -67,7 +71,7 @@
 -record(tracker, {opt_func :: '_' | atom(),
                   args_matcher :: meck_args_matcher:args_matcher(),
                   opt_caller_pid :: '_' | pid(),
-                  countdown :: non_neg_integer(),
+                  condition :: condition(),
                   reply_to :: gen_server:from(),
                   expire_at :: erlang:timestamp()}).
 
@@ -151,13 +155,13 @@ get_history(Mod) ->
     gen_server(call, Mod, get_history).
 
 -spec wait(Mod::atom(),
-           Times::non_neg_integer(),
+           Condition::condition(),
            OptFunc::'_' | atom(),
            meck_args_matcher:args_matcher(),
            OptCallerPid::'_' | pid(),
            Timeout::non_neg_integer()) ->
         ok.
-wait(Mod, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout) ->
+wait(Mod, {_CondFun, _CondSt} = Condition, OptFunc, ArgsMatcher, OptCallerPid, Timeout) ->
     EffectiveTimeout = case Timeout of
                            0 ->
                                infinity;
@@ -165,7 +169,7 @@ wait(Mod, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout) ->
                                Timeout
                        end,
     Name = meck_util:proc_name(Mod),
-    try gen_server:call(Name, {wait, Times, OptFunc, ArgsMatcher, OptCallerPid,
+    try gen_server:call(Name, {wait, Condition, OptFunc, ArgsMatcher, OptCallerPid,
                                Timeout},
                         EffectiveTimeout)
     of
@@ -304,18 +308,35 @@ handle_call(get_history, _From, S = #state{history = undefined}) ->
     {reply, [], S};
 handle_call(get_history, _From, S) ->
     {reply, lists:reverse(S#state.history), S};
-handle_call({wait, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout}, From,
+handle_call({wait, {CondFun, CondState} = _Condition, OptFunc, ArgsMatcher, OptCallerPid, Timeout}, From,
             S = #state{history = History, trackers = Trackers}) ->
-    case times_called(OptFunc, ArgsMatcher, OptCallerPid, History) of
-        CalledSoFar when CalledSoFar >= Times ->
+    Filter = meck_history:new_filter(OptCallerPid, OptFunc, ArgsMatcher),
+    Result = lists:foldl(
+        fun
+            (HistoryRec, {cont, CondSt} = Acc) ->
+                case Filter(HistoryRec) of
+                    true ->
+                        {_Pid, {_M, _F, Args}, _Result} = HistoryRec,
+                        CondFun(Args, CondSt);
+                    false ->
+                        Acc
+                end;
+            (_HistoryRec, {halt, _} = Acc) ->
+                Acc
+        end,
+        {cont, CondState},
+        History
+    ),
+    case Result of
+        {halt, ok} ->
             {reply, ok, S};
-        _CalledSoFar when Timeout =:= 0 ->
+        {cont, _} when Timeout =:= 0 ->
             {reply, {error, timeout}, S};
-        CalledSoFar ->
+        {cont, CondState2} ->
             Tracker = #tracker{opt_func = OptFunc,
                                args_matcher = ArgsMatcher,
                                opt_caller_pid = OptCallerPid,
-                               countdown = Times - CalledSoFar,
+                               condition = {CondFun, CondState2},
                                reply_to = From,
                                expire_at = timeout_to_timestamp(Timeout)},
             {noreply, S#state{trackers = [Tracker | Trackers]}}
@@ -687,27 +708,11 @@ cleanup(Mod) ->
     code:purge(meck_util:original_name(Mod)),
     Res = code:delete(meck_util:original_name(Mod)),
 
-    % `cover:export` might still export the meck generated module, 
+    % `cover:export` might still export the meck generated module,
     % make sure that does not happen.
     _ = cover:reset(meck_util:original_name(Mod)),
 
     Res.
-
--spec times_called(OptFunc::'_' | atom(),
-                   meck_args_matcher:args_matcher(),
-                   OptCallerPid::'_' | pid(),
-                   meck_history:history()) ->
-        non_neg_integer().
-times_called(OptFunc, ArgsMatcher, OptCallerPid, History) ->
-    Filter = meck_history:new_filter(OptCallerPid, OptFunc, ArgsMatcher),
-    lists:foldl(fun(HistoryRec, Acc) ->
-                        case Filter(HistoryRec) of
-                            true ->
-                                Acc + 1;
-                            _Else ->
-                                Acc
-                        end
-                end, 0, History).
 
 -spec update_trackers(meck_history:history_record(), [tracker()]) ->
         UpdTracker::[tracker()].
@@ -738,7 +743,7 @@ update_tracker(Func, Args, CallerPid,
                #tracker{opt_func = OptFunc,
                         args_matcher = ArgsMatcher,
                         opt_caller_pid = OptCallerPid,
-                        countdown = Countdown,
+                        condition = {CondFun, CondState},
                         reply_to = ReplyTo,
                         expire_at = ExpireAt} = Tracker)
   when (OptFunc =:= '_' orelse Func =:= OptFunc) andalso
@@ -750,11 +755,14 @@ update_tracker(Func, Args, CallerPid,
             case is_expired(ExpireAt) of
                 true ->
                     expired;
-                false when Countdown == 1 ->
-                    gen_server:reply(ReplyTo, ok),
-                    expired;
                 false ->
-                    Tracker#tracker{countdown = Countdown - 1}
+                    case CondFun(Args, CondState) of
+                        {halt, ok} ->
+                            gen_server:reply(ReplyTo, ok),
+                            expired;
+                        {cont, CondState2} ->
+                            Tracker#tracker{condition = {CondFun, CondState2}}
+                    end
             end
     end;
 update_tracker(_Func, _Args, _CallerPid, Tracker) ->

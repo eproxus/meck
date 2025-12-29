@@ -599,7 +599,18 @@ wait(Times, Mod, OptFunc, OptArgsSpec, OptCallerPid, Timeout)
   when is_integer(Times) andalso Times > 0 andalso
        is_integer(Timeout) andalso Timeout >= 0 ->
     ArgsMatcher = meck_args_matcher:new(OptArgsSpec),
-    meck_proc:wait(Mod, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout).
+    Condition = {
+        fun
+            (_, T) when T =:= 0 -> {halt, ok};
+            (_, T) -> {cont, T - 1}
+        end,
+        Times - 1
+    },
+    meck_proc:wait(Mod, Condition, OptFunc, ArgsMatcher, OptCallerPid, Timeout);
+wait({CondFun, _} = Condition, Mod, OptFunc, OptArgsSpec, OptCallerPid, Timeout)
+  when is_function(CondFun, 2) ->
+    ArgsMatcher = meck_args_matcher:new(OptArgsSpec),
+    meck_proc:wait(Mod, Condition, OptFunc, ArgsMatcher, OptCallerPid, Timeout).
 
 %% @doc Erases the call history for a mocked module or a list of mocked modules.
 %%
