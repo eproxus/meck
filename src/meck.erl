@@ -590,7 +590,7 @@ wait(Mod, OptFunc, OptArgsSpec, Timeout) ->
 %%
 %% @equiv wait(Condition, Mod, OptFunc, OptArgsSpec, '_', Timeout)
 -spec wait(Condition, Mod, OptFunc, OptArgsSpec, Timeout) -> ok when
-      Condition :: condition(),
+      Condition :: pos_integer() | condition(),
       Mod :: atom(),
       OptFunc :: '_' | atom(),
       OptArgsSpec :: '_' | args_spec(),
