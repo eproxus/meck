@@ -4,7 +4,12 @@
 
 on_load() ->
     % Assumes that there's an on_load_listener.
-    catch (on_load_listener ! on_load_called),
+    try
+        on_load_listener ! on_load_called
+    catch
+        _:_ ->
+            ok
+    end,
     ok.
 
 ping() -> pong.

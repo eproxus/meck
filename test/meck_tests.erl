@@ -126,7 +126,11 @@ setup() ->
     mymod.
 
 teardown(Module) ->
-    catch meck:unload(Module).
+    try meck:unload(Module)
+    catch
+        _:_ ->
+            ok
+    end.
 
 %% --- Tests using setup and teardown -----------------------------------------
 
@@ -273,33 +277,33 @@ history_call_(Mod) ->
 
 history_throw_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> throw(test_exception) end),
-    catch Mod:test(),
+    try Mod:test() catch _:_ -> ok end,
     ?assertMatch([{_Pid, {Mod, test, []}, throw, test_exception, _Stacktrace}],
                  meck:history(Mod)).
 
 history_throw_fun_(Mod) ->
     Fun = fun() -> exception_fun end,
     ok = meck:expect(Mod, test, fun() -> throw(Fun) end),
-    catch Mod:test(),
+    try Mod:test() catch _:_ -> ok end,
     ?assertMatch([{_Pid, {Mod, test, []}, throw, Fun, _Stacktrace}],
                  meck:history(Mod)).
 
 history_exit_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> exit(test_exit) end),
-    catch Mod:test(),
+    try Mod:test() catch _:_ -> ok end,
     ?assertMatch([{_Pid, {Mod, test, []}, exit, test_exit, _Stacktrace}],
                  meck:history(Mod)).
 
 history_error_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> erlang:error(test_error) end),
-    catch Mod:test(),
+    try Mod:test() catch _:_ -> ok end,
     ?assertMatch([{_Pid, {Mod, test, []}, error, test_error, _Stacktrace}],
                  meck:history(Mod)).
 
 history_error_args_(Mod) ->
     ok = meck:expect(Mod, test,
                      fun() -> erlang:error(test_error, [fake_args]) end),
-    catch Mod:test(),
+    try Mod:test() catch _:_ -> ok end,
     History = meck:history(Mod),
     ?assertMatch([{_Pid, {Mod, test, []}, error, test_error, _Stacktrace}],
                  meck:history(Mod)),
@@ -311,27 +315,27 @@ history_error_args_(Mod) ->
 history_meck_throw_(Mod) ->
     ok = meck:expect(Mod, test,
                      fun() -> meck:exception(throw, test_exception) end),
-    catch Mod:test(),
+    try Mod:test() catch _:_ -> ok end,
     ?assertMatch([{_Pid, {Mod, test, []}, throw, test_exception, _Stacktrace}],
                  meck:history(Mod)).
 
 history_meck_throw_fun_(Mod) ->
     Fun = fun() -> exception_fun end,
     ok = meck:expect(Mod, test, fun() -> meck:exception(throw, Fun) end),
-    catch Mod:test(),
+    try Mod:test() catch _:_ -> ok end,
     ?assertMatch([{_Pid, {Mod, test, []}, throw, Fun, _Stacktrace}],
                  meck:history(Mod)).
 
 history_meck_exit_(Mod) ->
     ok = meck:expect(Mod, test, fun() -> meck:exception(exit, test_exit) end),
-    catch Mod:test(),
+    try Mod:test() catch _:_ -> ok end,
     ?assertMatch([{_Pid, {Mod, test, []}, exit, test_exit, _Stacktrace}],
                  meck:history(Mod)).
 
 history_meck_error_(Mod) ->
     ok = meck:expect(Mod, test,
                      fun() -> meck:exception(error, test_error) end),
-    catch Mod:test(),
+    try Mod:test() catch _:_ -> ok end,
     ?assertMatch([{_Pid, {Mod, test, []}, error, test_error, _Stacktrace}],
                  meck:history(Mod)).
 
@@ -398,8 +402,12 @@ shortcut_opaque_(Mod) ->
 shortcut_stacktrace_(Mod) ->
     ok = meck:expect(Mod, test, [true], ok),
     ?assertEqual(
-        {'EXIT', {function_clause, [{mymod, test, [false], []}]}},
-        catch(Mod:test(false))
+        {error, function_clause, [{mymod, test, [false], []}]},
+        try Mod:test(false)
+        catch
+            Class:Error:Stacktrace ->
+                {Class, Error, Stacktrace}
+        end
     ).
 
 delete_(Mod) ->
@@ -498,7 +506,7 @@ called_with_pid_no_args_(Mod) ->
 spawn_caller_and_sync(Mod, Func, Args) ->
     TestPid = self(),
     Fun = fun() ->
-                  catch apply(Mod, Func, Args),
+                  try apply(Mod, Func, Args) catch _:_ -> ok end,
                   TestPid ! {self(), done}
           end,
     Pid = spawn(Fun),
@@ -533,7 +541,7 @@ num_calls_with_pid_no_args_(Mod) ->
 expect_catch_apply(Mod, Func, Args) ->
     TestFun = fun (_, _, _) -> meck:exception(error, my_error) end,
     ok = meck:expect(Mod, Func, TestFun),
-    catch apply(Mod, Func, Args).
+    try apply(Mod, Func, Args) catch _:_ -> ok end.
 
 called_wildcard_(Mod) ->
     Args = [one, 2, {three, 3}, "four"],
