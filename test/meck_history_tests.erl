@@ -137,9 +137,9 @@ result_exception() ->
     meck:expect(test, throw, fun(R) -> throw(R) end),
     meck:expect(test, exit, fun(R) -> exit(R) end),
     %% When
-    catch test:error(foo),
-    catch test:throw(bar),
-    catch test:exit(baz),
+    try test:error(foo) catch _:_ -> ok end,
+    try test:throw(bar) catch _:_ -> ok end,
+    try test:exit(baz) catch _:_ -> ok end,
     %% Then
     ?assertException(error, foo, meck_history:result(first, '_', test, error, 1)),
     ?assertException(throw, bar, meck_history:result(first, '_', test, throw, 1)),
