@@ -453,6 +453,7 @@ backup_original(Mod, Passthrough, NoPassCover, EnableOnLoad) ->
 -spec get_cover_state(Mod::atom()) ->
         {File::string(), Data::string(), CompileOptions::[any()]} | false.
 get_cover_state(Mod) ->
+    ok = start_cover(),
     case cover:is_compiled(Mod) of
         {file, File} ->
             OriginalCover = meck_cover:dump_coverdata(Mod),
@@ -465,6 +466,13 @@ get_cover_state(Mod) ->
             {File, OriginalCover, CompileOptions};
         _ ->
             false
+    end.
+
+-spec start_cover() -> ok.
+start_cover() ->
+    case cover:start() of
+        {ok, _} -> ok;
+        {error, {already_started, _}} -> ok
     end.
 
 -spec resolve_can_expect(Mod::atom(),
