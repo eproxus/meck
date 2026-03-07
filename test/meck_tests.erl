@@ -1380,7 +1380,7 @@ remote_meck_test_() ->
 
 remote_setup() ->
     [] = os:cmd("epmd -daemon"),
-    net_kernel:start([meck_eunit_test]),
+    net_kernel:start([meck_eunit_test, shortnames]),
     {ok, Pid, Node} = peer:start_link(#{
         name => meck_remote_test,
         args => ["-pa", test_dir()]
