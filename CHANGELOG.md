@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-03-30
+
+### Fixed
+
+- Fix crash when concurrent tests start the cover server simultaneously ([\#259](https://github.com/eproxus/meck/pull/259)) ([modellurgist](https://github.com/modellurgist))
+- Fix compiler warning with Erlang/OTP 29 by replacing bare catch with try-catch ([\#260](https://github.com/eproxus/meck/pull/260)) ([legoscia](https://github.com/legoscia))
+
 ## [1.1.0] - 2025-09-12
 
 ### Added
@@ -362,7 +369,8 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 - dialyzer unmatched return errors ([\#24](https://github.com/eproxus/meck/issues/24))
 
-[Unreleased]: https://github.com/eproxus/meck/compare/1.1.0...HEAD
+[Unreleased]: https://github.com/eproxus/meck/compare/1.1.1...HEAD
+[1.1.1]: https://github.com/eproxus/meck/compare/1.1.0...1.1.1
 [1.1.0]: https://github.com/eproxus/meck/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/eproxus/meck/compare/0.9.2...1.0.0
 [0.9.2]: https://github.com/eproxus/meck/compare/0.9.1...0.9.2
