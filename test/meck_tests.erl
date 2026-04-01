@@ -1416,7 +1416,7 @@ can_mock_sticky_modules_test() ->
 
 meck_reentrant_test() ->
     meck:new(string, [unstick, passthrough]),
-    meck:expect(string, strip, 
+    meck:expect(string, strip,
         fun(String) -> meck:passthrough([string:reverse(String)]) end),
     ?assertEqual(string:strip("  ABC  "), "CBA"),
     meck:unload(string).
@@ -1516,6 +1516,18 @@ wait_already_called_test() ->
     %% Clean
     meck:unload().
 
+wait_already_called_more_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    test:foo(1, 2),
+    %% Then
+    ?assertMatch(ok, meck:wait(1, test, foo, [1, '_'], 100)),
+    %% Clean
+    meck:unload().
+
 wait_not_called_zero_timeout_test() ->
     %% Given
     meck:new(test, [non_strict]),
@@ -1555,6 +1567,70 @@ wait_called_another_proc_test() ->
                        end),
     %% Then
     ?assertMatch(ok, meck:wait(2, test, foo, [1, '_'], Pid, 500)),
+    %% Clean
+    meck:unload().
+
+wait_already_called_reset_more_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    test:foo(1, 2),
+    meck:reset(test),
+    test:foo(1, 2),
+    test:foo(1, 2),
+    %% Then
+    ?assertMatch(ok, meck:wait(1, test, foo, [1, '_'], 100)),
+    %% Clean
+    meck:unload().
+
+wait_already_called_reset_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    test:foo(1, 2),
+    meck:reset(test),
+    %% Then
+    ?assertError(timeout, meck:wait(2, test, foo, [1, '_'], 0)),
+    %% Clean
+    meck:unload().
+
+wait_reset_on_different_processes_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    Fun = fun() ->
+        test:foo(1, 2)
+    end,
+    {_Pid1, MRef1} = erlang:spawn_monitor(Fun),
+    ?assertTerminated(MRef1, normal, 300),
+    meck:reset(test),
+    {_Pid2, MRef2} = erlang:spawn_monitor(Fun),
+    %% Then
+    ?assertMatch(ok, meck:wait(1, test, foo, [1, '_'], '_', 10)),
+    ?assertTerminated(MRef2, normal, 300),
+    %% Clean
+    meck:unload().
+
+wait_reset_on_different_processes_2_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    Fun = fun() ->
+        test:foo(1, 2)
+    end,
+    {_Pid1, MRef1} = erlang:spawn_monitor(Fun),
+    ?assertTerminated(MRef1, normal, 300),
+    meck:reset(test),
+    {_Pid2, MRef2} = erlang:spawn_monitor(Fun),
+    %% Then
+    ?assertError(timeout, meck:wait(2, test, foo, [1, '_'], '_', 10)),
+    ?assertTerminated(MRef2, normal, 300),
     %% Clean
     meck:unload().
 
@@ -1639,6 +1715,162 @@ wait_purge_expired_tracker_test() ->
     % code only in the coverage report. But at least we exercise this code path
     % here.
     test:foo(1, 2),
+    %% Clean
+    meck:unload().
+
+%% These tests replicate the ones that exist for meck:wait(Times, ...), but they're explicit.
+wait_times_called_condition_already_called_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    test:foo(1, 2),
+    %% Then
+    ?assertMatch(ok, meck:wait(times_called(2), test, foo, [1, '_'], 100)),
+    %% Clean
+    meck:unload().
+
+wait_times_called_condition_already_called_more_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    test:foo(1, 2),
+    %% Then
+    ?assertMatch(ok, meck:wait(times_called(1), test, foo, [1, '_'], 100)),
+    %% Clean
+    meck:unload().
+
+wait_times_called_condition_not_called_zero_timeout_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 2),
+    test:foo(1, 2),
+    %% Then
+    ?assertError(timeout, meck:wait(times_called(3), test, foo, [1, '_'], 100)),
+    %% Clean
+    meck:unload().
+
+times_called(Times) ->
+    ConditionFun = fun
+        (_, T) when T =:= 0 -> {halt, ok};
+        (_, T) when is_integer(T) -> {cont, T - 1}
+    end,
+    {ConditionFun, Times - 1}.
+
+%% These tests wait for a function to be called multiple times, in any order, with the expected arguments.
+wait_for_all_condition_already_called_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 1),
+    test:foo(2, 2),
+    %% Then
+    ?assertMatch(ok, meck:wait(called_for_all([1, 2]), test, foo, ['_', '_'], 100)),
+    %% Clean
+    meck:unload().
+
+wait_for_all_condition_not_called_zero_timeout_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 1),
+    test:foo(2, 2),
+    %% Then
+    ?assertError(timeout, meck:wait(called_for_all([1, 2, 3]), test, foo, ['_', '_'], 0)),
+    %% Clean
+    meck:unload().
+
+wait_for_all_condition_called_another_proc_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    Pid = erlang:spawn(fun() ->
+                              timer:sleep(50),
+                              test:foo(1, 1),
+                              test:foo(2, 2), % Unexpected first argument
+                              test:foo(1, 2)
+                       end),
+    %% Then
+    ?assertMatch(ok, meck:wait(called_for_all([1, 2]), test, foo, [1, '_'], Pid, 500)),
+    %% Clean
+    meck:unload().
+
+called_for_all(Expected) ->
+    ConditionFun =
+        fun([_, X], State) ->
+            case State -- [X] of
+                [] ->
+                    {halt, ok};
+                State2 ->
+                    {cont, State2}
+            end
+        end,
+    {ConditionFun, Expected}.
+
+wait_for_all_condition_already_called_reset_more_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 1),
+    test:foo(1, 2),
+    meck:reset(test),
+    test:foo(1, 1),
+    test:foo(1, 2),
+    %% Then
+    ?assertMatch(ok, meck:wait(called_for_all([1, 2]), test, foo, [1, '_'], 100)),
+    %% Clean
+    meck:unload().
+
+wait_for_all_condition_already_called_reset_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 1),
+    test:foo(1, 2),
+    meck:reset(test),
+    %% Then
+    ?assertError(timeout, meck:wait(called_for_all([1, 2]), test, foo, [1, '_'], 0)),
+    %% Clean
+    meck:unload().
+
+wait_for_all_condition_already_called_reset_2_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 1),
+    meck:reset(test),
+    test:foo(1, 2),
+    %% Then
+    ?assertError(timeout, meck:wait(called_for_all([1, 2]), test, foo, [1, '_'], 0)),
+    %% Clean
+    meck:unload().
+
+wait_for_all_condition_already_called_reset_2_another_process_test() ->
+    %% Given
+    meck:new(test, [non_strict]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    test:foo(1, 1),
+    meck:reset(test),
+    Fun = fun() ->
+        timer:sleep(50),
+        test:foo(1, 2)
+    end,
+    {_Pid1, MRef1} = erlang:spawn_monitor(Fun),
+    ?assertTerminated(MRef1, normal, 300),
+    %% Then
+    ?assertError(timeout, meck:wait(called_for_all([1, 2]), test, foo, [1, '_'], 100)),
     %% Clean
     meck:unload().
 
