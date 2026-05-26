@@ -366,7 +366,7 @@ terminate(_Reason, #state{mod = Mod, original = OriginalState,
             % We make a best effort to reload the module here. Since this runs
             % in a terminating process there is nothing we can do to recover if
             % the loading fails.
-            _ = code:load_file(Mod),
+            _ = code:ensure_loaded(Mod),
             ok;
         _ ->
             ok
