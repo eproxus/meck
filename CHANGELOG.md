@@ -7,6 +7,18 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+*None*.
+
+## [1.2.0] - 2026-05-27
+
+### Added
+
+- Official support for Erlang 29
+
+### Fixed
+
+- Fix unloading failing with `not_purged` error ([\#262](https://github.com/eproxus/meck/pull/262)) ([hologroove](https://github.com/hologroove))
+
 ## [1.1.1] - 2026-03-30
 
 ### Fixed
@@ -369,7 +381,8 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 - dialyzer unmatched return errors ([\#24](https://github.com/eproxus/meck/issues/24))
 
-[Unreleased]: https://github.com/eproxus/meck/compare/1.1.1...HEAD
+[Unreleased]: https://github.com/eproxus/meck/compare/1.2.0...HEAD
+[1.2.0]: https://github.com/eproxus/meck/compare/1.1.1...1.2.0
 [1.1.1]: https://github.com/eproxus/meck/compare/1.1.0...1.1.1
 [1.1.0]: https://github.com/eproxus/meck/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/eproxus/meck/compare/0.9.2...1.0.0
