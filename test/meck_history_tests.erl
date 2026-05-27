@@ -105,10 +105,10 @@ result_different_positions() ->
     test:bar(1007, 2007, 3007),
     test:foo(1008, 2008, 3008),
     %% Then
-    ?assertMatch(2003, meck_history:result(first, '_', test, foo, ['_', '_', '_'])),
-    ?assertMatch(2008, meck_history:result(last, '_', test, foo, ['_', '_', '_'])),
-    ?assertMatch(2006, meck_history:result(3, '_', test, foo, ['_', '_', '_'])),
-    ?assertError(not_found, meck_history:result(5, '_', test, foo, ['_', '_', '_'])).
+    ?assertMatch(2003, meck:capture(first, test, foo, ['_', '_', '_'], result)),
+    ?assertMatch(2008, meck:capture(last, test, foo, ['_', '_', '_'], result)),
+    ?assertMatch(2006, meck:capture(3, test, foo, ['_', '_', '_'], result)),
+    ?assertError(not_found, meck:capture(5, test, foo, ['_', '_', '_'], result)).
 
 result_different_args_specs() ->
     meck:expect(test, foo, fun(_, A) -> A end),
