@@ -32,8 +32,8 @@
 -export([rename_module/3]).
 
 %% Types
--type erlang_form() :: term().
--type compile_options() :: [term()].
+-type erlang_form() :: [erl_parse:abstract_form() | erl_parse:form_info()].
+-type compile_options() :: [compile:option()].
 -type export() :: {atom(), byte()}.
 
 %%=============================================================================
@@ -50,10 +50,11 @@ abstract_code(BeamFile) ->
     end.
 
 -spec add_exports([export()], erlang_form()) -> erlang_form().
-add_exports(Exports, AbsCode) ->
-    {attribute, Line, export, OrigExports} = lists:keyfind(export, 3, AbsCode),
-    Attr = {attribute, Line, export, OrigExports ++ Exports},
-    lists:keyreplace(export, 3, AbsCode, Attr).
+add_exports(Exports, [{attribute, Line, export, OrigExports} | Forms])
+  when is_list(OrigExports) ->
+    [{attribute, Line, export, OrigExports ++ Exports} | Forms];
+add_exports(Exports, [Form | Forms]) ->
+    [Form | add_exports(Exports, Forms)].
 
 -spec beam_file(module()) -> binary().
 beam_file(Module) ->
@@ -68,11 +69,16 @@ compile_and_load_forms(AbsCode) -> compile_and_load_forms(AbsCode, []).
 
 -spec compile_and_load_forms(erlang_form(), compile_options()) -> binary().
 compile_and_load_forms(AbsCode, Opts) ->
+    % The spec of compile:forms/2 does not include form_info() entries such
+    % as {eof, Line}, even though the function accepts them: they are part
+    % of the abstract code returned by epp and beam_lib.
+    % elp:ignore W0074 (eqwalizer_ignore)
+    % eqwalizer:ignore incompatible_types
     case compile:forms(AbsCode, [return_errors|Opts]) of
-        {ok, ModName, Binary} ->
+        {ok, ModName, Binary} when is_binary(Binary) ->
             load_binary(ModName, Binary),
             Binary;
-        {ok, ModName, Binary, _Warnings} ->
+        {ok, ModName, Binary, _Warnings} when is_binary(Binary) ->
             load_binary(ModName, Binary),
             Binary;
         Error ->
