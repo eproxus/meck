@@ -74,6 +74,8 @@
 
 -type stack_trace() :: [{Mod::atom(), Func::atom(), AriOrArgs::byte()|[any()]} |
                         {Mod::atom(), Func::atom(), AriOrArgs::byte()|[any()],
+                         Location::[{atom(), any()}]} |
+                        {Fun::fun(), AriOrArgs::byte()|[any()],
                          Location::[{atom(), any()}]}].
 %% Erlang stack trace.
 

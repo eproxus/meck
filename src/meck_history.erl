@@ -20,6 +20,7 @@
 %% API
 -export_type([stack_trace_rec_r14b/0]).
 -export_type([stack_trace_rec_r15b/0]).
+-export_type([stack_trace_rec_fun/0]).
 -export_type([stack_trace/0]).
 -export_type([meck_mfa/0]).
 -export_type([successfull_call/0]).
@@ -45,7 +46,11 @@
                                  AriOrArgs::byte() | [any()],
                                  Location::[{atom(), any()}]}.
 
--type stack_trace() :: [stack_trace_rec_r14b() | stack_trace_rec_r15b()].
+-type stack_trace_rec_fun() :: {Fun::fun(), AriOrArgs::byte() | [any()],
+                                Location::[{atom(), any()}]}.
+
+-type stack_trace() :: [stack_trace_rec_r14b() | stack_trace_rec_r15b() |
+                        stack_trace_rec_fun()].
 
 -type meck_mfa() :: {Mod::atom(), Func::atom(), Args::[term()]}.
 
