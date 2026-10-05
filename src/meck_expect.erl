@@ -45,7 +45,7 @@
 %%% API
 %%%============================================================================
 
--spec new(Func::atom(), fun() | func_clause_spec()) -> expect().
+-spec new(Func::atom(), fun() | [func_clause_spec(), ...]) -> expect().
 new(Func, StubFun) when is_function(StubFun) ->
     {arity, Arity} = erlang:fun_info(StubFun, arity),
     Clause = {meck_args_matcher:new(Arity), meck_ret_spec:exec(StubFun)},
