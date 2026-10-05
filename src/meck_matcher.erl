@@ -70,7 +70,8 @@ is_matcher(_Other) -> false.
 %% matched with it, otherwise `true' is returned effectively ignoring
 %% `Something''s value.
 -spec match_ignore(Value::any(), Something::any()) -> boolean().
-match_ignore(Value, #'$meck.matcher'{type = predicate, impl = Predicate}) ->
+match_ignore(Value, #'$meck.matcher'{type = predicate, impl = Predicate})
+  when is_function(Predicate, 1) ->
     Predicate(Value) == true;
 match_ignore(Value, #'$meck.matcher'{type = hamcrest, impl = HamcrestMatcher}) ->
     try erlang:apply(hamcrest, assert_that, [Value, HamcrestMatcher]) of
