@@ -107,22 +107,22 @@ retrieve_result(RetSpec = {meck_seq, [InnerRs | _Rest]}, ExplodedRs) ->
 retrieve_result(RetSpec = {meck_loop, [InnerRs | _Rest], _Loop}, ExplodedRs) ->
     retrieve_result(InnerRs, [RetSpec | ExplodedRs]);
 retrieve_result(RetSpec, ExplodedRs) ->
-    ResultSpec = case is_result_spec(RetSpec) of
-                     true ->
-                         RetSpec;
-                     _ when erlang:is_function(RetSpec) ->
-                         exec(RetSpec);
-                     _ ->
-                         val(RetSpec)
-                 end,
-    {ResultSpec, update_rs(RetSpec, ExplodedRs, false)}.
+    {to_result_spec(RetSpec), update_rs(RetSpec, ExplodedRs, false)}.
 
--spec is_result_spec(any()) -> boolean().
-is_result_spec({meck_value, _Value}) -> true;
-is_result_spec({meck_exec, _Fun}) -> true;
-is_result_spec({meck_raise, _Class, _Reason}) -> true;
-is_result_spec(meck_passthrough) -> true;
-is_result_spec(_Other) -> false.
+-spec to_result_spec(ret_spec()) -> result_spec().
+to_result_spec(RetSpec = {meck_value, _Value}) ->
+    RetSpec;
+to_result_spec(RetSpec = {meck_exec, Fun}) when is_function(Fun) ->
+    RetSpec;
+to_result_spec(RetSpec = {meck_raise, Class, _Reason})
+  when Class =:= throw; Class =:= error; Class =:= exit ->
+    RetSpec;
+to_result_spec(meck_passthrough) ->
+    meck_passthrough;
+to_result_spec(Fun) when is_function(Fun) ->
+    {meck_exec, Fun};
+to_result_spec(Value) ->
+    {meck_value, Value}.
 
 -spec update_rs(InnerRs::ret_spec(), ExplodedRs::[ret_spec()], Done::boolean()) ->
         NewRetSpec::ret_spec() | unchanged.
