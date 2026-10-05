@@ -832,6 +832,8 @@ expect_ret_specs_(Mod) ->
 validate_options_test() ->
     Mod = validate_options,
     try
+        % The options are not a list on purpose
+        % eqwalizer:ignore incompatible_types
         meck:new(Mod, passthrough),
         throw(failed)
     catch
