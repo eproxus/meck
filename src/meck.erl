@@ -746,10 +746,8 @@ wait_for_exit(Mod) ->
     MonitorRef = erlang:monitor(process, meck_util:proc_name(Mod)),
     receive {'DOWN', MonitorRef, _Type, _Object, _Info} -> ok end.
 
--spec fold_mocks(Fun, AccIn) -> AccOut when
-    Fun :: fun((Elem :: module(), AccIn) -> AccOut),
-    AccIn :: term(),
-    AccOut :: term().
+-spec fold_mocks(Fun, Acc) -> Acc when
+    Fun :: fun((Elem :: module(), Acc) -> Acc).
 fold_mocks(Fun, Acc0) when is_function(Fun, 2) ->
     lists:foldl(fun(Mod, Acc)  ->
         ModName = atom_to_list(Mod),
