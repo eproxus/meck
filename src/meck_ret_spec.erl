@@ -69,8 +69,10 @@ raise(throw, Reason) -> {meck_raise, throw, Reason};
 raise(error, Reason) -> {meck_raise, error, Reason};
 raise(exit, Reason) -> {meck_raise, exit, Reason}.
 
--spec is_meck_exception(Reason::any()) -> {true, any(), any()} | false.
-is_meck_exception({meck_raise, MockedClass, MockedReason}) ->
+-spec is_meck_exception(Reason::any()) ->
+        {true, Class::throw | error | exit, Reason::any()} | false.
+is_meck_exception({meck_raise, MockedClass, MockedReason})
+  when MockedClass =:= throw; MockedClass =:= error; MockedClass =:= exit ->
     {true, MockedClass, MockedReason};
 is_meck_exception(_Reason) ->
     false.
