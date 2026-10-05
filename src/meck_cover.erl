@@ -23,7 +23,6 @@
 -export([dump_coverdata/1]).
 
 -ignore_xref({cover, compile_beams, 1}).
--ignore_xref({cover, compile_beam, 2}).
 -ignore_xref({cover, get_term, 1}).
 -ignore_xref({cover, write, 2}).
 
@@ -66,40 +65,21 @@ dump_coverdata(Mod) ->
 %% and `write' are exposed.
 %%
 %% 2. In order to avoid creating temporary files meck needs direct
-%% access to `compile_beam/2' which allows passing a binary.
-%% In OTP 18.0 the internal API of cover changed a bit and
-%% compile_beam/2 was replaced by compile_beams/1.
+%% access to `compile_beams/1' which allows passing a binary.
 -dialyzer({no_missing_calls, alter_cover/0}). % for cover:compile_beams/1
 alter_cover() ->
-    CoverExports = cover:module_info(exports),
-    case {lists:member({compile_beams,1}, CoverExports),
-          lists:member({compile_beam,2}, CoverExports)} of
-        {true, _} ->
-            fun cover:compile_beams/1;
-        {_, true} ->
-            fun compile_beam_wrapper/1;
-        {false, false} ->
+    case lists:member({compile_beams,1}, cover:module_info(exports)) of
+        true ->
+            ok;
+        false ->
             Beam = meck_code:beam_file(cover),
             AbsCode = meck_code:abstract_code(Beam),
-            {Exports, CompileBeams} =
-                case lists:member({analyse,0}, CoverExports) of
-                    true ->
-                        %% new API from OTP 18.0 on
-                        {[{compile_beams, 1}, {get_term, 1}, {write, 2}],
-                         fun cover:compile_beams/1};
-                    false ->
-                        {[{compile_beam, 2}, {get_term, 1}, {write, 2}],
-                         fun compile_beam_wrapper/1}
-                end,
+            Exports = [{compile_beams, 1}, {get_term, 1}, {write, 2}],
             AbsCode2 = meck_code:add_exports(Exports, AbsCode),
             _Bin = meck_code:compile_and_load_forms(AbsCode2),
-            CompileBeams
-    end.
-
-%% wrap cover's pre-18.0 internal API to simulate the new API
--dialyzer({no_missing_calls, compile_beam_wrapper/1}). % for cover:compile_beam/2
-compile_beam_wrapper(ModFiles) ->
-    [cover:compile_beam(Mod, Bin)||{Mod, Bin} <- ModFiles].
+            ok
+    end,
+    fun cover:compile_beams/1.
 
 change_cover_mod_name(CoverTerms, Name) ->
     {_, Terms} = lists:foldl(fun change_name_in_term/2, {Name,[]}, CoverTerms),

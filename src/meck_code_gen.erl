@@ -24,8 +24,6 @@
 %% Exported to be accessible from generated modules.
 -export([exec/4]).
 
--include("meck.hrl").
-
 %%%============================================================================
 %%% Definitions
 %%%============================================================================
@@ -180,9 +178,8 @@ eval(Pid, Mod, Func, Args, ResultSpec) ->
         meck_proc:add_history(Mod, Pid, Func, Args, Result),
         Result
     catch
-        ?_exception_(Class, Reason, StackToken) ->
-            handle_exception(Pid, Mod, Func, Args,
-                             Class, Reason, ?_get_stacktrace_(StackToken))
+        Class:Reason:Stack ->
+            handle_exception(Pid, Mod, Func, Args, Class, Reason, Stack)
     after
         put(?CURRENT_CALL, PreviousCall)
     end.
