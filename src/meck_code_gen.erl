@@ -37,7 +37,6 @@
          Arguments}).
 
 -define(atom(Atom), {atom, ?LINE, Atom}).
--define(integer(Integer), {integer, ?LINE, Integer}).
 -define(var(Name), {var, ?LINE, Name}).
 -define(attribute(Attribute, Args), {attribute, ?LINE, Attribute, Args}).
 -define(function(Name, Arity, Clauses),
