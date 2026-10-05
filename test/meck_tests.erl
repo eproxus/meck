@@ -1435,6 +1435,7 @@ sticky_setup() ->
     false = code:purge(Module),
     {module, Module} = code:load_file(Module),
     Beam = code:which(Module),
+    true = is_list(Beam),
 
     % Unload module so it's not loaded when running meck
     false = code:purge(Module),
