@@ -1238,7 +1238,7 @@ unload_when_crashed_test() ->
     ?assertMatch({file, _}, code:is_loaded(mymod)),
     SaltedName = mymod_meck,
     Pid = whereis(SaltedName),
-    ?assertEqual(true, is_pid(Pid)),
+    true = is_pid(Pid),
     unlink(Pid),
     error_logger:tty(false),
     exit(Pid, expected_test_exit),
@@ -1251,7 +1251,9 @@ unload_when_crashed_test() ->
 unlink_test() ->
     ok = meck:new(mymod, [no_link, non_strict]),
     SaltedName = mymod_meck,
-    {links, Links} = process_info(whereis(SaltedName), links),
+    Pid = whereis(SaltedName),
+    true = is_pid(Pid),
+    {links, Links} = process_info(Pid, links),
     ?assert(not lists:member(self(), Links)),
     ok = meck:unload(mymod).
 
