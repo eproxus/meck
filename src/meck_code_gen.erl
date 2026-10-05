@@ -153,6 +153,8 @@ args(Arity) -> [?var(var_name(N)) || N <- lists:seq(1, Arity)].
 list([])    -> {nil, ?LINE};
 list([H|T]) -> {cons, ?LINE, H, list(T)}.
 
+%% Bounded by the maximum function arity (255).
+% elp:ignore W0023 (atoms_exhaustion)
 var_name(A) -> list_to_atom("A"++integer_to_list(A)).
 
 %% @hidden
