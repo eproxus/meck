@@ -78,7 +78,7 @@ new(ArgsPattern) when is_list(ArgsPattern) ->
 arity(#args_matcher{opt_args_pattern = ArgsPattern}) ->
     erlang:length(ArgsPattern).
 
--spec match(Args::any(), args_matcher()) -> boolean().
+-spec match(Args::[any()], args_matcher()) -> boolean().
 match(Args, #args_matcher{opt_args_pattern = OptArgsPattern,
                           comp_match_spec = CompMatchSpec,
                           has_matchers = HasMatchers}) ->
