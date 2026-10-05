@@ -133,7 +133,7 @@ result_different_args_specs() ->
     ?assertMatch(2008, meck_history:result(first, '_', test, foo, ['_', '_', Matcher])).
 
 result_exception() ->
-    meck:expect(test, error, fun(R) -> erlang:error(R) end),
+    meck:expect(test, error, fun erlang:error/1),
     meck:expect(test, throw, fun(R) -> throw(R) end),
     meck:expect(test, exit, fun(R) -> exit(R) end),
     %% When

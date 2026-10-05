@@ -612,7 +612,7 @@ wait(Times, Mod, OptFunc, OptArgsSpec, OptCallerPid, Timeout)
 reset(Mod) when is_atom(Mod) ->
     meck_proc:reset(Mod);
 reset(Mods) when is_list(Mods) ->
-    lists:foreach(fun(Mod) -> reset(Mod) end, Mods).
+    lists:foreach(fun reset/1, Mods).
 
 %% @doc Converts a list of terms into {@link ret_spec()} defining a loop of
 %% values. It is intended to be in construction of clause specs for the
