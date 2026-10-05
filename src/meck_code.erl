@@ -91,20 +91,22 @@ compile_options(Module) ->
   filter_options(proplists:get_value(options, Module:module_info(compile))).
 
 enable_on_load(Forms, false) ->
-    Map = fun({attribute,L,on_load,{F,A}}) -> {attribute,L,export,[{F,A}]};
-             (Other) -> Other
-          end,
-    lists:map(Map, Forms);
+    [on_load_to_export(Form) || Form <- Forms];
 enable_on_load(Forms, _) ->
     Forms.
 
 -spec rename_module(erlang_form(), module(), module()) -> erlang_form().
 rename_module(Forms, Old, New) ->
-    lists:map(fun(F) -> rename_module_in_form(F, Old, New) end, Forms).
+    [rename_module_in_form(F, Old, New) || F <- Forms].
 
 %%=============================================================================
 %% Internal functions
 %%=============================================================================
+
+on_load_to_export({attribute, L, on_load, {F, A}}) ->
+    {attribute, L, export, [{F, A}]};
+on_load_to_export(Other) ->
+    Other.
 
 load_binary(Name, Binary) ->
     case code:load_binary(Name, "", Binary) of
