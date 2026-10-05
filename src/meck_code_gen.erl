@@ -210,15 +210,12 @@ raise(Pid, Mod, Func, Args, Class, Reason, Stack) ->
                                     {Class, Reason, StackTrace}),
     erlang:raise(Class, Reason, StackTrace).
 
--dialyzer({no_match, inject/4}). % for meck_history:stack_trace in older Erlang/OTP versions
 -spec inject(Mod::atom(), Func::atom(), Args::[any()],
              meck_history:stack_trace()) ->
         NewStackTrace::meck_history:stack_trace().
 inject(Mod, Func, Args, []) ->
     [{Mod, Func, Args}];
 inject(Mod, Func, Args, [{?MODULE, exec, _AriOrArgs, _Loc}|Stack]) ->
-    [{Mod, Func, Args} | Stack];
-inject(Mod, Func, Args, [{?MODULE, exec, _AriOrArgs}|Stack]) ->
     [{Mod, Func, Args} | Stack];
 inject(Mod, Func, Args, [Call|Stack]) when element(1, Call) == ?MODULE ->
     inject(Mod, Func, Args, Stack);
