@@ -726,7 +726,7 @@ capture(Occur, Mod, Func, OptArgsSpec, ArgNum, OptCallerPid) ->
       Occur :: first | last | pos_integer(),
       Mod::atom(),
       Func::atom(),
-      OptArgsSpec :: args_spec(),
+      OptArgsSpec :: '_' | args_spec(),
       ArgNum :: pos_integer(),
       ArgValue :: any().
 capture(Occur, Mod, Func, OptArgsSpec, ArgNum) ->
