@@ -1208,8 +1208,10 @@ cover_no_meck_original_in_cover_export_test() ->
         _ = file:delete(Filename)
     end,
 
+    ImportedModules = cover:imported_modules(),
+    true = is_list(ImportedModules),
     ?assertNot(
-        lists:member(meck_util:original_name(meck_test_module), cover:imported_modules()),
+        lists:member(meck_util:original_name(meck_test_module), ImportedModules),
         "the meck generated module should not be in the exported cover data"
     ).
 
