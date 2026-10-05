@@ -50,6 +50,16 @@
 
 -type meck_dict() :: dict:dict().
 
+%% The type of a reply from the mock process depends on the request, so the
+%% gen_server/3,4 wrappers return dynamic() and the specs of the API
+%% functions calling them define the actual type. dynamic() is a built-in
+%% type since Erlang/OTP 26.
+-if(?OTP_RELEASE >= 26).
+-type reply() :: dynamic().
+-else.
+-type reply() :: term().
+-endif.
+
 -record(state, {mod :: atom(),
                 can_expect :: any | [{Mod::atom(), Ari::byte()}],
                 expects :: meck_dict(),
@@ -514,13 +524,13 @@ init_expects(Exports, Options) ->
                 end,
                 dict:new(), Expects).
 
--spec gen_server(Method:: call, Mod::atom(), Msg :: stop, timeout()) -> any().
+-spec gen_server(Method:: call, Mod::atom(), Msg :: stop, timeout()) -> reply().
 gen_server(call, Mod, stop, infinity) ->
     Name = meck_util:proc_name(Mod),
     try gen_server:call(Name, stop, infinity)
     catch exit:_Reason -> erlang:error({not_mocked, Mod}) end.
 
--spec gen_server(Method:: call | cast, Mod::atom(), Msg::tuple() | atom()) -> any().
+-spec gen_server(Method:: call | cast, Mod::atom(), Msg::tuple() | atom()) -> reply().
 gen_server(Func, Mod, Msg) ->
     Name = meck_util:proc_name(Mod),
     try gen_server:Func(Name, Msg)
