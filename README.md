@@ -1,56 +1,48 @@
-<h1 align="center">Meck</h1>
-<p align="center">A mocking library for Erlang</p>
+<!-- markdownlint-disable-line MD013 -->
+# Meck [![CI Status][ci-img]](https://github.com/eproxus/meck/actions/workflows/erlang.yml?query=branch%3Amaster) [![Hex.pm Version][hex-img]](https://hex.pm/packages/meck) [![Docs][docs-img]](https://hexdocs.pm/meck) [![Minimum Erlang Version][erlang-img]](https://github.com/eproxus/meck/blob/master/.github/workflows/erlang.yml#L14) [![License][license-img]](LICENSE) [![GitHub Sponsors][sponsors-img]](https://github.com/sponsors/eproxus)
 
-<p align="center">
-  <a href="https://github.com/eproxus/meck/actions/workflows/erlang.yml">
-    <img alt="GitHub Actions" src="https://img.shields.io/github/actions/workflow/status/eproxus/meck/erlang.yml?branch=master&style=flat-square"/>
-  </a>
-  <a href="https://hex.pm/packages/meck">
-    <img alt="Hex.pm version" src="https://img.shields.io/hexpm/v/meck?style=flat-square"/>
-  </a>
-  <a href="LICENSE">
-    <img alt="Hex.pm license" src="https://img.shields.io/hexpm/l/meck?style=flat-square"/>
-  </a>
-  <a href="https://github.com/eproxus/meck/blob/master/.github/workflows/erlang.yml#L14">
-    <img alt="Erlang versions" src="https://img.shields.io/badge/erlang-27+-blue.svg?style=flat-square"/>
-  </a>
-  <a href="https://github.com/sponsors/eproxus">
-    <img alt="hex.pm license" src="https://img.shields.io/github/sponsors/eproxus?style=flat-square&color=%23ec6cb9"/>
-  </a>
-</p>
-
-
-  * [Features](#features)
-  * [Examples](#examples)
-  * [Use](#use)
-  * [Manual Build](#manual-build)
-  * [Caveats](#caveats)
-  * [Contribute](#contribute)
+A mocking library for Erlang.
 
 ## Features
 
-See what's new in [0.8 Release Notes][release_notes_0.8].
+* Flexible, dynamic expectations
+    * Adding, listing, merging (with the `merge_expects` option) and deleting at
+      runtime
+    * Compact definition of function arguments or dynamic matchers, clauses
+      and return values
+    * Dynamic return values using sequences and loops of static values
+    * Passthrough calls to the original module
+    * Exceptions designated as intentional keep the module valid
+    * Customizable default return value for all functions of the mocked module
+      (with the `stub_all` option)
+* Full call history access
+    * Complete call history showing calls, return values and exceptions
+    * Capture of individual argument values from specific calls
+    * Waiting for specific calls to the mock, with a timeout
+    * History reset
+    * Disabling of history recording for performance-critical tests (with the
+      `no_history` option)
+* Intuitive mock lifecycle management
+    * Protection against mocking modules that do not exist (disable with the
+      `non_strict` option)
+    * Automatic mock creation for existing modules when mocking functions
+    * Invalidation of mocks that are not called correctly
+    * Automatic unloading when the creating process crashes (disable with the
+      `no_link` option)
+    * Listing of all current mocks
+    * Mocking of sticky modules (with the `unstick` option)
+    * Automatic backup and restore of cover data, with the possibility to
+      disable cover on passthrough calls (with the `no_passthrough_cover`
+      option)
+* Batch operations on several modules at once
 
-  * Dynamic return values using sequences and loops of static values
-  * Compact definition of mock arguments, clauses and return values
-  * Pass through: call functions in the original module
-  * Complete call history showing calls, return values and exceptions
-  * Mock validation, will invalidate mocks that were not called correctly
-  * Throwing of expected exceptions that keeps the module valid
-  * Throws an error when mocking a module that doesn't exist or has been
-    renamed (disable with option `non_strict`)
-  * Support for [Hamcrest][hamcrest] matchers
-  * Automatic backup and restore of cover data
-  * Mock is linked to the creating process and will unload automatically
-    when a crash occurs (disable with option `no_link`)
-  * Mocking of sticky modules (using the option `unstick`)
+## Usage
 
-## Examples
+### Basic Usage
 
 Here's an example of using Meck in the Erlang shell:
 
 ```erlang
-Eshell V5.8.4  (abort with ^G)
 1> meck:new(dog, [non_strict]). % non_strict is used to create modules that don't exist
 ok
 2> meck:expect(dog, bark, fun() -> "Woof!" end).
@@ -65,23 +57,20 @@ ok
 ** exception error: undefined function dog:bark/0
 ```
 
+### Exceptions
+
 Exceptions can be anticipated by Meck (resulting in validation still passing).
 This is intended to be used to test code that can and should handle certain
 exceptions indeed does take care of them:
 
 ```erlang
-5> meck:expect(dog, meow, fun() -> meck:exception(error, not_a_cat) end).
+1> meck:new(dog, [non_strict]).
 ok
-6> catch dog:meow().
-{'EXIT',{not_a_cat,[{meck,exception,2},
-                    {meck,exec,4},
-                    {dog,meow,[]},
-                    {erl_eval,do_apply,5},
-                    {erl_eval,expr,5},
-                    {shell,exprs,6},
-                    {shell,eval_exprs,6},
-                    {shell,eval_loop,3}]}}
-7> meck:validate(dog).
+2> meck:expect(dog, meow, fun() -> meck:exception(error, not_a_cat) end).
+ok
+3> catch dog:meow().
+{'EXIT',{not_a_cat,[...]}}
+4> meck:validate(dog).
 true
 ```
 
@@ -91,25 +80,19 @@ come from the code under test (which should, if not expected, invalidate the
 mocked module):
 
 ```erlang
-8> meck:expect(dog, jump, fun(Height) when Height > 3 ->
-                                  erlang:error(too_high);
-                             (Height) ->
-                                  ok
-                          end).
+1> meck:new(dog, [non_strict]).
 ok
-9> dog:jump(2).
+2> meck:expect(dog, jump, fun(Height) when Height =< 3 -> ok end).
 ok
-10> catch dog:jump(5).
-{'EXIT',{too_high,[{meck,exec,4},
-                   {dog,jump,[5]},
-                   {erl_eval,do_apply,5},
-                   {erl_eval,expr,5},
-                   {shell,exprs,6},
-                   {shell,eval_exprs,6},
-                   {shell,eval_loop,3}]}}
-11> meck:validate(dog).
+3> dog:jump(2).
+ok
+4> catch dog:jump(5).
+{'EXIT',{function_clause,[...]}}
+5> meck:validate(dog).
 false
 ```
+
+### EUnit
 
 Here's an example of using Meck inside an EUnit test case:
 
@@ -122,13 +105,14 @@ my_test() ->
     meck:unload(my_library_module).
 ```
 
+### Passthrough
+
 Pass-through is used when the original functionality of a module should be kept.
 When the option `passthrough` is used when calling `new/2` all functions in the
 original module will be kept in the mock. These can later be overridden by
 calling `expect/3` or `expect/4`.
 
 ```erlang
-Eshell V5.8.4  (abort with ^G)
 1> meck:new(string, [unstick, passthrough]).
 ok
 2> string:strip("  test  ").
@@ -141,7 +125,6 @@ the `passthrough` option). `passthrough/1` will always call the original
 function with the same name as the expect is defined in):
 
 ```erlang
-Eshell V5.8.4  (abort with ^G)
 1> meck:new(string, [unstick, passthrough]).
 ok
 2> meck:expect(string, strip, fun
@@ -155,23 +138,23 @@ ok
 "bar"
 5> meck:unload(string).
 ok
-5> string:strip("foo").
+6> string:strip("foo").
 "foo"
 ```
 
-## Use
+## Installation
 
-Meck is best used via [Rebar 3][rebar_3]. Add Meck to the test dependencies
-in your `rebar.config`:
+Meck is best used via [Rebar 3][rebar3]. Add Meck to the test dependencies in
+your `rebar.config`:
 
 ```erlang
 {profiles, [{test, [{deps, [meck]}]}]}.
 ```
 
-### Manual Build
+### Build
 
-Meck uses [Rebar 3][rebar_3]. To build Meck go to the Meck directory
-and simply type:
+Meck uses [Rebar 3][rebar3]. To build Meck go to the Meck directory and simply
+type:
 
 ```sh
 rebar3 compile
@@ -192,11 +175,11 @@ rebar3 edoc
 
 ### Test Output
 
-Normally the test output is hidden, but if EUnit is run
-directly, two things might seem alarming when running the tests:
+Normally the test output is hidden, but if EUnit is run directly, two things
+might seem alarming when running the tests:
 
-  1. Warnings emitted by cover
-  2. An exception printed by SASL
+1. Warnings emitted by cover
+2. An exception printed by SASL
 
 Both are expected due to the way Erlang currently prints errors. The important
 line you should look for is `All XX tests passed`, if that appears all is
@@ -206,18 +189,17 @@ correct.
 
 ### Global Namespace
 
-Meck will have trouble mocking certain modules since it works by recompiling
-and reloading modules in the global Erlang module namespace. Replacing a
-module affects the whole Erlang VM and any running processes using that
-module. This means certain modules cannot be mocked or will cause trouble.
+Meck will have trouble mocking certain modules since it works by recompiling and
+reloading modules in the global Erlang module namespace. Replacing a module
+affects the whole Erlang VM and any running processes using that module. This
+means certain modules cannot be mocked or will cause trouble.
 
 In general, if a module is used by running processes or include Native
-Implemented Functions (NIFs) they will be hard or impossible to mock. You may
-be lucky and it could work, until it breaks one day.
+Implemented Functions (NIFs) they will be hard or impossible to mock. You may be
+lucky and it could work, until it breaks one day.
 
-The following is a non-exhaustive
-list of modules that can either be problematic to mock or not possible at
-all:
+The following is a non-exhaustive list of modules that can either be problematic
+to mock or not possible at all:
 
 * `erlang`
 * `supervisor`
@@ -231,34 +213,34 @@ all:
 
 ### Local Functions
 
-A meck expectation set up for a function _f_ does not apply to the module-
-local invocation of _f_ within the mocked module. Consider the following module:
+A Meck expectation set up for a function does not apply to the module- local
+invocation of that function within the mocked module. Consider the following
+module:
 
 ```erlang
 -module(test).
 -export([a/0, b/0, c/0]).
 
-a() ->
-  c().
+a() -> c().
 
-b() ->
-  ?MODULE:c().
+b() -> ?MODULE:c(). % This is a fully qualified call
 
-c() ->
-  original.
+c() -> original.
 ```
 
 Note how the module-local call to `c/0` in `a/0` stays unchanged even though the
 expectation changes the externally visible behaviour of `c/0`:
 
 ```erlang
-3> meck:new(test, [passthrough]).
+1> c(test, [debug_info]).
+{ok,test}
+2> meck:new(test, [passthrough]).
 ok
-4> meck:expect(test,c,0,changed).
+3> meck:expect(test, c, 0, changed).
 ok
-5> test:a().
+4> test:a().
 original
-6> test:b().
+5> test:b().
 changed
 6> test:c().
 changed
@@ -266,9 +248,8 @@ changed
 
 ### Common Test
 
-When using `meck` under Erlang/OTP's Common Test, one should pay special
-attention to this bit in the chapter on
-[Writing Tests](https://erlang.org/doc/apps/common_test/write_test_chapter.html):
+When using Meck under Erlang/OTP's Common Test, one should pay special attention
+to this bit in the chapter on [Writing Tests][ct-writing-tests]:
 
 > `init_per_suite` and `end_per_suite` execute on dedicated Erlang processes,
 > just like the test cases do.
@@ -282,46 +263,68 @@ the mock responding to function calls or the original module.
 
 To avoid this, you can pass the `no_link` flag to `meck:new/2` which will unlink
 the mock from the process that created it. When using `no_link` you should make
-sure that `meck:unload/1` is called properly (for all test outcomes, or
-crashes) so that a left-over mock does not interfere with subsequent test
-cases.
+sure that `meck:unload/1` is called properly (for all test outcomes, or crashes)
+so that a left-over mock does not interfere with subsequent test cases.
 
-## Contribute
+## Contributing
 
 Patches are greatly appreciated! For a much nicer history, please [write good
-commit messages][commit_messages]. Use a branch name prefixed by `feature/`
+commit messages][commit-messages]. Use a branch name prefixed by `feature/`
 (e.g. `feature/my_example_branch`) for easier integration when developing new
-features or fixes for meck.
+features or fixes for Meck.
 
 Should you find yourself using Meck and have issues, comments or feedback please
 [create an issue here on GitHub][issues].
 
-Meck has been greatly improved by [many contributors](https://github.com/eproxus/meck/graphs/contributors)!
+Meck has been greatly improved by [many contributors][contributors]!
+
+For more information check out [CONTRIBUTING.md][contributing].
 
 ### Donations
 
-If you or your company use Meck and find it useful, a [sponsorship][sponsors] or [donations][liberapay] are greatly appreciated!
+If you or your company use Meck and find it useful, a [sponsorship][sponsors] or
+[donations][liberapay] are greatly appreciated!
 
-<noscript>
-  <span>
-   <a href="https://github.com/sponsors/eproxus">
-   <img alt="Sponsor on GitHub"
-        src="https://img.shields.io/github/sponsors/eproxus?label=Sponsor&color=EA4AAA&logo=GitHub%20Sponsors&style=social">
-   </a>
-  </span>
-  <span>
-    <a href="https://liberapay.com/eproxus/donate">
-      <img alt="Donate using Liberapay"
-           src="https://liberapay.com/assets/widgets/donate.svg">
-    </a>
-  </span>
-</noscript>
+[![Sponsor on GitHub][sponsor-button-img]](https://github.com/sponsors/eproxus)
+[![Donate using Liberapay][liberapay-button-img]](https://liberapay.com/eproxus/donate)
 
-<!-- Links -->
-[release_notes_0.8]: https://github.com/eproxus/meck/wiki/0.8-Release-Notes
-[hamcrest]: https://github.com/hyperthunk/hamcrest-erlang
-[rebar_3]: https://github.com/erlang/rebar3
-[issues]: http://github.com/eproxus/meck/issues
-[commit_messages]: http://chris.beams.io/posts/git-commit/
-[sponsors]: https://github.com/sponsors/eproxus
-[liberapay]: https://liberapay.com/eproxus/
+## Changelog
+
+See [CHANGELOG][changelog] or the [Releases][releases] page.
+
+## Code of Conduct
+
+Find this project's code of conduct in
+[Contributor Covenant Code of Conduct][code-of-conduct].
+
+## Conventions
+
+### Versions
+
+This project adheres to [Semantic Versioning][semver].
+
+### License
+
+This project uses the [Apache License 2.0][license].
+
+[ci-img]:               https://img.shields.io/github/actions/workflow/status/eproxus/meck/erlang.yml?label=ci
+[hex-img]:              https://img.shields.io/hexpm/v/meck
+[docs-img]:             https://img.shields.io/badge/docs-hexdocs-blue
+[erlang-img]:           https://img.shields.io/badge/erlang-27+-blue.svg
+[license]:              LICENSE
+[license-img]:          https://img.shields.io/hexpm/l/meck
+[sponsors]:             https://github.com/sponsors/eproxus
+[sponsors-img]:         https://img.shields.io/github/sponsors/eproxus?color=%23ec6cb9
+[rebar3]:               https://github.com/erlang/rebar3
+[ct-writing-tests]:     https://erlang.org/doc/apps/common_test/write_test_chapter.html
+[commit-messages]:      http://chris.beams.io/posts/git-commit/
+[issues]:               http://github.com/eproxus/meck/issues
+[contributors]:         https://github.com/eproxus/meck/graphs/contributors
+[contributing]:         CONTRIBUTING.md
+[liberapay]:            https://liberapay.com/eproxus/
+[sponsor-button-img]:   https://img.shields.io/github/sponsors/eproxus?label=Sponsor&color=EA4AAA&logo=GitHub%20Sponsors&style=social
+[liberapay-button-img]: https://liberapay.com/assets/widgets/donate.svg
+[changelog]:            https://github.com/eproxus/meck/blob/master/CHANGELOG.md
+[releases]:             https://github.com/eproxus/meck/releases
+[code-of-conduct]:      CODE_OF_CONDUCT.md
+[semver]:               https://semver.org/spec/v2.0.0.html
