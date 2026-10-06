@@ -199,9 +199,7 @@ validate_chained_(Mod) ->
     ok = meck:expect(mymod2, test, fun() ->
                                       meck:exception(error, test_error)
                               end),
-    ok = meck:expect(Mod, test, fun() ->
-                                     mymod2:test()
-                             end),
+    ok = meck:expect(Mod, test, fun mymod2:test/0),
     ?assertError(test_error, Mod:test()),
     ?assertEqual(false, meck:validate(Mod)),
     ?assertEqual(true, meck:validate(mymod2)),
