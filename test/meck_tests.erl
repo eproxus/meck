@@ -17,7 +17,6 @@
 -module(meck_tests).
 
 -include_lib("eunit/include/eunit.hrl").
--include("../src/meck.hrl").
 
 -define(assertTerminated(MonitorRef, Reason, Timeout),
         (fun() ->
@@ -211,11 +210,11 @@ stacktrace_(Mod) ->
         Mod:test(),
         throw(failed)
     catch
-        ?_exception_(error, test_error, StackToken) ->
+        error:test_error:Stack ->
             ?assert(lists:any(fun({M, test, []}) when M == Mod    -> true;
                                  ({M, test, [],[]}) when M == Mod -> true;
                                  (_)                              -> false
-                              end, ?_get_stacktrace_(StackToken)))
+                              end, Stack))
     end.
 
 stacktrace_function_clause_(Mod) ->
@@ -224,12 +223,12 @@ stacktrace_function_clause_(Mod) ->
         Mod:test(error),
         throw(failed)
     catch
-        ?_exception_(error, function_clause, StackToken) ->
+        error:function_clause:Stack ->
             ?assert(lists:any(
                 fun ({M, test, [error]}) when M == Mod     -> true;
                     ({M, test, [error], []}) when M == Mod -> true;
                     (_)                                    -> false
-                end, ?_get_stacktrace_(StackToken)))
+                end, Stack))
     end.
 
 call_undef_(Mod) ->
