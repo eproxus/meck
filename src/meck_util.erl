@@ -33,10 +33,14 @@
 %%% API
 %%%============================================================================
 
+%% The atoms created below are bounded by the number of mocked modules.
+
 -spec proc_name(Mod::atom()) -> MockMod::atom().
+% elp:ignore W0023 (atoms_exhaustion)
 proc_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck").
 
 -spec original_name(Mod::atom()) -> OrigMod::atom().
+% elp:ignore W0023 (atoms_exhaustion)
 original_name(Name) -> list_to_atom(atom_to_list(Name) ++ "_meck_original").
 
 -spec match_spec_item(Pattern::tuple()) -> match_spec_item().
