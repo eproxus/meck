@@ -92,6 +92,17 @@
 
 -type tracker() :: #tracker{}.
 -type action() :: backup | restore.
+-type request() :: {get_result_spec, Func::atom(), Args::[any()]}
+                 | {set_expect, meck_expect:expect()}
+                 | {delete_expect, Func::atom(), Ari::byte(), Force::boolean()}
+                 | {list_expects, ExcludePassthrough::boolean()}
+                 | get_history
+                 | {wait, Times::non_neg_integer(), OptFunc::'_' | atom(),
+                    meck_args_matcher:args_matcher(), OptCallerPid::'_' | pid(),
+                    Timeout::non_neg_integer()}
+                 | reset
+                 | validate
+                 | stop.
 
 %%%============================================================================
 %%% API
@@ -266,6 +277,10 @@ init([Mod, Options]) ->
     end.
 
 %% @hidden
+-spec handle_call(request(), gen_server:from(), #state{}) ->
+        {reply, term(), #state{}} |
+        {noreply, #state{}} |
+        {stop, normal, ok, #state{}}.
 handle_call({get_result_spec, Func, Args}, _From, S) ->
     {ResultSpec, NewExpects} = do_get_result_spec(S#state.expects, Func, Args),
     {reply, ResultSpec, S#state{expects = NewExpects}};
@@ -312,8 +327,9 @@ handle_call({list_expects, ExcludePassthrough}, _From, S = #state{mod = Mod, exp
     {reply, Result, S};
 handle_call(get_history, _From, S = #state{history = undefined}) ->
     {reply, [], S};
-handle_call(get_history, _From, S) ->
-    {reply, lists:reverse(S#state.history), S};
+handle_call(get_history, _From, S = #state{history = History})
+  when is_list(History) ->
+    {reply, lists:reverse(History), S};
 handle_call({wait, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout}, From,
             S = #state{history = History, trackers = Trackers}) ->
     case times_called(OptFunc, ArgsMatcher, OptCallerPid, History) of
