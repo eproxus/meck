@@ -1569,6 +1569,20 @@ wait_timeout_test() ->
     %% Clean
     meck:unload().
 
+wait_no_history_test() ->
+    %% Given
+    meck:new(test, [non_strict, no_history]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    Pid = erlang:spawn(fun() ->
+                              timer:sleep(50),
+                              test:foo(1, 2)
+                       end),
+    %% Then
+    ?assertMatch(ok, meck:wait(1, test, foo, [1, '_'], Pid, 500)),
+    %% Clean
+    meck:unload().
+
 wait_for_the_same_pattern_on_different_processes_test() ->
     error_logger:tty(false),
     %% Given

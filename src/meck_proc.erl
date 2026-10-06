@@ -714,8 +714,10 @@ cleanup(Mod) ->
 -spec times_called(OptFunc::'_' | atom(),
                    meck_args_matcher:args_matcher(),
                    OptCallerPid::'_' | pid(),
-                   meck_history:history()) ->
+                   meck_history:history() | undefined) ->
         non_neg_integer().
+times_called(_OptFunc, _ArgsMatcher, _OptCallerPid, undefined) ->
+    0;
 times_called(OptFunc, ArgsMatcher, OptCallerPid, History) ->
     Filter = meck_history:new_filter(OptCallerPid, OptFunc, ArgsMatcher),
     lists:foldl(fun(HistoryRec, Acc) ->
