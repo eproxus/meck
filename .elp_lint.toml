@@ -1,0 +1,4 @@
+# meck supports Erlang/OTP 25, which predates the -doc/-moduledoc
+# attributes (OTP 27), so EDoc comments cannot be migrated yet.
+[linters.old_edoc_syntax]
+enabled = false
