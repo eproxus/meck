@@ -22,9 +22,13 @@
 -export([rename_module/2]).
 -export([dump_coverdata/1]).
 
+%% cover:compile_beams/1, cover:get_term/1 and cover:write/2 are private
+%% functions of cover, exported at runtime by alter_cover/0.
 -ignore_xref({cover, compile_beams, 1}).
 -ignore_xref({cover, get_term, 1}).
 -ignore_xref({cover, write, 2}).
+% elp:ignore W0048 (no_dialyzer_attribute)
+-dialyzer({no_missing_calls, [alter_cover/0, get_terms/2, write_term/1]}).
 
 %%=============================================================================
 %% Interface exports
@@ -66,7 +70,6 @@ dump_coverdata(Mod) ->
 %%
 %% 2. In order to avoid creating temporary files meck needs direct
 %% access to `compile_beams/1' which allows passing a binary.
--dialyzer({no_missing_calls, alter_cover/0}). % for cover:compile_beams/1
 alter_cover() ->
     case lists:member({compile_beams,1}, cover:module_info(exports)) of
         true ->
@@ -79,6 +82,7 @@ alter_cover() ->
             _Bin = meck_code:compile_and_load_forms(AbsCode2),
             ok
     end,
+    % elp:ignore W0026 (unexported_function)
     fun cover:compile_beams/1.
 
 change_cover_mod_name(CoverTerms, Name) ->
@@ -111,8 +115,8 @@ read_cover_file(File) ->
     ok = file:close(Fd),
     Terms.
 
--dialyzer({no_missing_calls, get_terms/2}). % for cover:get_term/1
 get_terms(Fd, Terms) ->
+    % elp:ignore W0026 (unexported_function)
     case cover:get_term(Fd) of
         eof -> Terms;
         Term -> get_terms(Fd, [Term|Terms])
@@ -123,6 +127,6 @@ write_terms(File, Terms) ->
     lists:foreach(write_term(Fd), Terms),
     ok.
 
--dialyzer({no_missing_calls, write_term/1}). % for cover:write/2
 write_term(Fd) ->
+    % elp:ignore W0026 (unexported_function)
     fun(Term) -> cover:write(Term, Fd) end.
