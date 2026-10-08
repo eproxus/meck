@@ -9,6 +9,8 @@ jobs:
   ci:
     runs-on: ubuntu-24.04
     name: Erlang ${{matrix.otp}} / rebar ${{matrix.rebar3}}
+    env:
+      ELP_VERSION: "2026-10-05"
     strategy:
       matrix:
         otp: ["27", "28", "29"]
@@ -38,6 +40,21 @@ jobs:
 
       - name: Analyze
         run: rebar3 do xref, dialyzer
+
+      - uses: erlef/setup-elp@7be8461ac17ddcf91ea0f8f01bee0452a3e05561 # main
+        with:
+          elp-version: ${{env.ELP_VERSION}}
+        continue-on-error: true
+
+      # Non-blocking until the existing findings are fixed
+      - name: ELP lint
+        run: elp lint --no-connect
+        continue-on-error: true
+
+      # Non-blocking until the existing findings are fixed
+      - name: eqWAlizer
+        run: elp eqwalize-all --no-connect
+        continue-on-error: true
 
       - name: Test
         run: rebar3 do eunit, ct
