@@ -170,7 +170,8 @@ exec(Pid, Mod, Func, Args) ->
     end.
 
 -spec eval(Pid::pid(), Mod::atom(), Func::atom(), Args::[any()],
-           ResultSpec::any()) -> Result::any() | no_return().
+           ResultSpec::meck_ret_spec:result_spec()) ->
+        Result::any() | no_return().
 eval(Pid, Mod, Func, Args, ResultSpec) ->
     PreviousCall = get(?CURRENT_CALL),
     put(?CURRENT_CALL, {Mod, Func}),

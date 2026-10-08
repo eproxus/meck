@@ -829,6 +829,8 @@ expect_ret_specs_(Mod) ->
 validate_options_test() ->
     Mod = validate_options,
     try
+        % The options are not a list on purpose
+        % eqwalizer:ignore incompatible_types
         meck:new(Mod, passthrough),
         throw(failed)
     catch
@@ -1205,8 +1207,10 @@ cover_no_meck_original_in_cover_export_test() ->
         _ = file:delete(Filename)
     end,
 
+    ImportedModules = cover:imported_modules(),
+    true = is_list(ImportedModules),
     ?assertNot(
-        lists:member(meck_util:original_name(meck_test_module), cover:imported_modules()),
+        lists:member(meck_util:original_name(meck_test_module), ImportedModules),
         "the meck generated module should not be in the exported cover data"
     ).
 
@@ -1235,7 +1239,7 @@ unload_when_crashed_test() ->
     ?assertMatch({file, _}, code:is_loaded(mymod)),
     SaltedName = mymod_meck,
     Pid = whereis(SaltedName),
-    ?assertEqual(true, is_pid(Pid)),
+    true = is_pid(Pid),
     unlink(Pid),
     error_logger:tty(false),
     exit(Pid, expected_test_exit),
@@ -1248,7 +1252,9 @@ unload_when_crashed_test() ->
 unlink_test() ->
     ok = meck:new(mymod, [no_link, non_strict]),
     SaltedName = mymod_meck,
-    {links, Links} = process_info(whereis(SaltedName), links),
+    Pid = whereis(SaltedName),
+    true = is_pid(Pid),
+    {links, Links} = process_info(Pid, links),
     ?assert(not lists:member(self(), Links)),
     ok = meck:unload(mymod).
 
@@ -1430,6 +1436,7 @@ sticky_setup() ->
     false = code:purge(Module),
     {module, Module} = code:load_file(Module),
     Beam = code:which(Module),
+    true = is_list(Beam),
 
     % Unload module so it's not loaded when running meck
     false = code:purge(Module),
@@ -1563,6 +1570,20 @@ wait_timeout_test() ->
     test:foo(1, 2),
     %% Then
     ?assertError(timeout, meck:wait(2, test, foo, [1, '_'], '_', 10)),
+    %% Clean
+    meck:unload().
+
+wait_no_history_test() ->
+    %% Given
+    meck:new(test, [non_strict, no_history]),
+    meck:expect(test, foo, 2, ok),
+    %% When
+    Pid = erlang:spawn(fun() ->
+                              timer:sleep(50),
+                              test:foo(1, 2)
+                       end),
+    %% Then
+    ?assertMatch(ok, meck:wait(1, test, foo, [1, '_'], Pid, 500)),
     %% Clean
     meck:unload().
 

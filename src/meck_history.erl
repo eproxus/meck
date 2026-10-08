@@ -20,12 +20,14 @@
 %% API
 -export_type([stack_trace_rec_r14b/0]).
 -export_type([stack_trace_rec_r15b/0]).
+-export_type([stack_trace_rec_fun/0]).
 -export_type([stack_trace/0]).
 -export_type([meck_mfa/0]).
 -export_type([successfull_call/0]).
 -export_type([faulty_call/0]).
 -export_type([history_record/0]).
 -export_type([history/0]).
+-export_type([occur/0]).
 
 -export([get_history/2]).
 -export([num_calls/4]).
@@ -44,7 +46,11 @@
                                  AriOrArgs::byte() | [any()],
                                  Location::[{atom(), any()}]}.
 
--type stack_trace() :: [stack_trace_rec_r14b() | stack_trace_rec_r15b()].
+-type stack_trace_rec_fun() :: {Fun::fun(), AriOrArgs::byte() | [any()],
+                                Location::[{atom(), any()}]}.
+
+-type stack_trace() :: [stack_trace_rec_r14b() | stack_trace_rec_r15b() |
+                        stack_trace_rec_fun()].
 
 -type meck_mfa() :: {Mod::atom(), Func::atom(), Args::[term()]}.
 
@@ -55,6 +61,8 @@
 
 -type history_record() :: successfull_call() | faulty_call().
 -type history() :: [history_record()].
+
+-type occur() :: first | last | pos_integer().
 
 -type opt_pid() :: pid() | '_'.
 -type opt_func() :: atom() | '_'.
@@ -80,7 +88,7 @@ num_calls(CallerPid, Mod, OptFunc, OptArgsSpec) ->
     Filtered = lists:filter(Filter, meck_proc:get_history(Mod)),
     length(Filtered).
 
--spec capture(Occur::pos_integer(), opt_pid(), Mod::atom(), Func::atom(),
+-spec capture(occur(), opt_pid(), Mod::atom(), Func::atom(),
               meck_args_matcher:opt_args_spec(), ArgNum::pos_integer()) ->
         ArgValue::any().
 capture(Occur, OptCallerPid, Mod, Func, OptArgsSpec, ArgNum) ->
@@ -96,7 +104,7 @@ capture(Occur, OptCallerPid, Mod, Func, OptArgsSpec, ArgNum) ->
             lists:nth(ArgNum, Args)
     end.
 
--spec result(Occur::pos_integer(), opt_pid(), Mod::atom(), Func::atom(),
+-spec result(occur(), opt_pid(), Mod::atom(), Func::atom(),
              meck_args_matcher:opt_args_spec()) -> ResultValue::any().
 result(Occur, OptCallerPid, Mod, Func, OptArgsSpec) ->
     ArgsMatcher = meck_args_matcher:new(OptArgsSpec),
@@ -130,8 +138,7 @@ new_filter(TheCallerPid, TheFunc, ArgsMatcher) ->
 %%% Internal functions
 %%%============================================================================
 
--spec nth_record(Occur::pos_integer(), history()) -> history_record() |
-                                                     not_found.
+-spec nth_record(occur(), history()) -> history_record() | not_found.
 nth_record(Occur, History) ->
     try
         case Occur of

@@ -38,6 +38,8 @@ match_not_matcher_test() ->
 
 predicate_wrong_arity_test() ->
     Predicate = fun(X, Y) -> X == Y end,
+    % The predicate has the wrong arity on purpose
+    % eqwalizer:ignore incompatible_types
     ?assertError(_, meck_matcher:new(Predicate)).
 
 is_matcher_test() ->

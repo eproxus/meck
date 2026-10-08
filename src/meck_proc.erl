@@ -50,6 +50,16 @@
 
 -type meck_dict() :: dict:dict().
 
+%% The type of a reply from the mock process depends on the request, so the
+%% gen_server/3,4 wrappers return dynamic() and the specs of the API
+%% functions calling them define the actual type. dynamic() is a built-in
+%% type since Erlang/OTP 26.
+-if(?OTP_RELEASE >= 26).
+-type reply() :: dynamic().
+-else.
+-type reply() :: term().
+-endif.
+
 -record(state, {mod :: atom(),
                 can_expect :: any | [{Mod::atom(), Ari::byte()}],
                 expects :: meck_dict(),
@@ -59,8 +69,7 @@
                 was_sticky = false :: boolean(),
                 merge_expects = false :: boolean(),
                 passthrough = false :: boolean(),
-                reload :: {Compiler::pid(), {From::pid(), Tag::any()}} |
-                          undefined,
+                reload :: {Compiler::pid(), gen_server:from()} | undefined,
                 trackers = [] :: [tracker()],
                 restore = false :: boolean()}).
 
@@ -68,7 +77,7 @@
                   args_matcher :: meck_args_matcher:args_matcher(),
                   opt_caller_pid :: '_' | pid(),
                   countdown :: non_neg_integer(),
-                  reply_to :: {Caller::pid(), Tag::any()},
+                  reply_to :: gen_server:from(),
                   expire_at :: erlang:timestamp()}).
 
 %%%============================================================================
@@ -82,6 +91,17 @@
 
 -type tracker() :: #tracker{}.
 -type action() :: backup | restore.
+-type request() :: {get_result_spec, Func::atom(), Args::[any()]}
+                 | {set_expect, meck_expect:expect()}
+                 | {delete_expect, Func::atom(), Ari::byte(), Force::boolean()}
+                 | {list_expects, ExcludePassthrough::boolean()}
+                 | get_history
+                 | {wait, Times::non_neg_integer(), OptFunc::'_' | atom(),
+                    meck_args_matcher:args_matcher(), OptCallerPid::'_' | pid(),
+                    Timeout::non_neg_integer()}
+                 | reset
+                 | validate
+                 | stop.
 
 %%%============================================================================
 %%% API
@@ -256,6 +276,10 @@ init([Mod, Options]) ->
     end.
 
 %% @hidden
+-spec handle_call(request(), gen_server:from(), #state{}) ->
+        {reply, term(), #state{}} |
+        {noreply, #state{}} |
+        {stop, normal, ok, #state{}}.
 handle_call({get_result_spec, Func, Args}, _From, S) ->
     {ResultSpec, NewExpects} = do_get_result_spec(S#state.expects, Func, Args),
     {reply, ResultSpec, S#state{expects = NewExpects}};
@@ -302,8 +326,9 @@ handle_call({list_expects, ExcludePassthrough}, _From, S = #state{mod = Mod, exp
     {reply, Result, S};
 handle_call(get_history, _From, S = #state{history = undefined}) ->
     {reply, [], S};
-handle_call(get_history, _From, S) ->
-    {reply, lists:reverse(S#state.history), S};
+handle_call(get_history, _From, S = #state{history = History})
+  when is_list(History) ->
+    {reply, lists:reverse(History), S};
 handle_call({wait, Times, OptFunc, ArgsMatcher, OptCallerPid, Timeout}, From,
             S = #state{history = History, trackers = Trackers}) ->
     case times_called(OptFunc, ArgsMatcher, OptCallerPid, History) of
@@ -514,13 +539,13 @@ init_expects(Exports, Options) ->
                 end,
                 dict:new(), Expects).
 
--spec gen_server(Method:: call, Mod::atom(), Msg :: stop, timeout()) -> any().
+-spec gen_server(Method:: call, Mod::atom(), Msg :: stop, timeout()) -> reply().
 gen_server(call, Mod, stop, infinity) ->
     Name = meck_util:proc_name(Mod),
     try gen_server:call(Name, stop, infinity)
     catch exit:_Reason -> erlang:error({not_mocked, Mod}) end.
 
--spec gen_server(Method:: call | cast, Mod::atom(), Msg::tuple() | atom()) -> any().
+-spec gen_server(Method:: call | cast, Mod::atom(), Msg::tuple() | atom()) -> reply().
 gen_server(Func, Mod, Msg) ->
     Name = meck_util:proc_name(Mod),
     try gen_server:Func(Name, Msg)
@@ -704,8 +729,10 @@ cleanup(Mod) ->
 -spec times_called(OptFunc::'_' | atom(),
                    meck_args_matcher:args_matcher(),
                    OptCallerPid::'_' | pid(),
-                   meck_history:history()) ->
+                   meck_history:history() | undefined) ->
         non_neg_integer().
+times_called(_OptFunc, _ArgsMatcher, _OptCallerPid, undefined) ->
+    0;
 times_called(OptFunc, ArgsMatcher, OptCallerPid, History) ->
     Filter = meck_history:new_filter(OptCallerPid, OptFunc, ArgsMatcher),
     lists:foldl(fun(HistoryRec, Acc) ->
