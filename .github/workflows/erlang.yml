@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-24.04
     name: Erlang ${{matrix.otp}} / rebar ${{matrix.rebar3}}
     env:
-      ELP_VERSION: "2026-10-05"
+      ELP_VERSION: "2026-10-14"
     strategy:
       matrix:
         otp: ["27", "28", "29"]
