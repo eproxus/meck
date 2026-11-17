@@ -44,17 +44,12 @@ jobs:
       - uses: erlef/setup-elp@v1
         with:
           elp-version: ${{env.ELP_VERSION}}
-        continue-on-error: true
 
-      # Non-blocking until the existing findings are fixed
       - name: ELP lint
-        run: elp lint --no-connect
-        continue-on-error: true
+        run: elp lint --no-connect --format json
 
-      # Non-blocking until the existing findings are fixed
       - name: eqWAlizer
-        run: elp eqwalize-all --no-connect
-        continue-on-error: true
+        run: elp eqwalize-all --no-connect --bail-on-error
 
       - name: Test
         run: rebar3 do eunit, ct
