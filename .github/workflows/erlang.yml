@@ -41,7 +41,7 @@ jobs:
       - name: Analyze
         run: rebar3 do xref, dialyzer
 
-      - uses: erlef/setup-elp@7be8461ac17ddcf91ea0f8f01bee0452a3e05561 # main
+      - uses: erlef/setup-elp@v1
         with:
           elp-version: ${{env.ELP_VERSION}}
         continue-on-error: true
