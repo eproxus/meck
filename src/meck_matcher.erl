@@ -74,6 +74,8 @@ match_ignore(Value, #'$meck.matcher'{type = predicate, impl = Predicate})
   when is_function(Predicate, 1) ->
     Predicate(Value) == true;
 match_ignore(Value, #'$meck.matcher'{type = hamcrest, impl = HamcrestMatcher}) ->
+    %% hamcrest is an optional dependency, not known at compile time.
+    % elp:ignore W0089 (undefined_module)
     try erlang:apply(hamcrest, assert_that, [Value, HamcrestMatcher]) of
         Value ->
             Value == true
@@ -90,6 +92,8 @@ match_ignore(_Value, _NotMatcher) ->
 
 -spec is_hamcrest_matcher(any()) -> boolean().
 is_hamcrest_matcher(Something) ->
+    %% hamcrest is an optional dependency, not known at compile time.
+    % elp:ignore W0089 (undefined_module)
     try erlang:apply(hamcrest, is_matcher, [Something])
     catch _Class:_Reason -> false
     end.
