@@ -930,6 +930,7 @@ call_original_test() ->
     ?assertEqual({file, ""}, code:is_loaded(meck_test_module_meck_original)),
     ok = meck:expect(meck_test_module, a, fun() -> c end),
     ok = meck:expect(meck_test_module, b, fun() -> meck:passthrough([]) end),
+    % elp:ignore W0016 (deprecated_function)
     ?assertEqual(c, meck_test_module:a()),
     ?assertEqual(b, meck_test_module:b()),
     ok = meck:unload(meck_test_module).
@@ -995,6 +996,7 @@ passthrough_test() ->
 passthrough_test(Opts) ->
     ok = meck:new(meck_test_module, [passthrough|Opts]),
     ok = meck:expect(meck_test_module, a, fun() -> c end),
+    % elp:ignore W0016 (deprecated_function)
     ?assertEqual(c, meck_test_module:a()),
     ?assertEqual(b, meck_test_module:b()),
     ?assertEqual({1, 2}, meck_test_module:c(1, 2)),
@@ -1014,6 +1016,7 @@ passthrough_bif_test() ->
 stub_all_test() ->
     ok = meck:new(meck_test_module, [{stub_all, meck:seq([a, b])}]),
     ok = meck:expect(meck_test_module, a, [], c),
+    % elp:ignore W0016 (deprecated_function)
     ?assertEqual(c, meck_test_module:a()),
     ?assertEqual(a, meck_test_module:b()),
     ?assertEqual(b, meck_test_module:b()),
@@ -1040,6 +1043,7 @@ stub_all_true_test() ->
 
 stub_all_overridden_by_passthrough_test() ->
     ok = meck:new(meck_test_module, [stub_all, passthrough]),
+    % elp:ignore W0016 (deprecated_function)
     ?assertEqual(a, meck_test_module:a()),
     ok = meck:unload(meck_test_module).
 
@@ -1069,6 +1073,7 @@ mock_file_missing_test() ->
 
 cover_test() ->
     {ok, _} = cover:compile(test_file(meck_test_module, ".erl")),
+    % elp:ignore W0016 (deprecated_function)
     a = meck_test_module:a(),
     b = meck_test_module:b(),
     {1, 2} = meck_test_module:c(1, 2),
@@ -1220,6 +1225,7 @@ cover_path_test() ->
                  cover:analyze(meck_test_module, module)),
     ok = meck:new(meck_test_module, [passthrough]),
     ok = meck:expect(meck_test_module, a, fun() -> c end),
+    % elp:ignore W0016 (deprecated_function)
     ?assertEqual(c, meck_test_module:a()),
     ?assertEqual(b, meck_test_module:b()),
     ?assertEqual({1, 2}, meck_test_module:c(1, 2)),
@@ -1274,6 +1280,7 @@ atomic_unload_test() ->
                 fun () -> ?assertEqual(ok, meck:unload(meck_test_module)) end),
     SpecReq = concurrent_req(
                 Proc,
+                % elp:ignore W0016 (deprecated_function)
                 fun () -> ?assertMatch(V when V =:= a orelse V =:= c,
                                        meck_test_module:a())
                 end),
@@ -1291,6 +1298,7 @@ expect_without_new_test() ->
 history_passthrough_test() ->
     ok = meck:new(meck_test_module, [passthrough]),
     ok = meck:expect(meck_test_module, a, fun() -> c end),
+    % elp:ignore W0016 (deprecated_function)
     c = meck_test_module:a(),
     b = meck_test_module:b(),
     ?assertEqual([{self(), {meck_test_module, a, []}, c},

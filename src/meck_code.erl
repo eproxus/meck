@@ -69,11 +69,6 @@ compile_and_load_forms(AbsCode) -> compile_and_load_forms(AbsCode, []).
 
 -spec compile_and_load_forms(erlang_form(), compile_options()) -> binary().
 compile_and_load_forms(AbsCode, Opts) ->
-    % The spec of compile:forms/2 does not include form_info() entries such
-    % as {eof, Line}, even though the function accepts them: they are part
-    % of the abstract code returned by epp and beam_lib.
-    % elp:ignore W0074 (eqwalizer_ignore)
-    % eqwalizer:ignore incompatible_types
     case compile:forms(AbsCode, [return_errors|Opts]) of
         {ok, ModName, Binary} when is_binary(Binary) ->
             load_binary(ModName, Binary),
